@@ -24,7 +24,23 @@ sdk use java 21.0.10-tem      # 또는: export JAVA_HOME=~/.sdkman/candidates/ja
 ./gradlew ktlintCheck         # 스타일 검사만
 ```
 
-> `bootRun`(실제 구동)은 MySQL 연결 설정 이후 가능합니다.
+### 로컬 실행
+
+환경변수는 `.env.example`을 복사해 `.env.local`에 채웁니다. (`.env.local`은 커밋되지 않습니다)
+
+```bash
+cp .env.example .env.local
+
+# 1) 로컬 MySQL 기동 — compose는 기본적으로 .env 를 읽으므로 --env-file 이 필요합니다
+docker compose --env-file .env.local -f docker-compose.local.yaml up -d
+
+# 2) 앱 실행 — Spring Boot는 .env 파일을 읽지 않으므로 셸에 export 해야 합니다
+set -a && source .env.local && set +a
+./gradlew bootRun --args='--spring.profiles.active=local'
+```
+
+DB 포트·계정·컨테이너명 등은 모두 환경변수로 조정할 수 있고, 값을 비우면 기본값이 쓰입니다.
+IntelliJ에서 실행한다면 EnvFile 플러그인으로 `.env.local`을 지정하는 방법도 있습니다.
 
 ## 아키텍처 요약
 

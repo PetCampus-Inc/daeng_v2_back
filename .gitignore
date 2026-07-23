@@ -4,6 +4,12 @@ build/
 
 ### macOS ###
 .DS_Store
+
+### 환경변수 ###
+# 실제 값이 담긴 env 파일은 커밋하지 않는다. 템플릿(.env.example)만 추적한다.
+.env
+.env.*
+!.env.example
 !gradle/wrapper/gradle-wrapper.jar
 !**/src/main/**/build/
 !**/src/test/**/build/
