@@ -1,0 +1,25 @@
+services:
+  mysql:
+    image: ${DB_IMAGE:-mysql:8.0}
+    container_name: ${DB_CONTAINER_NAME:-knockdog-mysql-local}
+    restart: unless-stopped
+    ports:
+      # 호스트 포트만 조정한다. 컨테이너 내부는 항상 3306.
+      - "${DB_PORT:-3308}:3306"
+    environment:
+      MYSQL_DATABASE: ${DB_NAME:-knockdog}
+      MYSQL_USER: ${DB_USERNAME:-knockdog}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-knockdog}
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-root}
+    volumes:
+      # compose 내부 키는 고정하고, 실제 볼륨명은 아래 volumes 블록에서 지정한다.
+      - knockdog_mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_ROOT_PASSWORD:-root}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+volumes:
+  knockdog_mysql_data:
+    name: ${DB_VOLUME_NAME:-knockdog_mysql_data}
