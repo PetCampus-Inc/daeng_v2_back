@@ -19,7 +19,7 @@ Refs: <JIRA-KEY>
 | 항목      | 규칙                                                                                                                                               |
 |---------|--------------------------------------------------------------------------------------------------------------------------------------------------|
 | type    | `feat`, `fix`, `refactor`, `chore`, `docs`, `test`, `style` 중 하나                                                                                 |
-| scope   | 도메인 슬러그(`auth`, `kindergarten`, `owner`, `pet`, `memo` 등 — `docs/domains/*.md`와 1:1 대응) 또는 인프라성 스코프(`build`, `ci`, `docs`). 여러 도메인에 걸친 변경은 생략 가능 |
+| scope   | 도메인 슬러그(`auth`, `kindergarten`, `owner`, `pet`, `memo` 등 — `docs/domains/*.md`와 1:1 대응) 또는 인프라성 스코프(`build`, `ci`, `docs`, `global` — `global`은 `global/` 패키지처럼 도메인 무관 공통 계층 변경에 쓴다). 여러 **도메인 패키지**를 동시에 수정하는 경우(예: `auth`와 `owner`를 한 커밋에 함께 반영)에 한해 생략 가능 — `global/` 계층 변경은 여기 해당하지 않으므로 scope를 생략하지 말고 `global`을 명시한다 |
 | subject | 한국어, 명령형, 마침표 없음                                                                                                                                 |
 | footer  | `Refs: <JIRA-KEY>` 필수                                                                                                                            |
 
