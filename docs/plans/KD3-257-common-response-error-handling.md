@@ -1,4 +1,4 @@
-> 생성: 2026-07-28 23:34 · 최종 수정: 2026-07-28 23:34
+> 생성: 2026-07-28 23:34 · 최종 수정: 2026-07-28 23:55
 
 # KD3-257 공통 응답/에러 처리 계층 구축
 
@@ -29,6 +29,7 @@ global/response/
 - **티켓의 5~10번 항목** (인증 컨텍스트 접근 방식, `SecurityFilterChain` 뼈대, Validation 실패 응답 포맷, 페이지네이션 공통 DTO, ID 생성 전략, 로깅/요청 추적) — 범위가 넓어 이번 세션은 도메인 개수와 무관하게 선행이 필요한 1~4번만 우선 처리하기로 결정. 5~6은 auth 착수 직전, 7~10은 auth 작업과 병행 가능하므로 각각 별도 작업 단위로 진행.
 - **도메인별 `ErrorCode` enum**(`AuthErrorCode` 등) — 아직 어떤 도메인 마이그레이션도 시작하지 않았다. 각 도메인 착수 시 그 도메인 패키지 안에서 `ErrorCode`를 구현하는 enum을 추가한다.
 - **`GetOwnerService`의 기존 `NoSuchElementException` 사용을 `BusinessException`으로 교체하는 리팩터** — owner 도메인 슬라이스 작업 범위. 이번 티켓은 `GlobalExceptionHandler`가 두 방식(레거시 스타일 예외 + 신규 `BusinessException`)을 모두 처리하도록만 한다.
+- **기존 컨트롤러(`OwnerController` 등)의 성공 응답을 `Response<T>`로 감싸는 작업** — 이번 티켓은 공통 계층(`Response<T>`/`ErrorCode`/`BusinessException`/`GlobalExceptionHandler`)을 만드는 것까지가 범위다. 티켓 본문 1~4번 항목 어디에도 기존 컨트롤러 마이그레이션은 없다. `OwnerController.register`/`getOne`은 여전히 `OwnerResponse`/`ResponseEntity<OwnerResponse>`를 raw로 반환하며, 이는 위 `GetOwnerService` 예외 교체와 같은 이유로 owner 도메인 슬라이스 작업에서 다룬다. 따라서 현재 `Response<T>`는 에러 경로(`GlobalExceptionHandler`)에서만 쓰이고 성공 경로에는 아직 어디서도 쓰이지 않는다 — 의도된 상태다.
 
 ## 방향 논의 및 결정 사항
 
@@ -54,8 +55,10 @@ global/response/
   - `BusinessException` → `GlobalExceptionHandler`가 해당 `ErrorCode`의 status/code/message로 `Response<T>`를 만드는지
   - 기존 `IllegalArgumentException`/`NoSuchElementException` 발생 시에도 새 `Response<T>` 포맷(바디에 `status`/`code`/`message`/`data` 필드)으로 응답하는지
   - 매핑 안 된 일반 `Exception` 발생 시 500 + `CommonErrorCode.INTERNAL_SERVER_ERROR`로 응답하는지
-- 수동 확인: 실제 컨트롤러(예: owner 조회 API)를 호출해 성공/실패 응답 바디가 프론트 `ApiResponse<T>` 타입과 필드명·타입이 일치하는지 확인
+  - Spring이 던지는 `HttpRequestMethodNotSupportedException`(허용 안 된 HTTP 메소드)이 500이 아니라 405 + `CommonErrorCode.METHOD_NOT_ALLOWED`로 응답하는지 — catch-all `Exception` 핸들러가 프레임워크 예외까지 삼켜 상태 코드를 마스킹하지 않는지 확인하는 회귀 테스트
+- `Response<T>`의 필드 구성(`status`/`code`/`message`/`data`)이 프론트 `ApiResponse<T>` 타입과 일치하는지는 `ResponseTest.kt`의 단위 테스트로 검증한다. 실제 컨트롤러를 통한 수동 확인(HTTP 호출)은 기존 컨트롤러가 아직 `Response<T>`를 쓰지 않으므로 이번 범위에서 수행하지 않는다 — 도메인 슬라이스 작업이 `Response<T>`를 채택할 때 그 작업의 완료 기준에 포함한다.
 
 ## 작업 후 확인 목록
 
-- `docs/architecture/`에 공통 응답/에러 처리 구조를 설명하는 문서 추가 필요 여부 검토. 필요하다고 판단되면 `docs/architecture/common-response-error.md` 신규 작성 — `Response<T>` 필드 구성, `ErrorCode` 확장 방식(도메인별 enum이 인터페이스 구현), 그리고 위 "코드 문자열 값의 프론트 계약" 제약을 반드시 포함한다. 이 제약은 향후 모든 도메인 마이그레이션에 적용되므로 계획 문서보다 상시 참조 문서에 남기는 게 맞다.
+- `docs/architecture/common-response-error.md` 작성 완료 — `Response<T>` 필드 구성, `ErrorCode` 확장 방식(도메인별 enum이 인터페이스 구현), "코드 문자열 값의 프론트 계약" 제약을 포함.
+- (리뷰에서 발견, 후속 티켓으로 분리 권장) `GlobalExceptionHandler`의 catch-all `Exception` 핸들러가 `HttpRequestMethodNotSupportedException`(405) 외의 프레임워크 예외(예: 존재하지 않는 라우트)도 전부 500으로 마스킹할 수 있다. Validation 실패 응답 포맷(티켓 7번 항목) 착수 시 함께 정리한다.

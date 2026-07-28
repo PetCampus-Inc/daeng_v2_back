@@ -60,9 +60,12 @@ open class BusinessException(val errorCode: ErrorCode, message: String? = null) 
 1. `BusinessException` → `errorCode.status` + `Response.error(errorCode, e.message)`
 2. `IllegalArgumentException` → 400 + `CommonErrorCode.INVALID_INPUT_VALUE`
 3. `NoSuchElementException` → 404 + `CommonErrorCode.RESOURCE_NOT_FOUND`
-4. 그 외 `Exception` → 500 + `CommonErrorCode.INTERNAL_SERVER_ERROR`
+4. `HttpRequestMethodNotSupportedException`(Spring이 던지는 405) → 405 + `CommonErrorCode.METHOD_NOT_ALLOWED`
+5. 그 외 `Exception` → 500 + `CommonErrorCode.INTERNAL_SERVER_ERROR`
 
 2~3번은 하위 호환을 위해 남겨둔 것이다 — `BusinessException`을 쓰지 않는 기존 코드(예: `GetOwnerService`)가 아직 있다. **새로 작성하는 코드는 2~3번 대신 `BusinessException` + 도메인별 `ErrorCode`를 쓴다.**
+
+catch-all(5번)이 프레임워크가 던지는 다른 예외(예: 존재하지 않는 라우트)까지 500으로 마스킹할 수 있다는 점은 알려진 한계다 — 필요해지는 시점(예: Validation 실패 응답 포맷 작업)에 구체적인 예외 핸들러를 추가해 좁혀나간다.
 
 ## 5. 참고
 
