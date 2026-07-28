@@ -1,4 +1,4 @@
-> 생성: 2026-07-28 23:34 · 최종 수정: 2026-07-28 23:55
+> 생성: 2026-07-28 23:34 · 최종 수정: 2026-07-29 00:25
 
 # KD3-257 공통 응답/에러 처리 계층 구축
 
@@ -18,7 +18,9 @@ global/exception/
                             METHOD_NOT_ALLOWED 405, INTERNAL_SERVER_ERROR 500 등)
   BusinessException.kt    신규 — open class, ErrorCode를 받는 RuntimeException 베이스
   GlobalExceptionHandler.kt  수정 — BusinessException 핸들러 추가, 응답 바디를 Response<T>로 교체
-                              (기존 IllegalArgumentException/NoSuchElementException 핸들러는 유지)
+                              (기존 IllegalArgumentException/NoSuchElementException 핸들러는 유지),
+                              HttpRequestMethodNotSupportedException(405)·
+                              HttpMessageNotReadableException(400) 전용 핸들러 추가
 
 global/response/
   Response.kt             신규 — 공통 응답 래퍼 (아래 방향 논의 참고)
@@ -47,6 +49,10 @@ global/response/
 
 **`GlobalExceptionHandler` 하위 호환**: `GetOwnerService`가 이미 `NoSuchElementException`을 던지고 있어(`domain/owner/application/service/GetOwnerService.kt:17`), 기존 핸들러를 제거하지 않고 응답 바디만 새 `Response<T>` 포맷으로 교체한다. `BusinessException` 핸들러가 우선순위를 갖고, 매핑 안 된 나머지 `Exception`은 `CommonErrorCode.INTERNAL_SERVER_ERROR`(500)로 처리한다.
 
+**catch-all이 프레임워크 예외를 500으로 마스킹하는 문제**: 리뷰에서 `HttpRequestMethodNotSupportedException`(허용 안 된 HTTP 메소드)이 전용 핸들러 없이 catch-all `Exception`에 걸려 405 대신 500으로 응답하는 걸 발견해 전용 핸들러를 추가했다(405 + `CommonErrorCode.METHOD_NOT_ALLOWED`). 이어서 실제 서버를 띄워 수동으로 확인하는 과정에서 같은 패턴의 문제를 하나 더 발견했다 — 필수 필드가 빠진 JSON 요청 본문이 `HttpMessageNotReadableException`을 발생시키는데 이 역시 전용 핸들러가 없어 500으로 응답하고 있었다. 원래는 이 문제를 티켓 7번 항목(Validation 실패 응답 포맷)으로 미루려 했으나, 이미 이 파일을 다루고 있는 김에 지금 처리하는 게 낫다고 판단해(사용자 요청) 전용 핸들러를 추가했다(400 + `CommonErrorCode.INVALID_INPUT_VALUE`, 메시지는 Jackson 내부 정보 노출 방지를 위해 고정 문구 사용). **단, `@Valid` 기반 필드별 검증 실패 응답 포맷(빈 값·범위 등 비즈니스 규칙 검증)은 여전히 7번 항목 범위로 남겨둔다** — 이번에 처리한 건 "JSON 자체를 파싱할 수 없음"이라는 더 근본적인 케이스뿐이다.
+
+**커밋 규칙 문서(`git.md`) 스코프 문구 수정**: 작업 중 `git.md`의 "여러 도메인에 걸친 변경은 scope 생략 가능" 문구가 이번처럼 `global/` 패키지(공통 계층) 변경에도 적용되는 것처럼 잘못 읽혀 커밋 스코프가 세션 내에서 일관되지 않게 쓰인 걸 발견했다. `global` 스코프를 명시적으로 추가하고, 생략 조건을 "여러 도메인 *패키지*를 동시에 수정하는 경우"로 좁혀 재정의했다(`docs/rules/git.md` 참고). 이 브랜치의 커밋은 전부 `feat(global)`/`fix(global)`/`docs(docs)`로 재정리했다.
+
 ## 완료 확인 기준
 
 - `./gradlew ktlintCheck` 통과
@@ -56,9 +62,12 @@ global/response/
   - 기존 `IllegalArgumentException`/`NoSuchElementException` 발생 시에도 새 `Response<T>` 포맷(바디에 `status`/`code`/`message`/`data` 필드)으로 응답하는지
   - 매핑 안 된 일반 `Exception` 발생 시 500 + `CommonErrorCode.INTERNAL_SERVER_ERROR`로 응답하는지
   - Spring이 던지는 `HttpRequestMethodNotSupportedException`(허용 안 된 HTTP 메소드)이 500이 아니라 405 + `CommonErrorCode.METHOD_NOT_ALLOWED`로 응답하는지 — catch-all `Exception` 핸들러가 프레임워크 예외까지 삼켜 상태 코드를 마스킹하지 않는지 확인하는 회귀 테스트
+  - `HttpMessageNotReadableException`(필수 필드 누락 등 JSON 파싱 실패)이 500이 아니라 400 + `CommonErrorCode.INVALID_INPUT_VALUE`로 응답하는지
 - `Response<T>`의 필드 구성(`status`/`code`/`message`/`data`)이 프론트 `ApiResponse<T>` 타입과 일치하는지는 `ResponseTest.kt`의 단위 테스트로 검증한다. 실제 컨트롤러를 통한 수동 확인(HTTP 호출)은 기존 컨트롤러가 아직 `Response<T>`를 쓰지 않으므로 이번 범위에서 수행하지 않는다 — 도메인 슬라이스 작업이 `Response<T>`를 채택할 때 그 작업의 완료 기준에 포함한다.
+- 수동 확인(실제 완료): 로컬에서 `docker-compose.local.yaml`로 MySQL을 띄우고 `./gradlew bootRun --args='--spring.profiles.active=local'`로 서버를 구동한 뒤 `/owners` API에 curl로 직접 요청해 에러 경로(404/405/400)가 `Response<T>` 포맷대로 응답하는지, 성공 경로(201)는 계획대로 여전히 raw `OwnerResponse`인지 확인했다.
 
 ## 작업 후 확인 목록
 
 - `docs/architecture/common-response-error.md` 작성 완료 — `Response<T>` 필드 구성, `ErrorCode` 확장 방식(도메인별 enum이 인터페이스 구현), "코드 문자열 값의 프론트 계약" 제약을 포함.
-- (리뷰에서 발견, 후속 티켓으로 분리 권장) `GlobalExceptionHandler`의 catch-all `Exception` 핸들러가 `HttpRequestMethodNotSupportedException`(405) 외의 프레임워크 예외(예: 존재하지 않는 라우트)도 전부 500으로 마스킹할 수 있다. Validation 실패 응답 포맷(티켓 7번 항목) 착수 시 함께 정리한다.
+- `docs/rules/git.md` 커밋 scope 규칙 문구 수정 완료 — `global` 스코프 명시, 생략 조건 명확화.
+- (리뷰·수동 확인에서 발견, 후속 티켓으로 분리 권장) `GlobalExceptionHandler`의 catch-all `Exception` 핸들러가 `HttpRequestMethodNotSupportedException`(405)·`HttpMessageNotReadableException`(400) 외의 프레임워크 예외(예: 존재하지 않는 라우트)는 여전히 전부 500으로 마스킹할 수 있다. `@Valid` 기반 필드별 검증 실패 응답 포맷(티켓 7번 항목) 착수 시 함께 정리한다.
