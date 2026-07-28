@@ -1,56 +1,40 @@
-> 생성: 2026-07-28 17:30 · 최종 수정: 2026-07-28 17:30
+> 생성: 2026-07-28 17:30 · 최종 수정: 2026-07-28 18:00
 
-# 로컬 실행 환경
+# 인프라 구성
 
-로컬에서 이 서버를 띄우고 DB 스키마를 바꿀 때 실제로 쓰는 방식을 정리한다. "지켜야 할 규칙"이 아니라 지금 이렇게 되어 있다는 사실 기록이므로, 방식이 바뀌면 이 문서를 그 자리에서 덮어쓴다.
+이 서비스가 무엇 위에서 돌아가는지(DB·캐시·컨테이너·스키마 관리 방식)를 정리한다. "지켜야 할 규칙"이 아니라 지금 이렇게 구성되어 있다는 사실 기록이므로, 구성이 바뀌면 이 문서를 그 자리에서 덮어쓴다. **로컬에서 어떻게 띄우는지(명령어, `.env` 채우는 법)는 여기가 아니라 [루트 `README.md`](../../README.md)를 본다** — 이 문서는 온보딩 절차가 아니라 인프라 구성 자체를 설명한다.
 
-## 1. 환경변수 (`.env`)
+## 1. 구성 요소 한눈에
 
-`.env.example`이 템플릿이고, 실제 값은 `.env.local`(gitignore 대상, 커밋되지 않음)에 채운다.
+| 구성 요소 | 역할 | 상태 |
+|---|---|---|
+| MySQL | 주 저장소(RDB) | 사용 중 |
+| Flyway | DB 스키마 변경 이력 관리 | 의존성만 추가됨, 아직 미가동 (§3) |
+| Redis | 캐시 + 세션성 데이터(리프레시 토큰 등) | **이 저장소에는 아직 미도입** — 레거시(v1/v2)에서 쓰던 구성이 이관 대상 (§4) |
+| Docker(Compose) | 로컬 개발 환경 재현 | MySQL 컨테이너만 (§5) |
 
-```bash
-cp .env.example .env.local
-# .env.local 값을 채운 뒤
-docker compose --env-file .env.local -f docker-compose.local.yaml up -d   # MySQL 기동
-set -a && source .env.local && set +a && ./gradlew bootRun --args='--spring.profiles.active=local'  # 앱 실행
-```
+## 2. DB — MySQL
 
-값을 비워두면 각 설정 파일(`docker-compose.local.yaml`, `application-local.yaml`)에 정의된 기본값이 쓰인다(예: `DB_PORT` 비우면 `3308`).
+주 저장소는 MySQL이다. [`0002`](../adr/0002-db-스키마-유지.md)에서 한 번 "기존 운영 스키마 그대로 사용"으로 정했다가, 이후 [`0010`](../adr/0010-신규-db-인스턴스-스키마-재작성.md)으로 **신규 DB 인스턴스에 스키마를 새로 작성**하는 쪽으로 뒤집혔다 — 레거시와 인스턴스 자체를 분리하고, 데이터 이관은 최후순위로 미룬다는 결정이다. 지금 도메인 문서(`docs/domains/*.md`)에 적힌 테이블 정의는 대부분 레거시 스키마 기준 참고 자료이고, 신규 스키마는 마이그레이션 파일로 확정해 나간다(§3).
 
-| 변수 | 용도 |
-|---|---|
-| `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USERNAME`, `DB_PASSWORD`, `DB_TIMEZONE` | 앱과 docker compose가 공용으로 참조하는 DB 접속 정보 |
-| `DB_ROOT_PASSWORD`, `DB_IMAGE`, `DB_CONTAINER_NAME`, `DB_VOLUME_NAME` | docker compose 전용(MySQL 컨테이너 구성) |
-| `SERVER_PORT` | 앱 포트 |
-| `JPA_DDL_AUTO` | Hibernate `ddl-auto` 값. 로컬 기본값은 `update` (§2 참고) |
-| `JPA_SHOW_SQL` | SQL 로깅 여부 |
-| `FLYWAY_ENABLED` | Flyway 마이그레이션 실행 여부. 로컬 기본값은 `false` (§2 참고) |
+## 3. 스키마 변경 이력 — Flyway
 
-새 환경변수가 필요하면 `.env.example`에도 같이 추가한다 — `.env.example`에 없는 변수를 코드에서만 참조하면 다른 사람/AI가 로컬 세팅을 재현할 수 없다.
+`org.flywaydb:flyway-core`/`flyway-mysql` 의존성은 이미 추가되어 있지만, 아직 이 스키마 변경의 단일 출처(source of truth) 역할을 하고 있지 않다. 로컬 기본 설정은 Hibernate `ddl-auto: update`로 스키마를 맞추는 과도기 상태이고(`FLYWAY_ENABLED=false`가 기본값), `src/main/resources/db/migration/`에는 아직 마이그레이션 파일이 없다.
 
-## 2. DB 스키마 — Flyway
+[`0010`](../adr/0010-신규-db-인스턴스-스키마-재작성.md)에 따라 신규 인스턴스에 스키마를 새로 쓰기로 한 만큼, 앞으로 테이블을 만들 때는 `ddl-auto: update`로 임시로 맞추지 말고 `V<N>__<설명>.sql` 형식의 Flyway 마이그레이션 파일로 스키마 변경을 남긴다. 마이그레이션 파일이 쌓이기 시작하면 `FLYWAY_ENABLED=true` + `JPA_DDL_AUTO=validate`로 전환한다(전환 확정 시 이 섹션 갱신).
 
-`org.flywaydb:flyway-core` / `flyway-mysql` 의존성은 이미 추가되어 있지만, **로컬 기본 설정은 아직 Flyway가 아니라 Hibernate `ddl-auto: update`로 스키마를 맞추는 상태다** (`application-local.yaml`, `FLYWAY_ENABLED=false`가 기본값). `src/main/resources/db/migration/`에 마이그레이션 파일이 아직 없다.
+## 4. 캐시/세션 저장소 — Redis (도입 예정)
 
-[`0010-신규-db-인스턴스-스키마-재작성.md`](../adr/0010-신규-db-인스턴스-스키마-재작성.md) 결정에 따라 신규 DB 인스턴스에 스키마를 새로 쓰기로 했으므로, 앞으로 테이블을 만들 때는:
+레거시 서버는 Redis를 두 가지 용도로 쓴다 — 인증 도메인의 `refresh_token`/`email_verification`(`@RedisHash`, [`docs/domains/auth.md`](../domains/auth.md) §0 참고), kindergarten 도메인의 주 데이터 저장소(DB가 아니라 Redis 자체가 원본). **이 저장소(`daeng_v3_back`)에는 아직 Redis 의존성이 추가되어 있지 않다** — auth·kindergarten 도메인이 실제로 마이그레이션되는 시점에 함께 도입된다. 도입되면 이 섹션에 접속 구성·공유 여부(레거시와 같은 Redis를 공유하는지)를 갱신한다.
 
-- `ddl-auto: update`로 임시로 스키마를 맞추지 말고, `src/main/resources/db/migration/V<N>__<설명>.sql` 형식의 Flyway 마이그레이션 파일로 스키마 변경을 남긴다.
-- 마이그레이션 파일이 쌓이기 시작하면 `FLYWAY_ENABLED=true`로 전환하고 `JPA_DDL_AUTO`는 `validate`로 낮춰, 스키마 변경의 단일 출처가 마이그레이션 파일이 되도록 한다 (이 전환 자체가 확정되면 이 섹션을 갱신한다).
+## 5. 컨테이너 — Docker
 
-## 3. Docker
+`docker-compose.local.yaml`은 **로컬 MySQL 컨테이너 하나만** 정의한다. 앱 자체를 컨테이너로 실행하는 용도가 아니라, 로컬에서 DB만 재현하기 위한 것이다. 앱은 호스트에서 직접 실행한다(`./gradlew bootRun`).
 
-`docker-compose.local.yaml`은 **로컬 MySQL 컨테이너 하나만** 띄운다 — 앱 자체를 컨테이너로 실행하는 용도가 아니다. 앱은 `./gradlew bootRun`으로 호스트에서 직접 실행한다.
+배포 환경에 대한 컨테이너화(Dockerfile, 이미지 빌드/배포 파이프라인)는 아직 이 저장소에 없다 — 확정되면 이 섹션에 추가한다.
 
-```bash
-docker compose --env-file .env.local -f docker-compose.local.yaml up -d    # 기동
-docker compose -f docker-compose.local.yaml down                          # 종료 (볼륨 유지)
-```
+## 6. 참고
 
-DB 데이터는 named volume(`DB_VOLUME_NAME`, 기본 `knockdog_mysql_data`)에 남는다 — 컨테이너를 내렸다 올려도 데이터가 유지된다. 완전히 초기화하려면 `down -v`로 볼륨까지 지운다.
-
-## 4. 참고
-
-- 템플릿: `.env.example`
-- compose 정의: `docker-compose.local.yaml`
-- 로컬 프로필 설정: `src/main/resources/application-local.yaml`
-- 관련 결정: [`0010`](../adr/0010-신규-db-인스턴스-스키마-재작성.md)
+- 로컬 실행 절차(명령어, `.env` 설정): [루트 `README.md`](../../README.md)
+- DB 인스턴스/스키마 전략 결정: [`0002`](../adr/0002-db-스키마-유지.md), [`0010`](../adr/0010-신규-db-인스턴스-스키마-재작성.md)
+- Redis 키/용도 상세(레거시 기준): [`docs/domains/auth.md`](../domains/auth.md) §0
