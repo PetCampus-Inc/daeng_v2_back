@@ -2,6 +2,8 @@ package com.petcampus.knockdog.global.exception
 
 import org.junit.jupiter.api.Test
 import org.springframework.http.HttpStatus
+import org.springframework.http.converter.HttpMessageNotReadableException
+import org.springframework.mock.http.MockHttpInputMessage
 import org.springframework.web.HttpRequestMethodNotSupportedException
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
@@ -49,6 +51,20 @@ class GlobalExceptionHandlerTest {
         assertEquals(HttpStatus.NOT_FOUND, response.statusCode)
         assertEquals(CommonErrorCode.RESOURCE_NOT_FOUND.code, response.body?.code)
         assertEquals("회원을 찾을 수 없습니다.", response.body?.message)
+    }
+
+    @Test
+    fun `필수 필드가 빠진 요청 본문은 500이 아니라 400으로 응답한다`() {
+        val exception =
+            HttpMessageNotReadableException(
+                "Instantiation of [simple type] value failed",
+                MockHttpInputMessage(ByteArray(0)),
+            )
+
+        val response = handler.handleMessageNotReadable(exception)
+
+        assertEquals(HttpStatus.BAD_REQUEST, response.statusCode)
+        assertEquals(CommonErrorCode.INVALID_INPUT_VALUE.code, response.body?.code)
     }
 
     @Test
