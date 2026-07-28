@@ -2,6 +2,7 @@ package com.petcampus.knockdog.global.exception
 
 import org.junit.jupiter.api.Test
 import org.springframework.http.HttpStatus
+import org.springframework.web.HttpRequestMethodNotSupportedException
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
 
@@ -48,6 +49,16 @@ class GlobalExceptionHandlerTest {
         assertEquals(HttpStatus.NOT_FOUND, response.statusCode)
         assertEquals(CommonErrorCode.RESOURCE_NOT_FOUND.code, response.body?.code)
         assertEquals("회원을 찾을 수 없습니다.", response.body?.message)
+    }
+
+    @Test
+    fun `지원하지 않는 HTTP 메소드는 500이 아니라 405로 응답한다`() {
+        val exception = HttpRequestMethodNotSupportedException("POST")
+
+        val response = handler.handleMethodNotSupported(exception)
+
+        assertEquals(HttpStatus.METHOD_NOT_ALLOWED, response.statusCode)
+        assertEquals(CommonErrorCode.METHOD_NOT_ALLOWED.code, response.body?.code)
     }
 
     @Test

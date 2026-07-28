@@ -3,6 +3,7 @@ package com.petcampus.knockdog.global.exception
 import com.petcampus.knockdog.global.response.Response
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
+import org.springframework.web.HttpRequestMethodNotSupportedException
 import org.springframework.web.bind.annotation.ExceptionHandler
 import org.springframework.web.bind.annotation.RestControllerAdvice
 
@@ -23,6 +24,12 @@ class GlobalExceptionHandler {
         ResponseEntity
             .status(HttpStatus.NOT_FOUND)
             .body(Response.error(CommonErrorCode.RESOURCE_NOT_FOUND, e.message))
+
+    @ExceptionHandler(HttpRequestMethodNotSupportedException::class)
+    fun handleMethodNotSupported(e: HttpRequestMethodNotSupportedException): ResponseEntity<Response<Unit>> =
+        ResponseEntity
+            .status(HttpStatus.METHOD_NOT_ALLOWED)
+            .body(Response.error(CommonErrorCode.METHOD_NOT_ALLOWED, e.message))
 
     @ExceptionHandler(Exception::class)
     fun handleException(e: Exception): ResponseEntity<Response<Unit>> =
