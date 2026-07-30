@@ -1,4 +1,4 @@
-> 생성: 2026-07-28 12:00 · 최종 수정: 2026-07-28 15:11
+> 생성: 2026-07-28 12:00 · 최종 수정: 2026-07-29 00:40
 
 # Git 규칙
 
@@ -34,30 +34,23 @@ Refs: KD3-210
 
 ## 2. 브랜치 전략
 
-### 기본 흐름
+### 기본 흐름 — `dev` → `epic` → 티켓 브랜치
 
-`dev`에서 브랜치를 파고, 작업이 끝나면 PR을 올려 `dev`로 **squash merge**한다.
+모든 티켓은 `dev`에서 바로 파지 않는다. 먼저 그 티켓의 **상위 Jira 에픽**과 1:1 대응하는 epic 브랜치를 `dev`에서 파고(이미 있으면 재사용), 그 위에서 티켓 브랜치를 판다.
 
 ```
-<type>/<JIRA-KEY>-<kebab-설명>
+dev
+ └─ epic/<JIRA-EPIC-KEY>-<kebab-설명>          그 에픽 소속 티켓이 처음 착수될 때 dev에서 생성, 이후 재사용
+     └─ <type>/<JIRA-KEY>-<kebab-설명>          티켓 하나당 브랜치 하나, 항상 자신의 epic 브랜치 위에서 판다
 ```
 
 - `type`은 위 커밋 메시지 type 목록과 동일한 어휘를 사용한다 (`feat`, `fix`, `refactor`, `chore`, `docs`, `test`, `style`)
-- 예: `feat/KD3-210-refresh-token-rotation`
+- 예: 에픽 `KD3-194`(신규 Kotlin Server 구축) 소속 티켓 `KD3-210` → `epic/KD3-194-new-kotlin-server` 위에 `feat/KD3-210-refresh-token-rotation`
+- `feat/A` → `epic/...`: **squash merge**한다 (커밋 1개, `Refs: <JIRA-KEY>` 유지)
+- `epic/...` → `dev`: **squash하지 않고 일반 merge**한다. epic 브랜치를 squash로 합치면 하위 티켓들 각자의 커밋과 `Refs`가 하나로 뭉개져, `dev`의 히스토리만으로 어떤 커밋이 어떤 티켓 때문인지 추적할 수 없게 된다.
+- epic 브랜치는 그 에픽 소속 티켓이 모두 merge되고 에픽 자체가 끝나면 `dev`로 합치고 삭제한다. 에픽이 진행 중인 동안은 여러 티켓 브랜치가 같은 epic 브랜치 위에서 병렬로 열릴 수 있다.
 
-### 의존성 있는 작업이 연달아 있을 때 (epic 브랜치)
-
-작업 B가 작업 A에 의존해서 A → B 순서로 해야 하는 경우, `feat/B`를 `feat/A` 위에 바로 파는 스택 브랜치는 쓰지 않는다. `feat/A`가 `dev`에 squash merge되고 나면 `feat/A`의 원본 커밋들이 `feat/B`에 그대로 남아 diff가 깨끗하지 않기 때문이다.
-
-대신 `dev`에서 **epic 브랜치**를 하나 파고, 그 위에 `feat/A`, `feat/B`를 각각 파서 PR을 epic 브랜치로 올린다.
-
-```
-epic/<JIRA-EPIC-KEY>-<kebab-설명>
-```
-
-- `feat/A` → `epic/...`: 기본 흐름과 동일하게 **squash merge**한다 (커밋 1개, `Refs: <JIRA-KEY>` 유지)
-- `epic/...` → `dev`: **squash하지 않고 일반 merge**한다. epic 브랜치를 squash로 합치면 `feat/A`·`feat/B` 각자의 커밋과 `Refs`가 하나로 뭉개져, `dev`의 히스토리만으로 어떤 커밋이 어떤 티켓 때문인지 추적할 수 없게 된다.
-- epic 브랜치는 하위 작업이 모두 merge되고 `dev`로 합쳐지면 삭제한다.
+이 방식으로 `feat/B`를 `feat/A` 위에 바로 파는 스택 브랜치를 피한다 — `feat/A`가 epic 브랜치에 squash merge된 뒤에도 `feat/B`는 여전히 깨끗한 epic 브랜치를 base로 갖는다(`feat/A`의 원본 커밋이 섞여 diff가 지저분해지지 않는다).
 
 ## 3. PR 본문 템플릿
 
