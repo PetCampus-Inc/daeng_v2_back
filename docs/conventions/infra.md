@@ -1,4 +1,4 @@
-> 생성: 2026-07-28 17:30 · 최종 수정: 2026-07-28 18:00
+> 생성: 2026-07-28 17:30 · 최종 수정: 2026-07-28 19:00
 
 # 인프라 구성
 
@@ -25,7 +25,7 @@
 
 ## 4. 캐시/세션 저장소 — Redis (도입 예정)
 
-레거시 서버는 Redis를 두 가지 용도로 쓴다 — 인증 도메인의 `refresh_token`/`email_verification`(`@RedisHash`, [`docs/domains/auth.md`](../domains/auth.md) §0 참고), kindergarten 도메인의 주 데이터 저장소(DB가 아니라 Redis 자체가 원본). **이 저장소(`daeng_v3_back`)에는 아직 Redis 의존성이 추가되어 있지 않다** — auth·kindergarten 도메인이 실제로 마이그레이션되는 시점에 함께 도입된다. 도입되면 이 섹션에 접속 구성·공유 여부(레거시와 같은 Redis를 공유하는지)를 갱신한다.
+레거시 서버는 Redis를 두 가지 용도로 쓴다 — 인증 도메인의 `refresh_token`/`email_verification`(`@RedisHash`, [`docs/domains/auth.md`](../domains/auth.md) §0 참고), kindergarten 도메인의 주 데이터 저장소(DB가 아니라 Redis 자체가 원본). **이 저장소(`daeng_v2_back`)에는 아직 Redis 의존성이 추가되어 있지 않다** — auth·kindergarten 도메인이 실제로 마이그레이션되는 시점에 함께 도입된다. 도입되면 이 섹션에 접속 구성·공유 여부(레거시와 같은 Redis를 공유하는지)를 갱신한다.
 
 ## 5. 컨테이너 — Docker
 
