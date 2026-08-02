@@ -5,6 +5,7 @@ import org.springframework.http.HttpStatus
 import org.springframework.http.converter.HttpMessageNotReadableException
 import org.springframework.mock.http.MockHttpInputMessage
 import org.springframework.web.HttpRequestMethodNotSupportedException
+import org.springframework.web.bind.MissingServletRequestParameterException
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
 
@@ -62,6 +63,16 @@ class GlobalExceptionHandlerTest {
             )
 
         val response = handler.handleMessageNotReadable(exception)
+
+        assertEquals(HttpStatus.BAD_REQUEST, response.statusCode)
+        assertEquals(CommonErrorCode.INVALID_INPUT_VALUE.code, response.body?.code)
+    }
+
+    @Test
+    fun `필수 쿼리 파라미터가 빠진 요청은 500이 아니라 400으로 응답한다`() {
+        val exception = MissingServletRequestParameterException("email", "String")
+
+        val response = handler.handleMissingParameter(exception)
 
         assertEquals(HttpStatus.BAD_REQUEST, response.statusCode)
         assertEquals(CommonErrorCode.INVALID_INPUT_VALUE.code, response.body?.code)
