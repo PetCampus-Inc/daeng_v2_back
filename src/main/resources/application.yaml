@@ -1,3 +1,23 @@
 spring:
   application:
     name: knockdog
+
+jwt:
+  issuer: ${JWT_ISSUER:knockdog}
+  secret-key: ${JWT_SECRET_KEY}
+  token:
+    durations:
+      oidc-auth: ${JWT_OIDC_AUTH_TOKEN_DURATION:1200000} # 20분
+      access: ${JWT_ACCESS_TOKEN_DURATION:86400000} # 24시간
+      refresh: ${JWT_REFRESH_TOKEN_DURATION:2592000000} # 30일
+
+oauth:
+  kakao:
+    public-key-url: ${OAUTH_KAKAO_PUBLIC_KEY_URL:https://kauth.kakao.com/.well-known/jwks.json}
+  apple:
+    public-key-url: ${OAUTH_APPLE_PUBLIC_KEY_URL:https://appleid.apple.com/auth/keys}
+  google:
+    client-id:
+      web: ${OAUTH_GOOGLE_CLIENT_ID_WEB:}
+      ios: ${OAUTH_GOOGLE_CLIENT_ID_IOS:}
+      android: ${OAUTH_GOOGLE_CLIENT_ID_ANDROID:}

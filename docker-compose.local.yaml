@@ -20,6 +20,19 @@ services:
       timeout: 5s
       retries: 20
 
+  redis:
+    image: ${REDIS_IMAGE:-redis:7}
+    container_name: ${REDIS_CONTAINER_NAME:-knockdog-redis-local}
+    restart: unless-stopped
+    ports:
+      # 호스트 포트만 조정한다. 컨테이너 내부는 항상 6379.
+      - "${REDIS_PORT:-6380}:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
 volumes:
   knockdog_mysql_data:
     name: ${DB_VOLUME_NAME:-knockdog_mysql_data}
