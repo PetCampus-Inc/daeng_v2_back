@@ -1,0 +1,47 @@
+package com.petcampus.knockdog.domain.auth.domain
+
+import org.junit.jupiter.api.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
+import kotlin.test.assertTrue
+
+class UserTest {
+    private fun homeAddress() = UserAddress.create(AddressType.HOME, null, "서울시 강남구", null, 37.5, 127.0)
+
+    @Test
+    fun `HOME 타입 주소가 없으면 회원가입에 실패한다`() {
+        val workAddress = UserAddress.create(AddressType.WORK, null, "서울시 서초구", null, 37.4, 127.1)
+
+        assertFailsWith<IllegalArgumentException> {
+            User.create("홍길동", null, null, listOf(workAddress))
+        }
+    }
+
+    @Test
+    fun `HOME 타입 주소가 있으면 회원가입에 성공하고 8자 UserCode가 생성된다`() {
+        val user = User.create("홍길동", null, null, listOf(homeAddress()))
+
+        assertEquals(8, user.code.value.length)
+        assertFalse(user.isWithdrawn)
+    }
+
+    @Test
+    fun `탈퇴하면 deletedAt이 채워지고 isWithdrawn이 true가 된다`() {
+        val user = User.create("홍길동", null, null, listOf(homeAddress()))
+
+        user.withdraw()
+
+        assertTrue(user.isWithdrawn)
+    }
+
+    @Test
+    fun `이미 탈퇴한 회원은 다시 탈퇴할 수 없다`() {
+        val user = User.create("홍길동", null, null, listOf(homeAddress()))
+        user.withdraw()
+
+        assertFailsWith<IllegalStateException> {
+            user.withdraw()
+        }
+    }
+}
