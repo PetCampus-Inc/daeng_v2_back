@@ -1,4 +1,4 @@
-> 생성: 2026-07-28 17:30 · 최종 수정: 2026-07-28 19:00
+> 생성: 2026-07-28 17:30 · 최종 수정: 2026-08-03
 
 # 인프라 구성
 
@@ -9,9 +9,9 @@
 | 구성 요소 | 역할 | 상태 |
 |---|---|---|
 | MySQL | 주 저장소(RDB) | 사용 중 |
-| Flyway | DB 스키마 변경 이력 관리 | 의존성만 추가됨, 아직 미가동 (§3) |
-| Redis | 캐시 + 세션성 데이터(리프레시 토큰 등) | **이 저장소에는 아직 미도입** — 레거시(v1/v2)에서 쓰던 구성이 이관 대상 (§4) |
-| Docker(Compose) | 로컬 개발 환경 재현 | MySQL 컨테이너만 (§5) |
+| Flyway | DB 스키마 변경 이력 관리 | KD3-258부터 단일 출처로 전환됨 (§3) |
+| Redis | 캐시 + 세션성 데이터(리프레시 토큰 등) | KD3-258부터 도입됨 — 리프레시 토큰 저장 용도 (§4) |
+| Docker(Compose) | 로컬 개발 환경 재현 | MySQL + Redis 컨테이너 (§5) |
 
 ## 2. DB — MySQL
 
@@ -19,17 +19,15 @@
 
 ## 3. 스키마 변경 이력 — Flyway
 
-`org.flywaydb:flyway-core`/`flyway-mysql` 의존성은 이미 추가되어 있지만, 아직 이 스키마 변경의 단일 출처(source of truth) 역할을 하고 있지 않다. 로컬 기본 설정은 Hibernate `ddl-auto: update`로 스키마를 맞추는 과도기 상태이고(`FLYWAY_ENABLED=false`가 기본값), `src/main/resources/db/migration/`에는 아직 마이그레이션 파일이 없다.
+KD3-258(auth 도메인)부터 Flyway가 스키마 변경의 단일 출처(source of truth)다. `FLYWAY_ENABLED=true` + `JPA_DDL_AUTO=validate`가 기본값(`application-local.yaml`)이고, `src/main/resources/db/migration/V<N>__<설명>.sql` 형식으로 마이그레이션 파일을 남긴다. Hibernate `ddl-auto: update`로 스키마를 임시로 맞추던 과도기는 끝났다 — 새 테이블/컬럼은 항상 마이그레이션 파일로 추가한다.
 
-[`0010`](../adr/0010-신규-db-인스턴스-스키마-재작성.md)에 따라 신규 인스턴스에 스키마를 새로 쓰기로 한 만큼, 앞으로 테이블을 만들 때는 `ddl-auto: update`로 임시로 맞추지 말고 `V<N>__<설명>.sql` 형식의 Flyway 마이그레이션 파일로 스키마 변경을 남긴다. 마이그레이션 파일이 쌓이기 시작하면 `FLYWAY_ENABLED=true` + `JPA_DDL_AUTO=validate`로 전환한다(전환 확정 시 이 섹션 갱신).
+## 4. 캐시/세션 저장소 — Redis
 
-## 4. 캐시/세션 저장소 — Redis (도입 예정)
-
-레거시 서버는 Redis를 두 가지 용도로 쓴다 — 인증 도메인의 `refresh_token`/`email_verification`(`@RedisHash`, [`docs/domains/auth.md`](../domains/auth.md) §0 참고), kindergarten 도메인의 주 데이터 저장소(DB가 아니라 Redis 자체가 원본). **이 저장소(`daeng_v2_back`)에는 아직 Redis 의존성이 추가되어 있지 않다** — auth·kindergarten 도메인이 실제로 마이그레이션되는 시점에 함께 도입된다. 도입되면 이 섹션에 접속 구성·공유 여부(레거시와 같은 Redis를 공유하는지)를 갱신한다.
+KD3-258부터 Redis를 리프레시 토큰 저장(`refresh_token`, `@RedisHash`, TTL 30일) 용도로 사용한다. 로컬은 `docker-compose.local.yaml`의 `redis` 서비스(호스트 포트 기본 `6380`)를 쓴다. 레거시(v1/v2)와 별개의 신규 인스턴스이며 공유하지 않는다. 이메일 인증(`email_verification`)이나 kindergarten 도메인의 주 데이터 저장 용도는 아직 이관 범위가 아니다 — 해당 도메인 마이그레이션 시 이 섹션을 갱신한다.
 
 ## 5. 컨테이너 — Docker
 
-`docker-compose.local.yaml`은 **로컬 MySQL 컨테이너 하나만** 정의한다. 앱 자체를 컨테이너로 실행하는 용도가 아니라, 로컬에서 DB만 재현하기 위한 것이다. 앱은 호스트에서 직접 실행한다(`./gradlew bootRun`).
+`docker-compose.local.yaml`은 **로컬 MySQL + Redis 컨테이너**를 정의한다. 앱 자체를 컨테이너로 실행하는 용도가 아니라, 로컬에서 DB·캐시만 재현하기 위한 것이다. 앱은 호스트에서 직접 실행한다(`./gradlew bootRun`).
 
 배포 환경에 대한 컨테이너화(Dockerfile, 이미지 빌드/배포 파이프라인)는 아직 이 저장소에 없다 — 확정되면 이 섹션에 추가한다.
 
