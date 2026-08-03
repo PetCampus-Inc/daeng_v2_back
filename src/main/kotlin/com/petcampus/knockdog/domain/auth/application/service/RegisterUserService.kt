@@ -8,6 +8,7 @@ import com.petcampus.knockdog.domain.auth.application.port.output.LoadSocialUser
 import com.petcampus.knockdog.domain.auth.application.port.output.SaveSocialUserPort
 import com.petcampus.knockdog.domain.auth.application.port.output.SaveUserPort
 import com.petcampus.knockdog.domain.auth.application.port.output.TokenPort
+import com.petcampus.knockdog.domain.auth.domain.SocialUserStatus
 import com.petcampus.knockdog.domain.auth.domain.User
 import com.petcampus.knockdog.domain.auth.domain.UserAddress
 import org.springframework.stereotype.Service
@@ -28,8 +29,12 @@ class RegisterUserService(
             loadSocialUserPort.findByProviderAndProviderId(claims.provider, claims.providerId)
                 ?: throw AuthException.notFoundSocialUser()
 
-        if (socialUser.isLinked) {
-            throw AuthException.alreadyLinkedUser()
+        // PENDING: 다른 provider가 같은 이메일로 이미 LINKED 상태 — 신규 가입이 아니라 재연동(A-4, 이번 범위 밖) 대상이다.
+        // 여기서 막지 않으면 이 확인 절차 자체가 우회된다(VerifyOidcService의 PENDING 판정 의미가 사라짐).
+        when (socialUser.status) {
+            SocialUserStatus.LINKED -> throw AuthException.alreadyLinkedUser()
+            SocialUserStatus.PENDING -> throw AuthException.pendingSocialUser()
+            SocialUserStatus.UNLINKED -> Unit
         }
 
         val addresses =

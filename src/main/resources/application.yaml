@@ -14,8 +14,11 @@ jwt:
 oauth:
   kakao:
     public-key-url: ${OAUTH_KAKAO_PUBLIC_KEY_URL:https://kauth.kakao.com/.well-known/jwks.json}
+    # 콤마 구분 목록. ID Token의 aud 클레임이 이 목록에 없으면 다른 앱용으로 발급된 토큰이므로 거부한다.
+    client-ids: ${OAUTH_KAKAO_CLIENT_IDS:}
   apple:
     public-key-url: ${OAUTH_APPLE_PUBLIC_KEY_URL:https://appleid.apple.com/auth/keys}
+    client-ids: ${OAUTH_APPLE_CLIENT_IDS:}
   google:
     client-id:
       web: ${OAUTH_GOOGLE_CLIENT_ID_WEB:}

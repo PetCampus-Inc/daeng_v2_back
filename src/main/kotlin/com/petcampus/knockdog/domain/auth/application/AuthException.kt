@@ -26,6 +26,8 @@ class AuthException(
 
         fun alreadyLinkedUser() = AuthException(HttpStatus.CONFLICT, "이미 연동된 소셜 계정입니다.")
 
+        fun pendingSocialUser() = AuthException(HttpStatus.CONFLICT, "다른 소셜 계정으로 이미 가입된 이메일입니다. 재연동이 필요합니다.")
+
         fun withdrawnUser() = AuthException(HttpStatus.FORBIDDEN, "탈퇴한 회원입니다.")
 
         fun rejoiningRestrictionPeriod() = AuthException(HttpStatus.FORBIDDEN, "탈퇴 후 7일 이내에는 재가입할 수 없습니다.")
