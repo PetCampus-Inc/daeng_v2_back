@@ -1,4 +1,4 @@
-> 생성: 2026-07-28 15:04 · 최종 수정: 2026-07-28 15:04
+> 생성: 2026-07-28 15:04 · 최종 수정: 2026-08-05
 
 # API 명세서 (Notion) 연동 규칙
 
@@ -47,19 +47,22 @@ Notion 앱의 "새 페이지" 기본 템플릿은 **API로 페이지를 만들 �
 | 2 | `heading_3` "API 설명" | 그대로 둠 |
 | 3 | `quote` (빈 칸) | 이 API가 뭘 하는지 1~2문장 |
 | 4 | `heading_1` "2️⃣ Request" | 그대로 둠 |
-| 5~6 | `heading_3` "HTTP Header" + `table`(4열, 예시 행 1개) | 필요한 헤더만 행 추가. 없으면 예시 행 삭제 |
-| 7~8 | `heading_3` "Path Variable" + `table` | 없으면 표는 두되 행은 비워둔다 |
-| 9~10 | `heading_3` "Parameter" + `table` | 위와 동일 |
-| 11~12 | `heading_3` "Body" + `table` | 위와 동일 |
-| 13 | `heading_1` "3️⃣ Response" | 그대로 둠 |
-| 14 | `heading_2` "✅ 성공" | 그대로 둠 |
-| 15 | `code`(json, 빈 칸) | 실제 성공 응답 예시 JSON |
-| 16 | `paragraph`(bold, "응답 필드 설명") | 그대로 둠 |
-| 17 | `table`(3열: 필드명/타입/설명, 빈 행 2개) | 응답 JSON의 필드마다 한 행. 필요시 행 추가 |
-| 18 | `heading_2` "❌ 실패" | 그대로 둠 |
-| 19 | `table`(4열: status/code/field/reason, 예시 행 1개) | 실제 에러 케이스로 행 채우기/추가 |
+| 5~6 | `heading_3` "HTTP Header" + `table`(4열, 예시 행 1개: `Authorization` / `보유 중인 액세스 토큰`) | **실제 HTTP 헤더 이름만** Name에 적는다(예: `Authorization`, `Content-Type`). 쿠키는 이 표가 아니라 바로 아래 "Cookie" 표에 적는다 — `Cookie`를 헤더 이름처럼 적지 않는다. 필요한 헤더만 행 추가, 없으면 예시 행 삭제 |
+| 7~8 | `heading_3` "Cookie" + `table`(4열) | 요청에 실려오는 쿠키(`OIDC_AUTH_TOKEN`, `REFRESH_TOKEN` 등)를 Name에 쿠키 이름 그대로 적는다. 없으면 표는 두되 행은 비워둔다 |
+| 9~10 | `heading_3` "Path Variable" + `table` | 없으면 표는 두되 행은 비워둔다 |
+| 11~12 | `heading_3` "Parameter" + `table` | 위와 동일 |
+| 13~14 | `heading_3` "Body" + `table` | 위와 동일 |
+| 15 | `heading_1` "3️⃣ Response" | 그대로 둠 |
+| 16 | `heading_2` "✅ 성공" | 그대로 둠 |
+| 17 | `code`(json, 빈 칸) | 실제 성공 응답 예시 JSON |
+| 18 | `paragraph`(bold, "응답 필드 설명") | 그대로 둠 |
+| 19 | `table`(3열: 필드명/타입/설명, 빈 행 2개) | 응답 JSON의 필드마다 한 행. 필요시 행 추가 |
+| 20 | `heading_2` "❌ 실패" | 그대로 둠 |
+| 21 | `table`(4열: status/code/field/reason, 예시 행 1개) | 실제 에러 케이스로 행 채우기/추가 |
 
-행이 부족하면 `table_row` 블록을 같은 형식으로 복제해 추가한다. 표의 열 구성(4열 Request 표, 3열 응답 필드 표, 4열 실패 표)은 절대 바꾸지 않는다.
+행이 부족하면 `table_row` 블록을 같은 형식으로 복제해 추가한다. 표의 열 구성(4열 Request 표들, 3열 응답 필드 표, 4열 실패 표)은 절대 바꾸지 않는다.
+
+**Header vs Cookie 구분 예시**: 액세스 토큰을 `Authorization: Bearer <토큰>` 헤더로 받는 API라면 HTTP Header 표에 `Authorization` / `보유 중인 액세스 토큰`으로 적는다. 반대로 OIDC 임시 토큰이나 리프레시 토큰처럼 쿠키로 전달되는 값은 Cookie 표에 그 쿠키 이름(`OIDC_AUTH_TOKEN` 등)으로 적는다 — 브라우저가 자동으로 실어 보내는 `Cookie` 헤더 자체를 HTTP Header 표의 항목으로 문서화하지 않는다.
 
 ## 4. 신규 생성 vs 기존 수정
 
@@ -69,3 +72,5 @@ Notion 앱의 "새 페이지" 기본 템플릿은 **API로 페이지를 만들 �
 ## 5. 검증
 
 이 규칙의 데이터베이스 ID·속성 스키마·템플릿 블록 구조는 2026-07-28에 실제 API 호출로 생성→검증→삭제한 테스트 페이지를 기준으로 확정했다.
+
+**2026-08-05 갱신 (KD3-258)**: 실제로 auth 도메인 5개 엔드포인트 페이지를 만들면서 두 가지를 바로잡았다 — (1) `이름` 속성은 `<Method> <경로>`가 아니라 API 명칭(예: `회원가입`)이어야 한다는 걸 놓쳤다가 뒤늦게 수정, (2) 쿠키로 전달되는 값(`OIDC_AUTH_TOKEN` 등)을 HTTP Header 표에 `Cookie`라는 이름으로 잘못 적었다가, 템플릿에 별도 "Cookie" 섹션(§3)을 추가하고 5개 페이지 모두 다시 정리했다.
