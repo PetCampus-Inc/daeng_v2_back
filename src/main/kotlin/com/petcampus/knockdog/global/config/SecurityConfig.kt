@@ -35,7 +35,9 @@ class SecurityConfig(
         private val PUBLIC_ENDPOINTS =
             arrayOf(
                 "/api/v1/auth/oidc-verifications",
-                "/api/v1/auth/sessions",
+                "/api/v1/auth/login",
+                "/api/v1/auth/refresh",
+                "/api/v1/auth/logout",
                 "/api/v1/users",
                 "/error",
             )

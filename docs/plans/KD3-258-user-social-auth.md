@@ -18,7 +18,7 @@ domain/auth/
     port/output/                  LoadUserPort, SaveUserPort, LoadSocialUserPort, SaveSocialUserPort, TokenPort, LoadRefreshTokenPort/SaveRefreshTokenPort
     service/                      각 UseCase 구현체
   adapter/
-    inbound/web/                  OidcVerificationController, AuthSessionController, UserController (유스케이스별 분리)
+    inbound/web/                  OidcVerificationController, AuthController, UserController (유스케이스별 분리)
     outbound/persistence/         UserJpaEntity, SocialUserJpaEntity, UserAddressJpaEntity + Repository + Mapper + PersistenceAdapter
     outbound/cache/                RedisRefreshToken(@RedisHash) + RedisRefreshTokenAdapter
     outbound/oidc/                 AppleTokenVerifier, GoogleTokenVerifier, KakaoTokenVerifier (JWKS 기반 서명 검증)
@@ -29,9 +29,9 @@ domain/auth/
 | 메서드/경로 | 유스케이스 | 인증 요구 |
 |---|---|---|
 | `POST /api/v1/auth/oidc-verifications` | VerifyOidcUseCase | 공개 |
-| `POST /api/v1/auth/sessions` | LoginUseCase | 공개 (OIDC 임시 토큰으로 자체 검증) |
-| `PATCH /api/v1/auth/sessions` | RefreshTokenUseCase | 공개 (리프레시 토큰으로 자체 검증) |
-| `DELETE /api/v1/auth/sessions` | LogoutUseCase | 공개 (리프레시 토큰으로 자체 검증) |
+| `POST /api/v1/auth/login` | LoginUseCase | 공개 (OIDC 임시 토큰으로 자체 검증) |
+| `POST /api/v1/auth/refresh` | RefreshTokenUseCase | 공개 (리프레시 토큰으로 자체 검증) |
+| `POST /api/v1/auth/logout` | LogoutUseCase | 공개 (리프레시 토큰으로 자체 검증) |
 | `POST /api/v1/users` | RegisterUserUseCase | 공개 (OIDC 임시 토큰으로 자체 검증) |
 
 ### DB 스키마 (신규 Flyway 마이그레이션)
