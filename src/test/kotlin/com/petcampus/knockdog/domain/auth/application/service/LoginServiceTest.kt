@@ -1,6 +1,5 @@
 package com.petcampus.knockdog.domain.auth.application.service
 
-import com.petcampus.knockdog.domain.auth.application.AuthException
 import com.petcampus.knockdog.domain.auth.application.port.input.LoginCommand
 import com.petcampus.knockdog.domain.auth.application.port.output.DeleteRefreshTokenPort
 import com.petcampus.knockdog.domain.auth.application.port.output.LoadSocialUserPort
@@ -19,6 +18,7 @@ import com.petcampus.knockdog.domain.auth.domain.User
 import com.petcampus.knockdog.domain.auth.domain.UserAddress
 import com.petcampus.knockdog.domain.auth.domain.UserCode
 import com.petcampus.knockdog.domain.auth.domain.UserId
+import com.petcampus.knockdog.global.exception.BusinessException
 import org.junit.jupiter.api.Test
 import java.time.LocalDateTime
 import kotlin.test.assertEquals
@@ -124,7 +124,7 @@ class LoginServiceTest {
     fun `소셜 계정을 찾을 수 없으면 예외가 발생한다`() {
         val service = loginService(FixedSocialUserPort(null), FixedUserPort(null))
 
-        assertFailsWith<AuthException> {
+        assertFailsWith<BusinessException> {
             service.login(LoginCommand("temp-token"))
         }
     }
@@ -145,7 +145,7 @@ class LoginServiceTest {
             )
         val service = loginService(FixedSocialUserPort(socialUser), FixedUserPort(null))
 
-        assertFailsWith<AuthException> {
+        assertFailsWith<BusinessException> {
             service.login(LoginCommand("temp-token"))
         }
     }
@@ -180,7 +180,7 @@ class LoginServiceTest {
         val socialUserPort = FixedSocialUserPort(socialUser)
         val service = loginService(socialUserPort, FixedUserPort(withdrawnUser))
 
-        assertFailsWith<AuthException> {
+        assertFailsWith<BusinessException> {
             service.login(LoginCommand("temp-token"))
         }
         assertEquals(null, socialUserPort.saved)
@@ -216,7 +216,7 @@ class LoginServiceTest {
         val socialUserPort = FixedSocialUserPort(socialUser)
         val service = loginService(socialUserPort, FixedUserPort(withdrawnUser))
 
-        assertFailsWith<AuthException> {
+        assertFailsWith<BusinessException> {
             service.login(LoginCommand("temp-token"))
         }
         assertFalse(requireNotNull(socialUserPort.saved).isLinked)

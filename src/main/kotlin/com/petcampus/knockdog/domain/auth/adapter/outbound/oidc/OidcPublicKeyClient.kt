@@ -1,7 +1,8 @@
 package com.petcampus.knockdog.domain.auth.adapter.outbound.oidc
 
-import com.petcampus.knockdog.domain.auth.application.AuthException
+import com.petcampus.knockdog.domain.auth.application.AuthErrorCode
 import com.petcampus.knockdog.domain.auth.domain.Provider
+import com.petcampus.knockdog.global.exception.BusinessException
 import org.springframework.stereotype.Component
 import org.springframework.web.client.RestClient
 import org.springframework.web.client.RestClientException
@@ -27,8 +28,8 @@ class OidcPublicKeyClient(
                 .uri(url)
                 .retrieve()
                 .body(OidcPublicKeyList::class.java)
-                ?: throw AuthException.externalServerError()
+                ?: throw BusinessException(AuthErrorCode.EXTERNAL_SERVER_ERROR)
         } catch (e: RestClientException) {
-            throw AuthException.externalServerError()
+            throw BusinessException(AuthErrorCode.EXTERNAL_SERVER_ERROR)
         }
 }

@@ -1,6 +1,6 @@
 package com.petcampus.knockdog.domain.auth.adapter.outbound.oidc
 
-import com.petcampus.knockdog.domain.auth.application.AuthException
+import com.petcampus.knockdog.global.exception.BusinessException
 import io.jsonwebtoken.Jwts
 import io.jsonwebtoken.security.Keys
 import org.junit.jupiter.api.Test
@@ -36,7 +36,7 @@ class OidcAudienceValidatorTest {
     fun `aud가 설정된 client-id 목록에 없으면 예외가 발생한다`() {
         val claims = claimsWithAudience("attacker-app")
 
-        assertFailsWith<AuthException> {
+        assertFailsWith<BusinessException> {
             OidcAudienceValidator.validate(claims, listOf("client-a"))
         }
     }
@@ -45,7 +45,7 @@ class OidcAudienceValidatorTest {
     fun `client-id가 설정돼 있지 않으면 무조건 예외가 발생한다 (fail closed)`() {
         val claims = claimsWithAudience("client-a")
 
-        assertFailsWith<AuthException> {
+        assertFailsWith<BusinessException> {
             OidcAudienceValidator.validate(claims, emptyList())
         }
     }

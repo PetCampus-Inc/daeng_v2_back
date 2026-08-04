@@ -1,6 +1,7 @@
 package com.petcampus.knockdog.domain.auth.adapter.outbound.oidc
 
-import com.petcampus.knockdog.domain.auth.application.AuthException
+import com.petcampus.knockdog.domain.auth.application.AuthErrorCode
+import com.petcampus.knockdog.global.exception.BusinessException
 import org.springframework.stereotype.Component
 import java.math.BigInteger
 import java.security.GeneralSecurityException
@@ -24,7 +25,7 @@ class OidcPublicKeyFactory {
         return try {
             KeyFactory.getInstance(matched.kty).generatePublic(spec)
         } catch (e: GeneralSecurityException) {
-            throw AuthException.tokenVerificationFailed()
+            throw BusinessException(AuthErrorCode.TOKEN_VERIFICATION_FAILED)
         }
     }
 }

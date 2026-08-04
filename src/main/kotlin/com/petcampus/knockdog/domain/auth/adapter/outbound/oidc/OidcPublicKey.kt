@@ -1,6 +1,7 @@
 package com.petcampus.knockdog.domain.auth.adapter.outbound.oidc
 
-import com.petcampus.knockdog.domain.auth.application.AuthException
+import com.petcampus.knockdog.domain.auth.application.AuthErrorCode
+import com.petcampus.knockdog.global.exception.BusinessException
 
 data class OidcPublicKey(
     val kid: String,
@@ -19,5 +20,5 @@ data class OidcPublicKeyList(
         alg: String?,
     ): OidcPublicKey =
         keys.firstOrNull { it.kid == kid && (it.alg == null || it.alg == alg) }
-            ?: throw AuthException.tokenVerificationFailed()
+            ?: throw BusinessException(AuthErrorCode.TOKEN_VERIFICATION_FAILED)
 }

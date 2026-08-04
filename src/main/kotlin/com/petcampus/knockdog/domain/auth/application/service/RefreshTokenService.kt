@@ -1,11 +1,12 @@
 package com.petcampus.knockdog.domain.auth.application.service
 
-import com.petcampus.knockdog.domain.auth.application.AuthException
+import com.petcampus.knockdog.domain.auth.application.AuthErrorCode
 import com.petcampus.knockdog.domain.auth.application.port.input.RefreshTokenCommand
 import com.petcampus.knockdog.domain.auth.application.port.input.RefreshTokenUseCase
 import com.petcampus.knockdog.domain.auth.application.port.input.TokenPair
 import com.petcampus.knockdog.domain.auth.application.port.output.DeleteRefreshTokenPort
 import com.petcampus.knockdog.domain.auth.application.port.output.LoadRefreshTokenPort
+import com.petcampus.knockdog.global.exception.BusinessException
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
@@ -20,7 +21,7 @@ class RefreshTokenService(
     override fun refresh(command: RefreshTokenCommand): TokenPair {
         val record =
             loadRefreshTokenPort.findByToken(command.refreshToken)
-                ?: throw AuthException.invalidToken()
+                ?: throw BusinessException(AuthErrorCode.INVALID_TOKEN)
 
         deleteRefreshTokenPort.deleteByToken(command.refreshToken)
 

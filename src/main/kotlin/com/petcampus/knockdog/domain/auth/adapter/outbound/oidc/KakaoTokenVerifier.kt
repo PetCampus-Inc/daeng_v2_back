@@ -1,8 +1,9 @@
 package com.petcampus.knockdog.domain.auth.adapter.outbound.oidc
 
-import com.petcampus.knockdog.domain.auth.application.AuthException
+import com.petcampus.knockdog.domain.auth.application.AuthErrorCode
 import com.petcampus.knockdog.domain.auth.application.port.output.OidcIdentity
 import com.petcampus.knockdog.domain.auth.domain.Provider
+import com.petcampus.knockdog.global.exception.BusinessException
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Component
 
@@ -26,8 +27,8 @@ class KakaoTokenVerifier(
         val claims = oidcTokenParser.parseClaims(idToken, publicKey)
         OidcAudienceValidator.validate(claims, clientIds)
 
-        val subject = claims.subject ?: throw AuthException.tokenVerificationFailed()
-        val email = claims.get("email", String::class.java) ?: throw AuthException.tokenVerificationFailed()
+        val subject = claims.subject ?: throw BusinessException(AuthErrorCode.TOKEN_VERIFICATION_FAILED)
+        val email = claims.get("email", String::class.java) ?: throw BusinessException(AuthErrorCode.TOKEN_VERIFICATION_FAILED)
 
         return OidcIdentity(provider, subject, email)
     }

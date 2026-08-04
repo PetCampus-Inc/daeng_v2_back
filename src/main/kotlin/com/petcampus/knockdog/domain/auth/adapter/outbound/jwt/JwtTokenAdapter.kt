@@ -1,10 +1,11 @@
 package com.petcampus.knockdog.domain.auth.adapter.outbound.jwt
 
-import com.petcampus.knockdog.domain.auth.application.AuthException
+import com.petcampus.knockdog.domain.auth.application.AuthErrorCode
 import com.petcampus.knockdog.domain.auth.application.port.output.OidcTokenClaims
 import com.petcampus.knockdog.domain.auth.application.port.output.TokenPort
 import com.petcampus.knockdog.domain.auth.domain.Provider
 import com.petcampus.knockdog.domain.auth.domain.UserCode
+import com.petcampus.knockdog.global.exception.BusinessException
 import io.jsonwebtoken.Claims
 import io.jsonwebtoken.ExpiredJwtException
 import io.jsonwebtoken.JwtException
@@ -86,9 +87,9 @@ class JwtTokenAdapter(
                 .parseSignedClaims(token)
                 .payload
         } catch (e: ExpiredJwtException) {
-            throw AuthException.expiredToken()
+            throw BusinessException(AuthErrorCode.EXPIRED_TOKEN)
         } catch (e: JwtException) {
-            throw AuthException.invalidToken()
+            throw BusinessException(AuthErrorCode.INVALID_TOKEN)
         }
 
     private fun validateType(
@@ -96,7 +97,7 @@ class JwtTokenAdapter(
         expected: String,
     ) {
         if (claims.get(CLAIM_TYPE, String::class.java) != expected) {
-            throw AuthException.invalidToken()
+            throw BusinessException(AuthErrorCode.INVALID_TOKEN)
         }
     }
 

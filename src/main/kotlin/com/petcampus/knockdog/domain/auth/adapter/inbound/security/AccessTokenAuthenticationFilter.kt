@@ -1,7 +1,7 @@
 package com.petcampus.knockdog.domain.auth.adapter.inbound.security
 
-import com.petcampus.knockdog.domain.auth.application.AuthException
 import com.petcampus.knockdog.domain.auth.application.port.output.TokenPort
+import com.petcampus.knockdog.global.exception.BusinessException
 import jakarta.servlet.FilterChain
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse
@@ -30,7 +30,7 @@ class AccessTokenAuthenticationFilter(
                 val userCode = tokenPort.parseAccessTokenSubject(token)
                 SecurityContextHolder.getContext().authentication =
                     UsernamePasswordAuthenticationToken(userCode.value, null, listOf(SimpleGrantedAuthority("ROLE_USER")))
-            } catch (e: AuthException) {
+            } catch (e: BusinessException) {
                 SecurityContextHolder.clearContext()
             }
         }

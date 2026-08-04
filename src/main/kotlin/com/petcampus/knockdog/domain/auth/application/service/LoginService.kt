@@ -1,6 +1,6 @@
 package com.petcampus.knockdog.domain.auth.application.service
 
-import com.petcampus.knockdog.domain.auth.application.AuthException
+import com.petcampus.knockdog.domain.auth.application.AuthErrorCode
 import com.petcampus.knockdog.domain.auth.application.port.input.LoginCommand
 import com.petcampus.knockdog.domain.auth.application.port.input.LoginUseCase
 import com.petcampus.knockdog.domain.auth.application.port.input.TokenPair
@@ -8,6 +8,7 @@ import com.petcampus.knockdog.domain.auth.application.port.output.LoadSocialUser
 import com.petcampus.knockdog.domain.auth.application.port.output.LoadUserPort
 import com.petcampus.knockdog.domain.auth.application.port.output.SaveSocialUserPort
 import com.petcampus.knockdog.domain.auth.application.port.output.TokenPort
+import com.petcampus.knockdog.global.exception.BusinessException
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.LocalDateTime
@@ -25,24 +26,24 @@ class LoginService(
         val claims = tokenPort.parseOidcToken(command.oidcToken)
         val socialUser =
             loadSocialUserPort.findByProviderAndProviderId(claims.provider, claims.providerId)
-                ?: throw AuthException.notFoundSocialUser()
+                ?: throw BusinessException(AuthErrorCode.NOT_FOUND_SOCIAL_USER)
 
         if (!socialUser.isLinked) {
-            throw AuthException.userNotLinked()
+            throw BusinessException(AuthErrorCode.USER_NOT_LINKED)
         }
 
         val user =
             loadUserPort.findById(requireNotNull(socialUser.userId))
-                ?: throw AuthException.notFoundUser()
+                ?: throw BusinessException(AuthErrorCode.NOT_FOUND_USER)
 
         if (user.isWithdrawn) {
             val withdrawnAt = requireNotNull(user.deletedAt)
             if (withdrawnAt.plusDays(REJOINING_RESTRICTION_DAYS).isBefore(LocalDateTime.now())) {
                 socialUser.unlink()
                 saveSocialUserPort.save(socialUser)
-                throw AuthException.withdrawnUser()
+                throw BusinessException(AuthErrorCode.WITHDRAWN_USER)
             }
-            throw AuthException.rejoiningRestrictionPeriod()
+            throw BusinessException(AuthErrorCode.REJOINING_RESTRICTION_PERIOD)
         }
 
         return tokenIssuer.issue(user.code)

@@ -1,6 +1,5 @@
 package com.petcampus.knockdog.domain.auth.application.service
 
-import com.petcampus.knockdog.domain.auth.application.AuthException
 import com.petcampus.knockdog.domain.auth.application.port.input.RegisterUserCommand
 import com.petcampus.knockdog.domain.auth.application.port.output.DeleteRefreshTokenPort
 import com.petcampus.knockdog.domain.auth.application.port.output.LoadSocialUserPort
@@ -18,6 +17,7 @@ import com.petcampus.knockdog.domain.auth.domain.SocialUserStatus
 import com.petcampus.knockdog.domain.auth.domain.User
 import com.petcampus.knockdog.domain.auth.domain.UserCode
 import com.petcampus.knockdog.domain.auth.domain.UserId
+import com.petcampus.knockdog.global.exception.BusinessException
 import org.junit.jupiter.api.Test
 import kotlin.test.assertFailsWith
 
@@ -126,14 +126,14 @@ class RegisterUserServiceTest {
 
     @Test
     fun `LINKED 상태(이미 연동됨)면 회원가입이 거부된다`() {
-        assertFailsWith<AuthException> {
+        assertFailsWith<BusinessException> {
             service(socialUser(SocialUserStatus.LINKED)).register(command())
         }
     }
 
     @Test
     fun `PENDING 상태(다른 provider로 이미 가입된 이메일)면 회원가입이 거부된다`() {
-        assertFailsWith<AuthException> {
+        assertFailsWith<BusinessException> {
             service(socialUser(SocialUserStatus.PENDING)).register(command())
         }
     }

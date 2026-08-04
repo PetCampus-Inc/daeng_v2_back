@@ -1,6 +1,7 @@
 package com.petcampus.knockdog.domain.auth.adapter.outbound.oidc
 
-import com.petcampus.knockdog.domain.auth.application.AuthException
+import com.petcampus.knockdog.domain.auth.application.AuthErrorCode
+import com.petcampus.knockdog.global.exception.BusinessException
 import io.jsonwebtoken.Claims
 
 /**
@@ -14,7 +15,7 @@ object OidcAudienceValidator {
         expectedClientIds: List<String>,
     ) {
         if (expectedClientIds.isEmpty() || claims.audience.none { it in expectedClientIds }) {
-            throw AuthException.tokenVerificationFailed()
+            throw BusinessException(AuthErrorCode.TOKEN_VERIFICATION_FAILED)
         }
     }
 }

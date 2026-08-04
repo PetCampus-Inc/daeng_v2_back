@@ -1,6 +1,7 @@
 package com.petcampus.knockdog.domain.auth.adapter.outbound.oidc
 
-import com.petcampus.knockdog.domain.auth.application.AuthException
+import com.petcampus.knockdog.domain.auth.application.AuthErrorCode
+import com.petcampus.knockdog.global.exception.BusinessException
 import io.jsonwebtoken.Claims
 import io.jsonwebtoken.JwtException
 import io.jsonwebtoken.Jwts
@@ -21,6 +22,6 @@ class OidcTokenParser {
                 .parseSignedClaims(token)
                 .payload
         } catch (e: JwtException) {
-            throw AuthException.tokenVerificationFailed()
+            throw BusinessException(AuthErrorCode.TOKEN_VERIFICATION_FAILED)
         }
 }

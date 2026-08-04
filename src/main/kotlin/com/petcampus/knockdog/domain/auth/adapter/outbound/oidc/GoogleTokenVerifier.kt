@@ -3,9 +3,10 @@ package com.petcampus.knockdog.domain.auth.adapter.outbound.oidc
 import com.google.api.client.googleapis.auth.oauth2.GoogleIdTokenVerifier
 import com.google.api.client.http.javanet.NetHttpTransport
 import com.google.api.client.json.gson.GsonFactory
-import com.petcampus.knockdog.domain.auth.application.AuthException
+import com.petcampus.knockdog.domain.auth.application.AuthErrorCode
 import com.petcampus.knockdog.domain.auth.application.port.output.OidcIdentity
 import com.petcampus.knockdog.domain.auth.domain.Provider
+import com.petcampus.knockdog.global.exception.BusinessException
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Component
 import java.security.GeneralSecurityException
@@ -30,10 +31,10 @@ class GoogleTokenVerifier(
             try {
                 googleIdTokenVerifier.verify(idToken)
             } catch (e: GeneralSecurityException) {
-                throw AuthException.externalServerError()
+                throw BusinessException(AuthErrorCode.EXTERNAL_SERVER_ERROR)
             } catch (e: java.io.IOException) {
-                throw AuthException.externalServerError()
-            } ?: throw AuthException.tokenVerificationFailed()
+                throw BusinessException(AuthErrorCode.EXTERNAL_SERVER_ERROR)
+            } ?: throw BusinessException(AuthErrorCode.TOKEN_VERIFICATION_FAILED)
 
         val payload = googleIdToken.payload
 
