@@ -25,7 +25,7 @@ Content-Type: application/json
 
 | 속성명 | 타입 | 이 저장소(백엔드) 작업에서 하는 일 |
 |---|---|---|
-| 이름 | title | 페이지 제목. `<Method> <엔드포인트 경로>` 형식 (예: `GET /api/v1/users/me`) |
+| 이름 | title | 페이지 제목. API의 명칭(한국어, 예: `회원가입`, `로그인`) — `<Method> <엔드포인트 경로>`가 아니다. 그 정보는 `엔드포인트`/`Method` 속성이 따로 담당한다 |
 | 엔드포인트 | rich_text | 실제 경로 (예: `/api/v1/users/me`) |
 | Method | select | `GET`/`POST`/`PUT`/`PATCH`/`DELETE` 중 하나 (옵션 확정됨) |
 | 도메인 | select | `docs/domains/*.md` 슬러그. 옵션에 없으면 새로 추가한다 |
