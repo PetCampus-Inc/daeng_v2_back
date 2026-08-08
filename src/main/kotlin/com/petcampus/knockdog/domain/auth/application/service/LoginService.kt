@@ -2,8 +2,8 @@ package com.petcampus.knockdog.domain.auth.application.service
 
 import com.petcampus.knockdog.domain.auth.application.AuthErrorCode
 import com.petcampus.knockdog.domain.auth.application.port.input.LoginCommand
+import com.petcampus.knockdog.domain.auth.application.port.input.LoginResult
 import com.petcampus.knockdog.domain.auth.application.port.input.LoginUseCase
-import com.petcampus.knockdog.domain.auth.application.port.input.TokenPair
 import com.petcampus.knockdog.domain.auth.application.port.output.LoadSocialUserPort
 import com.petcampus.knockdog.domain.auth.application.port.output.LoadUserPort
 import com.petcampus.knockdog.domain.auth.application.port.output.SaveSocialUserPort
@@ -22,7 +22,7 @@ class LoginService(
     private val tokenIssuer: TokenIssuer,
 ) : LoginUseCase {
     @Transactional
-    override fun login(command: LoginCommand): TokenPair {
+    override fun login(command: LoginCommand): LoginResult {
         val claims = tokenPort.parseOidcToken(command.oidcToken)
         val socialUser =
             loadSocialUserPort.findByProviderAndProviderId(claims.provider, claims.providerId)
@@ -46,7 +46,7 @@ class LoginService(
             throw BusinessException(AuthErrorCode.REJOINING_RESTRICTION_PERIOD)
         }
 
-        return tokenIssuer.issue(user.code)
+        return LoginResult(user, tokenIssuer.issue(user.code))
     }
 
     companion object {

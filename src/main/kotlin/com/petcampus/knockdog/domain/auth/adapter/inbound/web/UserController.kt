@@ -4,7 +4,7 @@ import com.petcampus.knockdog.domain.auth.application.port.input.RegisterAddress
 import com.petcampus.knockdog.domain.auth.application.port.input.RegisterUserCommand
 import com.petcampus.knockdog.domain.auth.application.port.input.RegisterUserUseCase
 import com.petcampus.knockdog.domain.auth.domain.AddressType
-import com.petcampus.knockdog.domain.auth.domain.User
+import com.petcampus.knockdog.global.response.Response
 import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
@@ -24,7 +24,7 @@ class UserController(
     fun register(
         @CookieValue(AuthCookieFactory.OIDC_AUTH_COOKIE) oidcToken: String,
         @RequestBody request: RegisterUserRequest,
-    ): ResponseEntity<UserResponse> {
+    ): ResponseEntity<Response<AuthUserResponse>> {
         val result =
             registerUserUseCase.register(
                 RegisterUserCommand(
@@ -41,9 +41,14 @@ class UserController(
 
         return ResponseEntity
             .status(HttpStatus.CREATED)
+            .header(HttpHeaders.AUTHORIZATION, BEARER_PREFIX + result.tokenPair.accessToken)
             .header(HttpHeaders.SET_COOKIE, refreshCookie.toString())
             .header(HttpHeaders.SET_COOKIE, expiredOidcCookie.toString())
-            .body(UserResponse.from(result.user, result.tokenPair.accessToken))
+            .body(Response.success(AuthUserResponse.from(result.user)))
+    }
+
+    companion object {
+        private const val BEARER_PREFIX = "Bearer "
     }
 }
 
@@ -63,17 +68,4 @@ data class RegisterAddressRequest(
     val lng: Double,
 ) {
     fun toCommand(): RegisterAddressCommand = RegisterAddressCommand(type, alias, address, roadAddress, lat, lng)
-}
-
-data class UserResponse(
-    val userCode: String,
-    val nickname: String,
-    val accessToken: String,
-) {
-    companion object {
-        fun from(
-            user: User,
-            accessToken: String,
-        ): UserResponse = UserResponse(user.code.value, user.nickname, accessToken)
-    }
 }

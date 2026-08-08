@@ -5,7 +5,9 @@ import com.petcampus.knockdog.domain.auth.application.port.input.VerifyOidcUseCa
 import com.petcampus.knockdog.domain.auth.domain.Provider
 import com.petcampus.knockdog.domain.auth.domain.SocialUser
 import com.petcampus.knockdog.domain.auth.domain.SocialUserStatus
+import com.petcampus.knockdog.global.response.Response
 import org.springframework.http.HttpHeaders
+import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
@@ -21,17 +23,25 @@ class OidcVerificationController(
     @PostMapping
     fun verify(
         @RequestBody request: VerifyOidcRequest,
-    ): ResponseEntity<VerifyOidcResponse> {
+    ): ResponseEntity<Response<VerifyOidcResponse>> {
         val result =
             verifyOidcUseCase.verify(
                 VerifyOidcCommand(request.provider, request.idToken, request.name, request.picture),
             )
         val cookie = authCookieFactory.oidcAuthCookie(result.oidcToken)
+        val resultCode = VerifyOidcResultCode.from(result.socialUser.status)
 
         return ResponseEntity
             .ok()
             .header(HttpHeaders.SET_COOKIE, cookie.toString())
-            .body(VerifyOidcResponse.from(result.socialUser))
+            .body(
+                Response(
+                    status = HttpStatus.OK.value(),
+                    code = resultCode.code,
+                    message = resultCode.message,
+                    data = VerifyOidcResponse.from(result.socialUser),
+                ),
+            )
     }
 }
 
@@ -43,20 +53,33 @@ data class VerifyOidcRequest(
 )
 
 data class VerifyOidcResponse(
-    val status: String,
+    val provider: Provider,
+    val name: String?,
+    val picture: String?,
     val email: String,
 ) {
     companion object {
-        // 레거시 VerifyOidcResultCode와 동일한 문자열 유지 — 프론트가 이 값으로 로그인/가입/재연동 분기를 한다
-        // (docs/architecture/common-response-error.md §2, LINKED->SUCCESS, PENDING->EMAIL_ALREADY_EXISTS).
-        fun from(socialUser: SocialUser): VerifyOidcResponse {
-            val status =
-                when (socialUser.status) {
-                    SocialUserStatus.LINKED -> "SUCCESS"
-                    SocialUserStatus.UNLINKED -> "UNLINKED"
-                    SocialUserStatus.PENDING -> "EMAIL_ALREADY_EXISTS"
-                }
-            return VerifyOidcResponse(status, socialUser.email)
-        }
+        fun from(socialUser: SocialUser): VerifyOidcResponse =
+            VerifyOidcResponse(socialUser.provider, socialUser.name, socialUser.picture, socialUser.email)
+    }
+}
+
+/** 레거시 VerifyOidcResultCode와 동일한 code/message 유지 — 프론트가 Response 봉투의 최상위 `code`로 로그인/가입/재연동을 분기한다. */
+enum class VerifyOidcResultCode(
+    val code: String,
+    val message: String,
+) {
+    SUCCESS("SUCCESS", "정상적으로 처리되었습니다."),
+    UNLINKED("UNLINKED", "회원 연결되지 않은 소셜 계정입니다."),
+    EMAIL_ALREADY_EXISTS("EMAIL_ALREADY_EXISTS", "다른 소셜 계정으로 연결된 이메일입니다."),
+    ;
+
+    companion object {
+        fun from(status: SocialUserStatus): VerifyOidcResultCode =
+            when (status) {
+                SocialUserStatus.LINKED -> SUCCESS
+                SocialUserStatus.UNLINKED -> UNLINKED
+                SocialUserStatus.PENDING -> EMAIL_ALREADY_EXISTS
+            }
     }
 }

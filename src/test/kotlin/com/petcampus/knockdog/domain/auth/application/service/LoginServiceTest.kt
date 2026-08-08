@@ -115,9 +115,9 @@ class LoginServiceTest {
             )
         val service = loginService(FixedSocialUserPort(socialUser), FixedUserPort(activeUser()))
 
-        val tokenPair = service.login(LoginCommand("temp-token"))
+        val result = service.login(LoginCommand("temp-token"))
 
-        assertEquals("access-token", tokenPair.accessToken)
+        assertEquals("access-token", result.tokenPair.accessToken)
     }
 
     @Test
