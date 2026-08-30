@@ -16,7 +16,7 @@
 ## 2. 작성 규칙
 
 - 프론트/앱 호출 여부, 운영 사용 여부, 보안 위험 등 근거 없이 판정하지 않는다.
-- 계약 유지가 필요한 `KEEP` API는 [`docs/rules/api-contract.md`](../rules/api-contract.md)의 계약 보존 기준을 따른다.
+- 계약 유지가 필요한 `KEEP` API는 [`docs/rules/api-migration.md`](../rules/api-migration.md)의 계약 보존 기준을 따른다.
 - 명백한 보안 버그나 폐기 확정 API는 parity 대상에서 제외하고, 제외 근거를 남긴다.
 - 상세 request/response 명세는 구현 직전에 도메인 문서나 계획 문서에서 구체화한다.
 
