@@ -1,4 +1,4 @@
-> 생성: 2026-07-28 11:43 · 최종 수정: 2026-08-04 17:37
+> 생성: 2026-07-28 11:43 · 최종 수정: 2026-08-30 15:10
 
 # docs 폴더 개요
 
@@ -10,11 +10,48 @@ AI 관련 작업 규칙(트레일러 금지, 결정 기록 워크플로우 등)�
 
 ## 폴더 구조
 
+```text
+docs/
+├── README.md
+├── service.md
+├── rules/
+│   ├── documentation.md
+│   └── git.md
+├── workflows/
+│   ├── common.md
+│   ├── new-feature.md
+│   └── migration.md
+├── work/
+│   └── <JIRA-KEY>-<slug>.md
+├── domains/
+│   └── <domain>.md
+├── api/
+│   ├── inventory.md
+│   └── policy.md
+├── database/
+│   ├── inventory.md
+│   └── policy.md
+├── integrations/
+│   └── inventory.md
+├── operations/
+│   └── inventory.md
+├── architecture/
+│   ├── hexagonal.md
+│   ├── common-response-error.md
+│   └── migration-strategy.md
+├── conventions/
+│   └── notion-api-spec-sync.md
+└── adr/
+    └── NNNN-<slug>.md
+```
+
 | 폴더/파일 | 용도 |
 |---|---|
 | `service.md` | 서비스/제품 맥락 (단일 파일) |
-| `rules/` | 반드시 지킬 작업 규칙 (git, workflow, documentation 등) |
-| `domains/` | 도메인별 AI 작업 지시서 |
+| `rules/` | 반드시 지킬 규칙 (git, documentation 등) |
+| `workflows/` | 공통·작업 유형별 필수 절차, 검증 기준, `work/` 문서 양식 |
+| `work/` | 티켓별 논의·결정·구현·검증 기록 |
+| `domains/` | 후속 작업에도 유지할 도메인 지식과 제약 |
 | `adr/` | 의사결정 기록 (ADR, 1건 1파일) |
 | `architecture/` | 설계 문서 자체 |
 | `api/` | API 인벤토리와 계약/버전 정책 |
@@ -22,13 +59,16 @@ AI 관련 작업 규칙(트레일러 금지, 결정 기록 워크플로우 등)�
 | `integrations/` | Redis, S3, OIDC, 크롤링 등 외부 연동 인벤토리 |
 | `operations/` | 배포, 인프라, 관찰성, 컷오버 관련 운영 인벤토리 |
 | `conventions/` | 프로젝트 기술 관례 (응답 포맷, API 규칙 등) |
-| `plans/` | 티켓별 구현 계획 문서 |
 
 어떤 문서 종류를 어느 폴더에 두는지, 폴더별로 문서를 쓸 때 지켜야 할 것은 [`docs/rules/documentation.md`](rules/documentation.md) §1·§2가 유일한 기준(single source of truth)이다. 폴더가 늘거나 용도가 바뀌면 그 문서와 아래 각 폴더 설명을 함께 갱신한다.
 
 ### `rules/`
 
-예외 없이 지켜야 하는 작업 절차. "이렇게 하는 게 낫다"가 아니라 "지켜야 하는 것"만 담는다.
+예외 없이 지켜야 하는 규칙. "이렇게 하는 게 낫다"가 아니라 "지켜야 하는 것"만 담는다.
+
+### `workflows/`
+
+Jira 티켓 작업의 공통 절차와 작업 유형별 필수 절차를 관리한다. 모든 티켓은 `common.md`를 따르고, 신규 기능은 `new-feature.md`, 마이그레이션은 `migration.md`를 추가로 따른다.
 
 ### `domains/`
 
@@ -64,7 +104,7 @@ EC2, MySQL, Redis, secret, 로그, 알람, 배포, 컷오버, rollback처럼 운
 
 이 프로젝트가 실제로 쓰고 있는 기술적 패턴(응답 포맷, API 경로 규칙 등)을 서술한다. "지켜야 할 규칙"이 아니라 "지금 이렇게 되어 있다"는 사실 기록에 가깝다.
 
-### `plans/`
+### `work/`
 
-Jira 티켓 하나를 맡은 AI가 구현 방향 논의 결과를 정리해두는 문서. 컨텍스트를 공유하지 않는 리뷰어에게 "무엇을, 왜, 어디까지" 작업했는지 전달하는 역할을 한다 ([`workflow.md`](rules/workflow.md) §5 참고).
-인벤토리 내용을 그대로 복제하지 않고, 해당 티켓에서 참조한 항목과 이번 범위에 포함/제외한 판단만 적는다.
+Jira 티켓 하나를 맡은 AI가 구현 방향 논의 결과를 정리해두는 문서. 컨텍스트를 공유하지 않는 리뷰어에게 "무엇을, 왜, 어디까지" 작업했는지 전달하는 역할을 한다 ([`common.md`](workflows/common.md) §5 참고).
+사람과의 논의, 작업 범위, 선택지, 구현·검증 결과처럼 **티켓에 종속되는 기록**을 남긴다. 후속 작업에도 유지해야 할 도메인 경계·불변식·API/데이터/권한 제약·이관 상태가 확정되거나 바뀌면, 이 문서에만 남기지 않고 해당 `domains/` 문서도 갱신한다. 상세 배치 기준은 [`documentation.md`](rules/documentation.md)를 따른다.

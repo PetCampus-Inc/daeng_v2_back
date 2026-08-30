@@ -1,4 +1,4 @@
-> 생성: 2026-08-02 13:45 · 최종 수정: 2026-08-04 18:39
+> 생성: 2026-08-02 13:45 · 최종 수정: 2026-08-30 13:59
 
 # 데이터 인벤토리
 
@@ -66,7 +66,7 @@
 
 ## 5. 논리 관계 초안
 
-아래 관계는 ERDCloud export의 `relEntity` 기준으로 뽑은 후보 관계다. 신규 DB의 실제 cardinality, FK, nullable, unique, cascade, index는 이 표로 확정하지 않는다. 각 항목은 해당 기능 슬라이스의 `plans/*` 문서에서 구현 범위와 함께 구체화하고, 최종 스키마는 Flyway migration에서 확정한다.
+아래 관계는 ERDCloud export의 `relEntity` 기준으로 뽑은 후보 관계다. 신규 DB의 실제 cardinality, FK, nullable, unique, cascade, index는 이 표로 확정하지 않는다. 각 항목은 해당 기능 슬라이스의 `work/*` 문서에서 구현 범위와 함께 구체화하고, 최종 스키마는 Flyway migration에서 확정한다.
 
 | 영역 | 관계 후보 | 확인할 점 |
 |---|---|---|
