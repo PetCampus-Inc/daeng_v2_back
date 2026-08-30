@@ -1,4 +1,4 @@
-> 생성: 2026-07-28 15:00 · 최종 수정: 2026-08-30 20:41
+> 생성: 2026-07-28 15:00 · 최종 수정: 2026-08-30 23:46
 
 # 문서 작성 규칙
 
@@ -14,11 +14,10 @@
 | 현재 아키텍처 | 시스템·모듈 구조, 책임 경계, 구성 요소 상호작용의 현재 상태가 바뀜 | `docs/architecture/<topic>.md` |
 | 의사결정 기록 | 되돌리기 어렵거나 여러 도메인·팀에 영향을 주는 결정을 확정함 | `docs/adr/<slug>.md` (1건 1파일, §3 참고) |
 | 도메인별 장기 기억 | 도메인 경계, 불변식, 권한, 장기 API·데이터 제약, 이관 상태를 확정하거나 바꿈 | `docs/domains/<domain>.md` |
-| API 계약·인벤토리 | 공개 API의 경로·계약·버전·판정이 바뀜 | `docs/api/`, Notion API 명세 |
-| 데이터·이관 | 스키마, Flyway, 데이터 변환·보존·정합성·rollback 기준이 바뀜 | `docs/database/` |
-| 외부 연동 | 외부 의존성의 사용처, 인증·권한 계약, fallback, 장애 시 사용자 영향이 바뀜 | `docs/integrations/` |
-| 운영 전환 | 인프라 제공 방식, 배포, secret 주입, 관찰성, 백업, cutover·rollback이 바뀜 | `docs/operations/` |
-| 프로젝트 기술 관례 | 여러 작업에 재사용되는 현재 기술 패턴이 정착하거나 바뀜 | `docs/conventions/` |
+| API 계약·인벤토리 | 공개 API의 경로·계약·버전·판정이 바뀜 | `docs/rules/api-contract.md`, `docs/inventory/api.md`, Notion API 명세 |
+| 데이터·이관 | 스키마, Flyway, 데이터 변환·보존·정합성·rollback 기준이 바뀜 | `docs/rules/database-change.md`, `docs/inventory/database.md` |
+| 외부 연동 | 외부 의존성의 사용처, 인증·권한 계약, fallback, 장애 시 사용자 영향이 바뀜 | `docs/inventory/integrations.md` |
+| 운영 전환 | 인프라 제공 방식, 배포, secret 주입, 관찰성, 백업, cutover·rollback이 바뀜 | `docs/inventory/operations.md` |
 | 티켓별 작업 기록 | 티켓 한정 논의, 범위, 선택지, 승인, 구현·검증 결과 | `docs/work/<JIRA-KEY>-<kebab-설명>.md` |
 
 각 폴더가 왜 있는지(취지)는 [`docs/README.md`](../README.md)를 참고한다. 폴더별로 문서를 쓸 때 지켜야 할 것은 아래 §2에 모은다.
@@ -31,7 +30,7 @@
 
 ### `workflows/`
 
-파일명 접두사는 `scripts/ai-start`의 선택지 번호와 대응한다. `000-common.md`는 모든 Jira 티켓에 적용하는 공통 절차이자 유일한 workflow 적용 순서와 `work/` 문서 기본 양식의 기준이다. `001-current-status.md`와 `002-continue-work.md`는 읽기 전용 진입 절차이며 공통 절차를 적용하지 않는다. Jira는 일정·상태·담당·우선순위·스프린트·상위 에픽을 관리하고, 상세 요구사항·결정·검증 결과의 단일 기준은 `work/` 문서다. 1단계에서 작업 유형을 판정하고 대응 workflow를 각 공통 단계의 추가 조건으로 결합해 적용한다. 한 티켓에 여러 작업 성격이 있으면 모두 적용하며 충돌하면 더 엄격한 조건을 따른다. `009` 기타는 자유 서술을 적절한 workflow로 분류하는 라우팅 항목이다. `003`부터 `008`까지는 이 결합 형식으로 정비돼 있다. 새 유형 문서를 정비할 때에는 별도 순서나 전체 작업 문서 양식을 중복하지 않고, 사람과 논의할 결정·승인 조건·구현 전후 검증 기준과 각 기록의 공통 `work/` 섹션 위치를 해당 단계에만 정의한다.
+workflow 문서는 `docs/workflows/`에 둔다. 파일명 접두사는 `scripts/ai-start`의 선택지 번호와 대응한다. 공통 절차와 `work/` 문서 양식은 [`000-common.md`](../workflows/000-common.md), 유형별 추가 조건은 각 workflow가 단일 기준이다.
 
 ### `domains/`
 
@@ -39,23 +38,16 @@
 
 `domains/`에는 다음 티켓·세션에서도 참조할 **장기 기억만** 남긴다. 도메인 경계, 불변식, API·데이터·권한 제약, 이관 상태처럼 후속 작업의 판단에 영향을 주는 확정 사실이 대상이다. 티켓별 논의, 선택지, 구현 과정, 검증 결과는 `work/`에 남기며, 티켓 작업에서 장기 기억에 해당하는 사실을 확정하거나 변경했다면 해당 `work/` 문서와 `domains/<domain>.md`를 같은 작업에서 함께 갱신한다.
 
-### `api/`
+### `inventory/`
 
-`inventory.md`는 API 목록과 판정(`KEEP`/`REDESIGN`/`DROP`/`DEFER`)을 표로 관리한다. `policy.md`는 계약 보존, versioning, breaking change 기준을 관리한다. API별 상세 request/response는 구현 직전에 도메인 문서나 계획 문서에서 작성한다.
+`api.md`, `database.md`, `integrations.md`, `operations.md`는 각 영역의 전체 대상과 판정(`KEEP`/`REDESIGN`/`DROP`/`DEFER`)을 관리한다. 표의 세부 열은 영역별로 다르며, 최소한 대상 식별, 사용·소유 도메인 또는 현재 구성, 위험·후속 확인을 기록한다. 근거는 API처럼 항목별로 필요한 영역에 기록하고, 데이터처럼 공통 출처인 경우 문서의 추출 범위에 기록한다. 인벤토리 내용을 `work/`나 `domains/`에 복제하지 않는다.
 
-### `database/`
+인벤토리의 기준 시점은 문서의 시간정보 헤더로 관리한다. 특정 항목을 작업에서 조사·구현·재판정했다면 해당 행에 관련 `work/` 링크와 재검토 조건을 추가한다. 모든 행에 근거 없는 확인 상태나 날짜 열을 일괄 추가하지 않는다.
 
-`inventory.md`는 MySQL 테이블, Redis 키, 스토리지 데이터 등 데이터 객체의 사용처와 판정을 관리한다. `policy.md`는 신규 스키마, Flyway, 데이터 이관, 검증, rollback 원칙을 관리한다. 레거시 스키마나 ERDCloud 초안을 그대로 신규 스키마로 확정한다고 가정하지 않는다.
-
-### `integrations/`
-
-Redis, S3, OIDC, 크롤링, 외부 API 같은 코드 밖 의존성을 표로 관리한다. secret, token, key 값은 문서에 직접 적지 않는다.
-애플리케이션이 해당 의존성을 왜 쓰는지, 어느 도메인/API에서 쓰는지, 인증/권한 방식과 장애 시 사용자 영향/fallback 여부를 기록한다. 인스턴스 사양, 네트워크, 배포, 모니터링, 백업, 컷오버, rollback은 `operations/`에 둔다.
-
-### `operations/`
-
-EC2, DB/Redis 인스턴스, secret 관리, 로그, 알람, 배포, 컷오버, rollback 같은 운영 항목을 표로 관리한다. 실제 credential이나 민감한 운영 값은 문서에 직접 적지 않는다.
-Redis, S3, OIDC처럼 `integrations/`와 이름이 겹치는 항목은 운영 제공 방식만 기록한다. 애플리케이션 사용처, 인증/권한 계약, key/TTL/fallback 같은 연동 의미는 `integrations/`에 둔다.
+- `api.md`: endpoint, 호출 근거, 판정, 대상 버전, 도메인, 후속 확인만 관리한다. 상세 request/response는 Notion API 명세, 계약·versioning·breaking change 규칙은 [`api-contract.md`](api-contract.md)에 둔다.
+- `database.md`: 레거시 데이터 객체, 보존·이관 판정, 소유 도메인, 위험만 관리한다. 실제 신규 스키마는 Flyway migration, 스키마·데이터 이관 규칙은 [`database-change.md`](database-change.md)에 둔다.
+- `integrations.md`: 외부 의존성의 사용 도메인, 인증 방식, 장애 영향, 판정을 관리한다. secret, token, key 값은 기록하지 않는다.
+- `operations.md`: 현재 확인된 운영·실행 구성, 운영 전환 대상·미확인 항목·위험을 관리한다.
 
 ### `adr/`
 
@@ -65,22 +57,15 @@ Redis, S3, OIDC처럼 `integrations/`와 이름이 겹치는 항목은 운영 �
 
 ADR과 달리 append-only가 아니라 최신 상태를 계속 갱신하는 문서다. 설계가 바뀌면 과거 버전을 남기지 말고 현재 상태로 덮어쓴다 (과거 결정의 이유가 필요하면 `adr/`를 따로 참조).
 
-### `conventions/`
-
-"지켜야 할 규칙"이 아니라 "지금 이렇게 되어 있다"는 사실 기록이다. 새 컨벤션을 도입하기로 결정했다면 그 결정 자체는 `adr/`에, 결정된 이후의 최종 패턴 설명은 여기에 남긴다.
-
 ### `work/`
 
-필수 섹션과 순서는 [`000-common.md`](../workflows/000-common.md) 2단계의 **작업 문서 공통 양식**을 따른다 — 이 섹션 구성 자체가 규칙이므로 여기서 다시 정의하지 않는다. 판정된 작업 유형 workflow가 각 단계에서 지정한 기록을 해당 공통 섹션 아래에 더한다. 파일명은 `<JIRA-KEY>-<kebab-설명>.md`. 컨텍스트 없는 리뷰어(사람 또는 AI)가 이 문서만 보고 무엇을, 왜, 어디까지 작업했는지 알 수 있어야 하므로, 구현 중 계획이 바뀌면 코드보다 이 작업 문서를 먼저 갱신한다.
-`work/`에는 사람과의 논의, 이번 티켓의 작업 범위·제외 범위·선택지·결정 근거, 구현·검증 결과처럼 **티켓에 종속되는 기록**을 남긴다. 이 문서는 Jira 본문을 대체하는 티켓 상세 정보의 단일 기준이다. Jira 키, 사람이 제공한 작업 브랜치, 상위 에픽을 H1 아래 표로 기록한다. 상태는 Jira에서만 관리해 중복하지 않는다. `api/`, `database/`, `integrations/`, `operations/`의 인벤토리 내용을 그대로 복제하지 않는다. 후속 작업에도 유지할 도메인 사실이 확정되거나 바뀌면, 작업 문서에만 기록하지 않고 해당 `domains/` 문서도 갱신한다.
-
-PR에는 [`pull_request_template.md`](../../.github/pull_request_template.md)에 따라 Jira와 작업 문서 경로만 연결한다. 문서 영향 판정·근거·Notion API 명세 반영 여부는 작업 문서의 `작업 후 확인 목록`에 남긴다. CI는 작업 문서와 확인 목록의 존재·기본 형식만 확인하고, 리뷰어는 작업 문서·코드·외부 페이지를 대조해 판단의 타당성을 확인한다.
+`work/`에는 사람과의 논의, 이번 티켓의 작업 범위·제외 범위·선택지·결정 근거, 구현·검증 결과처럼 **티켓에 종속되는 기록**을 둔다. 파일명은 `<JIRA-KEY>-<kebab-설명>.md`다. 장기적으로 유지할 도메인 사실이 확정되거나 바뀌면 작업 문서에만 남기지 않고 해당 `domains/` 문서도 갱신한다. `inventory/`의 내용을 그대로 복제하지 않는다.
 
 ## 3. ADR (`docs/adr/`)
 
 ADR(Architecture Decision Record) = 프로젝트 전반에 영향을 주는 결정 1건 = 파일 1개. 아키텍처에 국한되지 않고 프로세스·툴링·컨벤션 변경도 대상이 될 수 있다.
 
-**언제 ADR로 남기는가**: 되돌리기 어렵거나(스키마, 인프라, 인증 방식 등) 여러 도메인/팀에 영향을 주는 결정만 ADR로 남긴다. 구현 디테일 수준의 판단(라이브러리 하나를 안 쓰기로 함, 작업을 어떻게 쪼갤지 등)은 관련 ADR의 "결과" 절이나 가장 가까운 `domains/`·`conventions/` 문서에 짧게 적는다 — 매번 별도 ADR 파일을 만들지 않는다.
+**언제 ADR로 남기는가**: 되돌리기 어렵거나(스키마, 인프라, 인증 방식 등) 여러 도메인/팀에 영향을 주는 결정만 ADR로 남긴다. 구현 디테일 수준의 판단(라이브러리 하나를 안 쓰기로 함, 작업을 어떻게 쪼갤지 등)은 관련 `work/`나 가장 가까운 `domains/`·`architecture/` 문서에 짧게 적는다 — 매번 별도 ADR 파일을 만들지 않는다.
 
 - 파일명: `NNNN-슬러그.md` (4자리 일련번호, append-only — 번호는 결정이 내려진 순서를 그대로 반영하며 재사용하지 않는다)
 - 섹션 순서: **맥락 → 검토한 후보 → 결정 → 결과** (후보를 먼저 제시하고, 그 뒤에 결정이 나오도록)
