@@ -1,4 +1,4 @@
-> 생성: 2026-08-02 13:45 · 최종 수정: 2026-08-02 13:45
+> 생성: 2026-08-02 13:45 · 최종 수정: 2026-08-30 20:26
 
 # 데이터베이스 정책
 
@@ -17,6 +17,10 @@
 - 파일명은 `V<N>__<description>.sql` 형식을 따른다.
 - 이미 공유된 migration 파일은 수정하지 않고 새 migration을 추가한다.
 - Flyway가 단일 출처가 되는 시점에는 `FLYWAY_ENABLED=true`, `JPA_DDL_AUTO=validate` 전환을 검토한다.
+
+### 현재 상태
+
+`flyway-core`와 `flyway-mysql` 의존성은 추가되어 있지만 아직 migration 파일은 없다. 현재 로컬 기본값은 `FLYWAY_ENABLED=false`, `ddl-auto: update`인 과도기 상태다. 신규 테이블을 실제로 도입하는 작업부터 Flyway migration으로 스키마를 확정하고, 이후 `FLYWAY_ENABLED=true`와 `JPA_DDL_AUTO=validate` 전환을 별도 결정한다.
 
 ## 3. 신규 스키마 확정 기준
 

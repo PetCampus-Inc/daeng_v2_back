@@ -1,4 +1,4 @@
-> 생성: 2026-07-28 11:43 · 최종 수정: 2026-08-30 18:33
+> 생성: 2026-07-28 11:43 · 최종 수정: 2026-08-30 20:26
 
 # docs 폴더 개요
 
@@ -26,7 +26,7 @@ docs/
 │   ├── 005-new-feature.md
 │   ├── 006-code-review.md
 │   ├── 007-design-research.md
-│   └── 008-documentation.md
+│   └── 008-docs.md
 ├── work/
 │   └── <JIRA-KEY>-<slug>.md
 ├── domains/
@@ -40,12 +40,14 @@ docs/
 ├── integrations/
 │   └── inventory.md
 ├── operations/
+│   ├── infrastructure.md
 │   └── inventory.md
 ├── architecture/
 │   ├── hexagonal.md
 │   ├── common-response-error.md
 │   └── migration-strategy.md
 ├── conventions/
+│   ├── notion-api-page-template.json
 │   └── notion-api-spec-sync.md
 └── adr/
     └── NNNN-<slug>.md

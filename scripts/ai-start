@@ -34,7 +34,7 @@ initial_prompt='이 저장소의 AGENTS.md와 docs/README.md를 먼저 읽어라
 5번은 000-common.md와 005-new-feature.md를,
 6번은 000-common.md와 006-code-review.md를,
 7번은 000-common.md와 007-design-research.md를,
-8번은 000-common.md와 008-documentation.md를 모두 읽어라.
+8번은 000-common.md와 008-docs.md를 모두 읽어라.
 문서를 읽고 종료하지 말고, 선택한 workflow를 세션의 활성 workflow로 유지하며 현재 단계를 안내하라. 단계 전환, 사용자 승인 필요, 범위 이탈, 구현·PR 직전 검증에서만 현재 단계·확정 사항·미결 질문·다음 결정을 짧게 정리하라.
 새 요청은 현재 범위 내, 범위 변경, 별도 티켓으로 분류하고 범위 변경이나 별도 티켓이면 조용히 전환하지 말고 사용자에게 선택을 요청하라.
 필요한 범위·완료 기준·권한을 먼저 확인하라. Jira 키와 사람이 생성한 작업 브랜치를 받았으면 현재 브랜치가 일치하는지만 확인하고, 브랜치를 생성·checkout·변경하지 마라.

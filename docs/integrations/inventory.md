@@ -1,4 +1,4 @@
-> 생성: 2026-08-02 13:45 · 최종 수정: 2026-08-04 17:37
+> 생성: 2026-08-02 13:45 · 최종 수정: 2026-08-30 20:26
 
 # 외부 연동 인벤토리
 
@@ -23,7 +23,7 @@
 
 | 의존성 | 용도 | 사용 위치 | 판정 | 신규 방향 | 위험 | 후속 확인 |
 |---|---|---|---|---|---|---|
-| Redis | 리프레시 토큰, 이메일 인증, 유치원 데이터 저장소 후보 | 레거시 기준 확인 필요 | `DEFER` | auth/kindergarten 이관 시 재검토 | 키 충돌/전체 삭제 시 인증 상태 영향 | 키 목록, TTL, key prefix, 장애 시 fallback 확인 |
+| Redis | 레거시의 리프레시 토큰·이메일 인증과 유치원 데이터 저장소 | auth/kindergarten (신규 서버 미도입) | `DEFER` | auth/kindergarten 이관 시 재검토 | 키 충돌/전체 삭제 시 인증 상태 영향 | 키 목록, TTL, key prefix, 장애 시 fallback 확인 |
 | S3 | 이미지 업로드/저장 | 레거시 기준 확인 필요 | `DEFER` | presigned URL 발급 정책 재검토 | 인증 없는 발급 위험 | 호출 API와 권한 정책 확인 |
 | OIDC | Apple/Google/Kakao ID Token 검증 | auth | `DEFER` | 기존 직접 검증 방식 유지 후보 | provider별 key 검증 실패 처리 | provider별 설정/에러 계약 확인 |
 | 도로명주소 API | 주소 검색 | address | `KEEP` | `GET /api/v0/address/search`에서 outbound client로 호출 | 장애 시 주소 검색 결과가 빈 결과로 반환됨 | key 발급/쿼터, 장애 알림 필요 여부 확인 |

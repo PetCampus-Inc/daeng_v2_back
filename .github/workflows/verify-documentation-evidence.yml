@@ -1,0 +1,53 @@
+name: Verify documentation evidence
+
+on:
+  pull_request:
+    types: [opened, reopened, edited, synchronize]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Verify work record
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: |
+          node <<'NODE'
+          const fs = require('fs');
+
+          const body = process.env.PR_BODY || '';
+          const failures = [];
+          const requiredSections = ['## Summary', '## Details', '## Notes', '## Test plan', '## Related issue'];
+          for (const section of requiredSections) {
+            if (!body.includes(section)) {
+              failures.push(`PR 본문에 ${section} 섹션이 없습니다.`);
+            }
+          }
+
+          const workDocument = body.match(/Work record:\s*`?(docs\/work\/[A-Za-z0-9._-]+\.md)`?/);
+
+          if (!workDocument) {
+            failures.push('PR 본문에 docs/work/ 작업 문서 경로가 없습니다.');
+          } else if (!fs.existsSync(workDocument[1])) {
+            failures.push(`작업 문서가 PR 브랜치에 없습니다: ${workDocument[1]}`);
+          } else {
+            const workBody = fs.readFileSync(workDocument[1], 'utf8');
+            const checklist = workBody.match(/^## 작업 후 확인 목록\s*$(.*)/ms);
+            if (!checklist || !/^\s*[-*]\s+\S+/m.test(checklist[1])) {
+              failures.push('작업 문서의 "작업 후 확인 목록"에 최소 한 개의 결과·근거를 남겨야 합니다.');
+            }
+          }
+
+          if (failures.length) {
+            console.error(failures.map((failure) => `- ${failure}`).join('\n'));
+            process.exit(1);
+          }
+          NODE
