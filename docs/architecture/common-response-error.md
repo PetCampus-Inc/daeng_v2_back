@@ -1,8 +1,8 @@
-> 생성: 2026-07-28 23:40 · 최종 수정: 2026-08-02 14:55
+> 생성: 2026-07-28 23:40 · 최종 수정: 2026-08-30 13:59
 
 # 공통 응답/에러 처리 구조
 
-모든 도메인 컨트롤러는 아래 공통 계층 위에서 응답과 예외를 다룬다. 왜 이 형태로 정했는지는 [`KD3-257 계획 문서`](../plans/KD3-257-common-response-error-handling.md) §방향 논의 및 결정 사항을 참고한다.
+모든 도메인 컨트롤러는 아래 공통 계층 위에서 응답과 예외를 다룬다. 왜 이 형태로 정했는지는 [`KD3-257 작업 문서`](../work/KD3-257-common-response-error-handling.md) §방향 논의 및 결정 사항을 참고한다.
 
 ## 1. `Response<T>`
 
@@ -71,6 +71,6 @@ catch-all(7번)이 프레임워크가 던지는 다른 예외(예: 존재하지 
 
 ## 5. 참고
 
-- 설계 근거·트레이드오프: [`docs/plans/KD3-257-common-response-error-handling.md`](../plans/KD3-257-common-response-error-handling.md)
+- 설계 근거·트레이드오프: [`docs/work/KD3-257-common-response-error-handling.md`](../work/KD3-257-common-response-error-handling.md)
 - 응답 형식 통일 결정: [`0004`](../adr/0004-api-v0-유지-v1-신규.md)
 - 코드: `src/main/kotlin/com/petcampus/knockdog/global/`
