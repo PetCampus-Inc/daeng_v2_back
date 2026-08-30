@@ -1,4 +1,4 @@
-> 생성: 2026-07-28 11:43 · 최종 수정: 2026-08-30 15:10
+> 생성: 2026-07-28 11:43 · 최종 수정: 2026-08-30 16:29
 
 # docs 폴더 개요
 
@@ -18,9 +18,15 @@ docs/
 │   ├── documentation.md
 │   └── git.md
 ├── workflows/
-│   ├── common.md
-│   ├── new-feature.md
-│   └── migration.md
+│   ├── 000-common.md
+│   ├── 001-current-status.md
+│   ├── 002-continue-work.md
+│   ├── 003-migration.md
+│   ├── 004-bug-fix.md
+│   ├── 005-new-feature.md
+│   ├── 006-code-review.md
+│   ├── 007-design-research.md
+│   └── 008-documentation.md
 ├── work/
 │   └── <JIRA-KEY>-<slug>.md
 ├── domains/
@@ -50,7 +56,7 @@ docs/
 | `service.md` | 서비스/제품 맥락 (단일 파일) |
 | `rules/` | 반드시 지킬 규칙 (git, documentation 등) |
 | `workflows/` | 공통·작업 유형별 필수 절차, 검증 기준, `work/` 문서 양식 |
-| `work/` | 티켓별 논의·결정·구현·검증 기록 |
+| `work/` | Jira 본문을 대체하는 티켓별 논의·결정·구현·검증의 단일 기준 |
 | `domains/` | 후속 작업에도 유지할 도메인 지식과 제약 |
 | `adr/` | 의사결정 기록 (ADR, 1건 1파일) |
 | `architecture/` | 설계 문서 자체 |
@@ -68,7 +74,11 @@ docs/
 
 ### `workflows/`
 
-Jira 티켓 작업의 공통 절차와 작업 유형별 필수 절차를 관리한다. 모든 티켓은 `common.md`를 따르고, 신규 기능은 `new-feature.md`, 마이그레이션은 `migration.md`를 추가로 따른다.
+시작 선택지 순서에 맞춰 번호를 부여한 workflow를 관리한다. `000-common.md`는 모든 Jira 티켓의 공통 절차이고, `001`·`002`는 읽기 전용 진입 절차다. `003`부터 `008`까지는 Jira 티켓 작업에서 `000-common.md`와 함께 적용하는 작업 유형별 절차다. `009` 기타는 사용자의 자유 서술을 분류하는 라우팅 항목이므로 별도 파일을 두지 않는다.
+
+### AI 작업 시작
+
+저장소 루트에서 `./scripts/ai-start codex` 또는 `./scripts/ai-start claude`를 실행하면, 두 도구 모두 같은 작업 접수 질문으로 대화형 세션을 시작한다. 이 첫 단계는 변경 없이 작업 유형·범위·완료 기준을 수집하는 단계다.
 
 ### `domains/`
 
@@ -106,5 +116,5 @@ EC2, MySQL, Redis, secret, 로그, 알람, 배포, 컷오버, rollback처럼 운
 
 ### `work/`
 
-Jira 티켓 하나를 맡은 AI가 구현 방향 논의 결과를 정리해두는 문서. 컨텍스트를 공유하지 않는 리뷰어에게 "무엇을, 왜, 어디까지" 작업했는지 전달하는 역할을 한다 ([`common.md`](workflows/common.md) §5 참고).
+Jira 티켓 하나를 맡은 AI가 구현 방향 논의 결과를 정리해두는 문서이자, Jira 본문을 대체하는 티켓 상세 정보의 단일 기준이다. Jira는 일정·상태·담당·우선순위·스프린트·상위 에픽만 관리한다. 컨텍스트를 공유하지 않는 리뷰어에게 "무엇을, 왜, 어디까지" 작업했는지 전달하는 역할을 한다 ([`000-common.md`](workflows/000-common.md) §5 참고).
 사람과의 논의, 작업 범위, 선택지, 구현·검증 결과처럼 **티켓에 종속되는 기록**을 남긴다. 후속 작업에도 유지해야 할 도메인 경계·불변식·API/데이터/권한 제약·이관 상태가 확정되거나 바뀌면, 이 문서에만 남기지 않고 해당 `domains/` 문서도 갱신한다. 상세 배치 기준은 [`documentation.md`](rules/documentation.md)를 따른다.
