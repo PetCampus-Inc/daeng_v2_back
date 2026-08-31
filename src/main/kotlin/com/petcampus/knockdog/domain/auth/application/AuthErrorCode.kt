@@ -5,7 +5,7 @@ import org.springframework.http.HttpStatus
 
 /**
  * 레거시(`knockdog_server`)의 `AuthErrorCode.java`와 동일한 `code` 문자열을 유지한다 —
- * 프론트가 이미 이 값으로 분기하고 있어 임의로 바꿀 수 없다 (docs/architecture/common-response-error.md §2).
+ * 프론트가 이미 이 값으로 분기하고 있어 임의로 바꿀 수 없다 (docs/conventions/error-handling.md §1).
  */
 enum class AuthErrorCode(
     override val status: HttpStatus,

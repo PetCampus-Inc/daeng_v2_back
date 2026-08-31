@@ -1,4 +1,4 @@
-> 생성: 2026-08-02 13:45 · 최종 수정: 2026-08-31 17:55
+> 생성: 2026-08-02 13:45 · 최종 수정: 2026-08-31 22:15
 
 # API 인벤토리
 
@@ -289,8 +289,8 @@
 | GET | `/api/v0/school/search` | 없음 | `DROP` | 없음 | legacy-school | P3 | @Deprecated 레거시 블록: 0001에 따라 신규 서버 미이관<br>src/main/java/com/petcampus/knockdog/controller/school/SchoolController.java#SchoolController.getSchoolBySearch | - |
 | GET | `/api/v0/school/search/breed` | 없음 | `DROP` | 없음 | legacy-school | P3 | @Deprecated 레거시 블록: 0001에 따라 신규 서버 미이관<br>src/main/java/com/petcampus/knockdog/controller/school/SchoolController.java#SchoolController.searchBreed | - |
 | GET | `/api/v0/school/search/map` | 없음 | `DROP` | 없음 | legacy-school | P3 | @Deprecated 레거시 블록: 0001에 따라 신규 서버 미이관<br>src/main/java/com/petcampus/knockdog/controller/school/SchoolController.java#SchoolController.searchNearbySchool | - |
-| POST | `/api/v0/user/agreements` | 있음: src/entities/user/api/userAgreement.ts | `KEEP` | v0 | user | P1 | 프론트 호출 확인<br>src/main/java/com/petcampus/knockdog/auth/controller/UserController.java#UserController.agreeToTerms | [`KD3-258`](../work/KD3-258-user-social-auth.md)에서 v0 경로 그대로 구현 완료. parity 테스트 대상 |
-| GET | `/api/v0/user/agreements/status` | 있음: src/entities/user/api/userAgreement.ts | `KEEP` | v0 | user | P1 | 프론트 호출 확인<br>src/main/java/com/petcampus/knockdog/auth/controller/UserController.java#UserController.getAgreementStatus | [`KD3-258`](../work/KD3-258-user-social-auth.md)에서 v0 경로 그대로 구현 완료. parity 테스트 대상 |
+| POST | `/api/v0/user/agreements` | 있음: src/entities/user/api/userAgreement.ts | `KEEP` | v0 | auth | P1 | 프론트 호출 확인<br>src/main/java/com/petcampus/knockdog/auth/controller/UserController.java#UserController.agreeToTerms | [`KD3-258`](../work/KD3-258-user-social-auth.md)에서 v0 경로 그대로 구현 완료. parity 테스트 대상 |
+| GET | `/api/v0/user/agreements/status` | 있음: src/entities/user/api/userAgreement.ts | `KEEP` | v0 | auth | P1 | 프론트 호출 확인<br>src/main/java/com/petcampus/knockdog/auth/controller/UserController.java#UserController.getAgreementStatus | [`KD3-258`](../work/KD3-258-user-social-auth.md)에서 v0 경로 그대로 구현 완료. parity 테스트 대상 |
 | POST | `/api/v0/user/register` | 있음: src/entities/user/api/user.ts | `REDESIGN` | v0+v1 | auth | P1 | auth 도메인 문서 v1 매핑 대상<br>src/main/java/com/petcampus/knockdog/auth/controller/UserController.java#UserController.register | v1 `POST /api/v1/users` 구현 완료([`KD3-258`](../work/KD3-258-user-social-auth.md)). v0는 컷오버까지 레거시가 계속 제공한다 |
 | POST | `/api/v0/user/restore` | 없음 | `DROP` | 없음 | auth | P3 | 0004 삭제 확정: 프론트 호출 0건<br>src/main/java/com/petcampus/knockdog/auth/controller/UserController.java#UserController.restore | 폐기 전 기획 확인 권장 |
 | POST | `/api/v0/user/social/delete` | 없음 | `DROP` | 없음 | auth | P3 | 0004 삭제 확정: 프론트 호출 0건<br>src/main/java/com/petcampus/knockdog/auth/controller/UserController.java#UserController.deleteSocialUser | - |

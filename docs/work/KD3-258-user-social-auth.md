@@ -1,6 +1,18 @@
-> 생성: 2026-08-03 · 최종 수정: 2026-08-31 18:10
+> 생성: 2026-08-03 14:00 · 최종 수정: 2026-08-31 22:15
 
 # KD3-258 — User 엔티티 + 소셜 로그인 회원가입 + 인증/인가 기반 구축
+
+| 항목 | 값 |
+|---|---|
+| Jira | `KD3-258` |
+| 브랜치 | `feat/KD3-258-user-social-auth` |
+| 상위 에픽 | `KD3-194` |
+
+## 현재 제어점
+
+- 활성 workflow: `003-migration`, `005-new-feature`
+- 현재 공통 단계: `5` (PR #4 리뷰 반영 중)
+- 다음 결정 또는 전환 조건: 아래 §미결 질문의 **KEEP parity 응답 봉투 차이**를 어떻게 처리할지 정해지면 머지 가능
 
 ## 작업 목표
 
@@ -177,6 +189,21 @@ CREATE TABLE user_agreements (
 | permit 목록 통과 | `/api/v1/auth/login`, `/api/v1/users`가 403이 아님 |
 | 필수 쿠키 누락 | 400 `INVALID_INPUT_VALUE` (아래 §발견 3 수정 후) |
 
+### 미결 질문 — KEEP parity 응답 봉투가 레거시와 다르다
+
+약관 동의 2개는 `KEEP` 판정이라 [`api-migration.md`](../rules/api-migration.md) §2가 "응답 필드명·타입·null 처리 유지"를 요구한다. 레거시 저장소의 `common/response/Response.java`와 대조한 결과 **봉투가 다르다.**
+
+| | 레거시 v0 | 신규 |
+|---|---|---|
+| 필드 순서·구성 | `data, status, code, message, responseTime` | `status, code, message, data` |
+| 성공 시 `code` | `"SUCCESS"` | `null` |
+| `responseTime` | 있음 (`LocalDateTime`) | **없음** |
+| null 필드 | `@JsonInclude(NON_NULL)`으로 생략 | 그대로 내려감 |
+
+즉 `GET /api/v0/user/agreements/status`의 응답이 레거시는 `{"data":{"hasAgreedRequiredTerms":true},"status":200,"code":"SUCCESS","message":"정상 처리되었습니다.","responseTime":"..."}`인데 신규는 `{"status":200,"code":null,"message":"정상 처리되었습니다.","data":{...}}`가 된다. `data` 안쪽(`hasAgreedRequiredTerms`)은 일치한다.
+
+프론트가 봉투의 어느 필드를 읽는지에 따라 영향이 갈린다. `data`만 꺼내 쓴다면 문제없고, `code === "SUCCESS"`로 분기하거나 `responseTime`을 쓴다면 깨진다. **결정이 필요하다** — (a) v0 KEEP 전용 봉투를 따로 두기, (b) 공통 `Response`를 레거시 형태에 맞추기(KD3-257 범위), (c) 프론트가 `data`만 쓴다는 걸 확인하고 차이를 허용하기. 확인 전에는 golden/parity 테스트도 쓸 수 없다.
+
 ### 로컬 기동에서 발견한 문제
 
 1. **기존 로컬 DB는 Flyway checksum 불일치로 기동 실패한다.** §방향 논의 8에서 V1을 직접 수정했기 때문이다. 실제로 재현했다 — `Migration checksum mismatch for migration version 1 / Applied to database: 1207543218 / Resolved locally: -1900621767`. 로컬 DB를 초기화해야 한다(운영/스테이징은 아직 이 스키마가 적용된 적이 없어 영향 없음).
@@ -197,7 +224,9 @@ CREATE TABLE user_agreements (
 | `docs/conventions/infra.md` | 해당 없음 | epic의 docs 재편(KD3-242)에서 삭제됐고 내용이 [`docs/inventory/operations.md`](../inventory/operations.md)로 재배치됐다. Flyway 전환·Redis 도입 사실은 아래 인벤토리 항목으로 넘긴다 |
 | `docs/specs/2026-07-30-auth-daycare-schema-draft.md` | 해당 없음 | `docs/specs/` 폴더가 KD3-242 재편에서 사라졌다. 이 문서를 참조하던 서술은 §방향 논의 1에 근거가 남아 있어 별도 조치가 필요 없다 |
 | [`docs/inventory/api.md`](../inventory/api.md), [`docs/inventory/database.md`](../inventory/database.md), [`docs/inventory/integrations.md`](../inventory/integrations.md), [`docs/inventory/operations.md`](../inventory/operations.md) | 갱신 | KD3-402가 epic에 머지된 뒤(2026-08-31) 반영했다. 아래 목록 참고 |
-| Notion API 명세서 | 미처리 | 신규 7개 엔드포인트 반영 ([`docs/rules/notion-api-spec-sync.md`](../rules/notion-api-spec-sync.md) 절차) |
+| [`docs/rules/notion-api-spec-sync.md`](../rules/notion-api-spec-sync.md) | 갱신 | 명세서 `이름` 속성 규칙을 정정하고 "Cookie" 섹션(§3)을 신설했다. auth 5개 페이지를 만들면서 쿠키 값을 HTTP Header 표에 잘못 적은 걸 발견해 팀 규칙 자체를 고친 것이다 |
+| `docs/rules/notion-api-page-template.json` | 갱신 | 위 규칙 변경에 맞춰 Cookie 섹션 블록을 템플릿에 추가 |
+| Notion API 명세서(외부) | 미처리 | v1 5개는 생성했고 약관 동의 2개가 미반영이다 ([`notion-api-spec-sync.md`](../rules/notion-api-spec-sync.md) 절차) |
 
 ### 인벤토리 반영 내역 (2026-08-31, KD3-402 머지 후)
 
