@@ -52,7 +52,7 @@ IntelliJ에서 실행한다면 EnvFile 플러그인으로 `.env.local`을 지정
 
 ```
 domain/<도메인>/
-  domain/          순수 도메인 모델 (정석형) 또는 엔티티=도메인 (실용형)
+  domain/          순수 도메인 모델 (Spring/JPA 의존 금지)
   application/
     port/input/    유스케이스 인터페이스 (입력 포트)
     port/output/   나가는 인터페이스 (출력 포트)
@@ -71,4 +71,4 @@ domain/<도메인>/
 
 - **`auth` (정석형)**: 순수 도메인 `User`/`SocialUser` + JPA 엔티티 분리 + 매퍼. 소셜 로그인 검증·회원가입·로그인/재발급/로그아웃·약관 동의. 자세한 내용은 [`docs/domains/auth.md`](docs/domains/auth.md)
 
-초기 세팅에 있던 예제 슬라이스(`owner` 정석형 / `bookmark` 실용형)는 `auth`가 실제 구현으로 두 패턴을 보여주게 되면서 KD3-258에서 삭제했습니다.
+초기 세팅에 있던 예제 슬라이스(`owner`, `bookmark`)는 `auth`가 실제 구현으로 대체하면서 KD3-258에서 삭제했습니다.
