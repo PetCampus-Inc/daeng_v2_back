@@ -140,4 +140,4 @@ CREATE TABLE user_addresses (
 - `docs/conventions/jpa-entity.md` (신규) — BaseEntity 공통 컬럼, status 컬럼 사용 기준, FK 미적용 + `NO_CONSTRAINT` 연관관계 매핑 정책 기록
 - `docs/conventions/infra.md` §3, §4 — Flyway 전환 완료, Redis 도입(접속 구성·레거시와 공유 여부) 반영
 - `docs/specs/2026-07-30-auth-daycare-schema-draft.md` — 이번에 확정된 `knockdog_server`발 스키마로 대체/보류 처리되었음을 표시
-- Notion API 명세서 — 신규 5개 엔드포인트 반영 ([`docs/conventions/notion-api-spec-sync.md`](../conventions/notion-api-spec-sync.md) 절차)
+- Notion API 명세서 — 신규 5개 엔드포인트 반영 ([`docs/rules/notion-api-spec-sync.md`](../rules/notion-api-spec-sync.md) 절차)

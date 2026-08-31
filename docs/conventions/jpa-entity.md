@@ -33,4 +33,4 @@ Hibernate의 지연 로딩은 컬럼에 저장된 값만으로 동작하므로, 
 ## 4. 참고
 
 - 예시 코드: `domain/auth/adapter/outbound/persistence/`(`UserJpaEntity`, `UserAddressJpaEntity`, `SocialUserJpaEntity`)
-- Flyway 전환 배경: [`infra.md`](infra.md) §3
+- Flyway 전환 배경: [`docs/inventory/operations.md`](../inventory/operations.md)의 `스키마 관리` 행
