@@ -1,4 +1,4 @@
-> 생성: 2026-08-03 · 최종 수정: 2026-08-31 17:05
+> 생성: 2026-08-03 · 최종 수정: 2026-08-31 18:00
 
 # KD3-258 — User 엔티티 + 소셜 로그인 회원가입 + 인증/인가 기반 구축
 
@@ -176,15 +176,15 @@ CREATE TABLE user_agreements (
 | [`docs/conventions/error-handling.md`](../conventions/error-handling.md) | 갱신 | 도메인 전용 `ErrorCode` 첫 도입 사례로 `AuthErrorCode` 예시 추가 |
 | `docs/conventions/infra.md` | 해당 없음 | epic의 docs 재편(KD3-242)에서 삭제됐고 내용이 [`docs/inventory/operations.md`](../inventory/operations.md)로 재배치됐다. Flyway 전환·Redis 도입 사실은 아래 인벤토리 항목으로 넘긴다 |
 | `docs/specs/2026-07-30-auth-daycare-schema-draft.md` | 해당 없음 | `docs/specs/` 폴더가 KD3-242 재편에서 사라졌다. 이 문서를 참조하던 서술은 §방향 논의 1에 근거가 남아 있어 별도 조치가 필요 없다 |
-| [`docs/inventory/api.md`](../inventory/api.md), [`docs/inventory/database.md`](../inventory/database.md), [`docs/inventory/operations.md`](../inventory/operations.md) | **미처리 — 후속 필요** | 이 브랜치가 머지한 epic에는 KD3-402(인벤토리 최신화)가 아직 없어 219행 버전이다. 여기서 고치면 KD3-402 PR과 정면 충돌하므로 손대지 않았다. KD3-402가 epic에 머지된 뒤 별도로 반영한다 (아래 참고) |
+| [`docs/inventory/api.md`](../inventory/api.md), [`docs/inventory/database.md`](../inventory/database.md), [`docs/inventory/integrations.md`](../inventory/integrations.md), [`docs/inventory/operations.md`](../inventory/operations.md) | 갱신 | KD3-402가 epic에 머지된 뒤(2026-08-31) 반영했다. 아래 목록 참고 |
 | Notion API 명세서 | 미처리 | 신규 7개 엔드포인트 반영 ([`docs/rules/notion-api-spec-sync.md`](../rules/notion-api-spec-sync.md) 절차) |
 
-### 인벤토리에 반영할 사실 (KD3-402 머지 후)
+### 인벤토리 반영 내역 (2026-08-31, KD3-402 머지 후)
 
-KD3-402가 epic에 들어간 뒤 아래를 반영한다. 여기 적어두는 이유는, 이 브랜치에서 고치면 충돌하지만 잊으면 인벤토리가 다시 사실과 어긋나기 때문이다.
+KD3-402가 epic에 들어간 뒤 아래를 반영했다.
 
 - `operations.md` `스키마 관리` — 신규 서버는 KD3-258부터 Flyway가 단일 출처다. `FLYWAY_ENABLED=true` + `JPA_DDL_AUTO=validate`가 기본값이고 `db/migration/V1`, `V2`가 존재한다. "migration 파일이 없고 `FLYWAY_ENABLED=false`"는 더 이상 사실이 아니다.
-- `operations.md` `로컬 실행` — `docker-compose.local.yaml`이 MySQL만이 아니라 MySQL + Redis를 제공한다.
-- `integrations.md` Redis — 신규 서버가 리프레시 토큰 저장 용도로 Redis를 도입했다(TTL 30일, 레거시와 별개 인스턴스, 로컬 호스트 포트 기본 6380). "신규 서버 미도입"은 더 이상 사실이 아니다.
-- `api.md` — 약관 동의 2행의 후속 확인에 이 티켓 링크를 달고, auth `v0+v1` 행들의 v1 구현 상태를 반영한다.
-- `database.md` `user_agreement` 행 — 신규 서버에서 `user_agreements`로 확정됐고 `(user_id, term_type)` unique·append-only로 결정됐다.
+- `operations.md` `로컬 실행` — `docker-compose.local.yaml`이 MySQL(기본 3308) + Redis(기본 6380)를 제공한다.
+- `integrations.md` Redis — 신규 서버가 리프레시 토큰 저장 용도로 Redis를 도입했다(`@RedisHash`, TTL 30일, 레거시와 별개 인스턴스). "신규 서버 미도입"은 더 이상 사실이 아니다.
+- `api.md` — 약관 동의 2행에 v0 구현 완료를 표시하고, auth `v0+v1` 5행(`verify/oidc`, `login`, `logout`, `refresh`, `user/register`)에 v1 구현 완료를 표시했다.
+- `database.md` `user_agreement` 행 — 신규 서버에서 `user_agreements`로 확정. `(user_id, term_type)` unique, append-only.

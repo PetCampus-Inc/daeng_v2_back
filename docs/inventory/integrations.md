@@ -1,4 +1,4 @@
-> 생성: 2026-08-02 13:45 · 최종 수정: 2026-08-31 12:10
+> 생성: 2026-08-02 13:45 · 최종 수정: 2026-08-31 17:55
 
 # 외부 연동 인벤토리
 
@@ -28,7 +28,7 @@
 
 | 의존성 | 용도 | 사용 위치 | 판정 | 신규 방향 | 위험 | 후속 확인 |
 |---|---|---|---|---|---|---|
-| Redis | 리프레시 토큰·이메일 인증 코드, 유치원 목록/자동완성/가격 캐시, OIDC public key 캐시 | auth, kindergardeninfo(`KindergartenQueryService`, `AutocompleteService`, `LawCodeRedisLoader`, `SchoolProfileRedisSyncService`), `OidcPublicKeyClient` (신규 서버 미도입) | `REDESIGN` | 캐시(유치원/자동완성)와 상태 저장(토큰/인증코드)의 책임을 분리한 뒤 이관 | 캐시와 세션성 데이터가 같은 인스턴스에 있어 전체 삭제 시 인증까지 끊김 | 확인된 key prefix: `kindergarten:list`, `autocomplete:{name,prefix,jamo,region,filter}`, `*:pricing`. 각 TTL과 유실 시 fallback, 캐시/상태 인스턴스 분리 여부 |
+| Redis | 리프레시 토큰·이메일 인증 코드, 유치원 목록/자동완성/가격 캐시, OIDC public key 캐시 | 레거시: auth, kindergardeninfo(`KindergartenQueryService`, `AutocompleteService`, `LawCodeRedisLoader`, `SchoolProfileRedisSyncService`), `OidcPublicKeyClient`. 신규 서버: [`KD3-258`](../work/KD3-258-user-social-auth.md)부터 리프레시 토큰 저장(`@RedisHash`, TTL 30일) 용도로 도입 | `REDESIGN` | 캐시(유치원/자동완성)와 상태 저장(토큰/인증코드)의 책임을 분리한 뒤 이관. 신규 서버는 레거시와 별개 인스턴스를 쓰며 공유하지 않는다 | 레거시는 캐시와 세션성 데이터가 같은 인스턴스에 있어 전체 삭제 시 인증까지 끊김 | 레거시 key prefix: `kindergarten:list`, `autocomplete:{name,prefix,jamo,region,filter}`, `*:pricing`. 각 TTL과 유실 시 fallback. 이메일 인증(A-6)·유치원 데이터는 아직 신규 서버 이관 범위가 아니다 |
 | S3 | 이미지·앨범·증빙 파일 저장 | `S3Config`/`S3Uploader`/`S3UrlSigner`, `S3ImageUploadService`, album/memo/kindergarten-change | `REDESIGN` | presigned URL 발급을 도메인별 outbound 포트로 분리. 앨범은 `photos/upload-urls` → `photos/commit` 2단계 커밋 패턴 | 발급 시 소유권 검증이 없으면 타 유치원 object 접근 가능 | 버킷 3개(`knockdog-kindergarten-change-reports`, `knockdog-memo-attachments`, 기본)의 소유 도메인, presigned 만료 시간, DB 삭제 시 object 정리 주체 |
 | OIDC | Apple/Google/Kakao ID Token 검증 | auth | `DEFER` | 기존 직접 검증 방식 유지 후보 | provider별 key 검증 실패 처리 | provider별 설정/에러 계약 확인 |
 | 도로명주소 API | 주소 검색 | address | `KEEP` | `GET /api/v0/address/search`에서 outbound client로 호출 | 장애 시 주소 검색 결과가 빈 결과로 반환됨 | key 발급/쿼터, 장애 알림 필요 여부 확인 |

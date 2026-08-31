@@ -1,4 +1,4 @@
-> 생성: 2026-08-02 13:45 · 최종 수정: 2026-08-31 12:10
+> 생성: 2026-08-02 13:45 · 최종 수정: 2026-08-31 17:55
 
 # 운영 인벤토리
 
@@ -30,8 +30,8 @@
 
 | 항목 | 현재 구성 | 신규 필요 여부 | 판정 | 위험 | 후속 확인 |
 |---|---|---|---|---|---|
-| 로컬 실행 | `docker-compose.local.yaml`은 로컬 MySQL 컨테이너만 제공하고 애플리케이션은 호스트에서 실행 | 유지 | `KEEP` | 컨테이너 기반 배포 구성으로 오인할 수 있음 | 실제 실행 명령과 환경변수는 루트 `README.md`를 따른다 |
-| 스키마 관리 | 신규 서버: `flyway-core`·`flyway-mysql` 의존성은 있으나 migration 파일이 없고, local 기본값은 `FLYWAY_ENABLED=false`, `JPA_DDL_AUTO=update`. 레거시: Flyway 없이 `scripts/migrations/*.sql` 22개를 배포 스크립트가 매 배포마다 `docker exec`로 전부 재실행(멱등하게 작성) | 필요 | `REDESIGN` | 스키마 변경 이력이 남지 않고 환경 간 차이가 생길 수 있음. 레거시 방식은 SQL 하나라도 비멱등하면 배포가 실패하고, 실행 이력이 어디에도 기록되지 않음 | 신규 테이블 도입 작업에서 Flyway migration을 추가하고 `FLYWAY_ENABLED=true`·`JPA_DDL_AUTO=validate` 전환을 별도 결정. 레거시 SQL 22개는 신규 스키마 재작성([`0010`](../adr/0010-신규-db-인스턴스-스키마-재작성.md))의 입력으로만 사용 |
+| 로컬 실행 | `docker-compose.local.yaml`은 로컬 MySQL(호스트 포트 기본 3308)과 Redis(기본 6380) 컨테이너를 제공하고 애플리케이션은 호스트에서 실행 | 유지 | `KEEP` | 컨테이너 기반 배포 구성으로 오인할 수 있음 | 실제 실행 명령과 환경변수는 루트 `README.md`를 따른다 |
+| 스키마 관리 | 신규 서버: [`KD3-258`](../work/KD3-258-user-social-auth.md)부터 Flyway가 스키마 변경의 단일 출처다. local 기본값이 `FLYWAY_ENABLED=true`·`JPA_DDL_AUTO=validate`로 전환됐고 `db/migration/`에 `V1`(auth 테이블), `V2`(user_agreements)가 있다. 레거시: Flyway 없이 `scripts/migrations/*.sql` 22개를 배포 스크립트가 매 배포마다 `docker exec`로 전부 재실행(멱등하게 작성) | 필요 | `REDESIGN` | 레거시는 스키마 변경 이력이 남지 않고, SQL 하나라도 비멱등하면 배포가 실패한다. 실행 이력도 어디에도 기록되지 않음 | 신규 서버는 전환 완료. 남은 것은 레거시 SQL 22개를 신규 스키마 재작성([`0010`](../adr/0010-신규-db-인스턴스-스키마-재작성.md))의 입력으로 정리하는 일이다 |
 | 애플리케이션 배포 | 신규 서버: Dockerfile, 이미지 빌드, 배포 파이프라인 없음. 레거시: `dev` push → GitHub Actions가 gradle build → ECR `:latest` push → EC2에 SSH로 `docker-compose up -d` | 필요 | `REDESIGN` | 레거시는 `:latest` 단일 태그라 이전 이미지로 되돌릴 수 없고, `down` 후 `up`이라 배포 중 downtime이 있음 | 신규는 커밋 SHA 태그와 롤백 가능한 배포 방식을 전제로 설계. 무중단 컷오버는 [`0008`](../adr/0008-무중단-컷오버-전략.md)과 함께 확정 |
 | EC2 | 레거시는 EC2 1대(`ec2-user`)에서 docker-compose로 app·MySQL·Redis를 함께 구동. `appspec.yml`·`scripts/deploy.sh`(CodeDeploy·nohup 방식)가 저장소에 남아 있으나 현재 파이프라인은 docker-compose 경로 | 필요 | `REDESIGN` | 앱과 데이터 저장소가 한 인스턴스에 묶여 있어 인스턴스 장애가 곧 데이터 장애. 배포 경로가 두 갈래로 보여 실제 경로를 오인할 수 있음 | 인스턴스 사양·보안 그룹 확인, CodeDeploy 잔재가 실제로 미사용인지 확인 후 제거, 신규는 앱과 저장소 분리 |
 | MySQL 스키마 전략 | 레거시 DB와 신규 DB 분리 예정 | 필요 | `REDESIGN` | 데이터 이관/검증/rollback 필요 | 신규 스키마 확정 범위와 검증 기준 확인 |

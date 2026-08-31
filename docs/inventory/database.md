@@ -1,4 +1,4 @@
-> 생성: 2026-08-02 13:45 · 최종 수정: 2026-08-31 12:10
+> 생성: 2026-08-02 13:45 · 최종 수정: 2026-08-31 17:55
 
 # 데이터 인벤토리
 
@@ -66,7 +66,7 @@
 | MySQL | `question_option` | 체크리스트 질문 옵션 | checklist | checklist | `REDESIGN` | 체크리스트 선택지 후보 | checklist 슬라이스 | 단일/다중 선택, 정렬 |
 | MySQL | `checklist_submission` | 체크리스트 제출 내역 | checklist | checklist | `REDESIGN` | 체크리스트 제출 이력 후보 | checklist 슬라이스 | 제출자, 템플릿 버전 스냅샷 필요 여부 |
 | MySQL | `checklist_answer` | 체크리스트 답변 | checklist | checklist | `REDESIGN` | 체크리스트 답변 후보 | checklist 슬라이스 | 답변 타입별 저장 방식 |
-| MySQL | `user_agreement` | (초안 없음) | auth/user | auth/user | `REDESIGN` | 가입 약관 동의 이력 후보. `(user_id, term_type)` unique, `agreed_at` 보존 | auth/user 슬라이스 | 약관 버전 관리 필요 여부, 재동의 이력 보존 방식 |
+| MySQL | `user_agreement` | (초안 없음) | auth/user | auth/user | `REDESIGN` | **신규 서버에서 `user_agreements`로 확정**([`KD3-258`](../work/KD3-258-user-social-auth.md) V2). `(user_id, term_type)` unique, append-only라 `BaseEntity` 공통 컬럼 없이 `agreed_at`만 둔다 — 재제출해도 최초 동의 시각이 보존된다 | 확정됨 | 약관 버전 관리 필요 여부(현재 버전 개념 없음). 탈퇴 시 동의 이력 보존/삭제 정책 |
 | MySQL | `notification_preference` | (초안 없음) | notification | notification | `REDESIGN` | 사용자 알림 수신 설정 후보. `user_id` PK, `push_enabled` | notification 슬라이스 | `user_notification_setting`과 중복 개념인지 확정하고 하나로 통합 |
 | MySQL | `push_device` | (초안 없음) | notification | notification | `REDESIGN` | 푸시 기기 등록 후보. provider/platform/token, 동일 유저·플랫폼 재등록 시 기존 활성 기기 비활성화(QA3-205) | notification 슬라이스 | 토큰 회전, 만료 기기 정리 주기, 로그아웃 시 처리 |
 | MySQL | `notification` | (초안 없음) | notification | notification | `REDESIGN` | 알림함 항목 후보. school/pet FK, 읽음 상태 | notification 슬라이스 | 보존 기간, 읽음 처리 단위(단건/전체), 유치원 해제 시 처리 |
