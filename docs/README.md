@@ -1,4 +1,4 @@
-> 생성: 2026-07-28 11:43 · 최종 수정: 2026-07-28 16:30
+> 생성: 2026-07-28 11:43 · 최종 수정: 2026-08-31 01:05
 
 # docs 폴더 개요
 
@@ -10,38 +10,71 @@ AI 관련 작업 규칙(트레일러 금지, 결정 기록 워크플로우 등)�
 
 ## 폴더 구조
 
-| 폴더/파일 | 용도 |
+```text
+docs/
+├── README.md
+├── service.md
+├── rules/
+│   ├── documentation.md
+│   ├── git.md
+│   ├── api-migration.md
+│   ├── database-change.md
+│   ├── notion-api-page-template.json
+│   └── notion-api-spec-sync.md
+├── conventions/
+│   ├── api-contract.md
+│   └── error-handling.md
+├── workflows/
+│   ├── 000-common.md
+│   ├── 001-current-status.md
+│   ├── 002-continue-work.md
+│   ├── 003-migration.md
+│   ├── 004-bug-fix.md
+│   ├── 005-new-feature.md
+│   ├── 006-code-review.md
+│   ├── 007-design-research.md
+│   └── 008-docs.md
+├── work/
+│   └── <JIRA-KEY>-<slug>.md
+├── domains/
+│   └── <domain>.md
+├── inventory/
+│   ├── api.md
+│   ├── database.md
+│   ├── integrations.md
+│   └── operations.md
+├── architecture/
+│   └── hexagonal.md
+└── adr/
+    └── NNNN-<slug>.md
+```
+
+## 문서 지도
+
+| 위치 | 목적 |
 |---|---|
-| `service.md` | 서비스/제품 맥락 (단일 파일) |
-| `rules/` | 반드시 지킬 작업 규칙 (git, workflow, documentation 등) |
-| `domains/` | 도메인별 AI 작업 지시서 |
-| `adr/` | 의사결정 기록 (ADR, 1건 1파일) |
-| `architecture/` | 설계 문서 자체 |
-| `conventions/` | 프로젝트 기술 관례 (응답 포맷, API 규칙 등) |
-| `plans/` | 티켓별 구현 계획 문서 |
+| `service.md` | 서비스와 제품 범위 |
+| `rules/` | 반드시 지킬 저장소 규칙 |
+| `conventions/` | 코드를 쓸 때마다 참조하는 판단 기준 (응답 계약, 예외 처리 등) |
+| `workflows/` | 작업 유형별 진행 절차 |
+| `work/` | 티켓별 조사·결정·구현·검증 기록 |
+| `domains/` | 후속 작업에도 유지할 도메인 사실과 제약 |
+| `inventory/` | API·데이터·연동·운영 대상의 현재 구성, 누락 방지와 판정 |
+| `architecture/` | 시스템 전체의 구조와 책임 경계. 처음 한 번 지도로 읽는 문서 |
+| `adr/` | 되돌리기 어려운 결정의 이유 |
 
-어떤 문서 종류를 어느 폴더에 두는지, 폴더별로 문서를 쓸 때 지켜야 할 것은 [`docs/rules/documentation.md`](rules/documentation.md) §1·§2가 유일한 기준(single source of truth)이다. 폴더가 늘거나 용도가 바뀌면 그 문서와 아래 각 폴더 설명을 함께 갱신한다.
+`conventions/`와 `architecture/`는 **읽는 시점**으로 나눈다. `architecture/`는 프로젝트 구조를 파악할 때 한 번 읽고, `conventions/`는 코드를 작성·리뷰할 때마다 연다. 개별 코드의 옳고 그름을 판단하는 기준은 항상 `conventions/`에 둔다.
 
-### `rules/`
+## 읽는 순서
 
-예외 없이 지켜야 하는 작업 절차. "이렇게 하는 게 낫다"가 아니라 "지켜야 하는 것"만 담는다.
+1. 서비스·제품 맥락은 [`service.md`](service.md)를 읽는다.
+2. 문서의 배치와 갱신 기준은 [`rules/documentation.md`](rules/documentation.md)를 읽는다.
+3. 작업이면 [`workflows/000-common.md`](workflows/000-common.md)와 해당 유형 workflow를 읽는다.
+4. 코드를 작성·리뷰하면 [`conventions/`](conventions/)를 읽는다.
+5. 그 뒤 관련 `domains/`, `architecture/`, `inventory/`, `adr/`를 작업 범위에 맞춰 읽는다.
 
-### `domains/`
+문서의 용도, 단일 기준, 작성·갱신 위치는 `README.md`가 아니라 [`rules/documentation.md`](rules/documentation.md)가 유일한 기준이다.
 
-도메인 하나를 AI에게 맡길 때 필요한 모든 것(원본 위치, 대상 엔드포인트, 데이터 스키마, 불변식)을 한 파일로 제공해, 코드베이스를 처음부터 탐색하지 않아도 작업을 시작할 수 있게 한다.
+## AI 작업 시작
 
-### `adr/`
-
-프로젝트 전반에 영향을 주는 결정과 그 이유를 append-only로 남겨, 나중에 "왜 이렇게 했더라"를 다시 논의하지 않게 한다.
-
-### `architecture/`
-
-특정 결정 하나가 아니라, 시스템/모듈이 지금 어떻게 설계돼 있는지에 대한 지속적인 참조 문서.
-
-### `conventions/`
-
-이 프로젝트가 실제로 쓰고 있는 기술적 패턴(응답 포맷, API 경로 규칙 등)을 서술한다. "지켜야 할 규칙"이 아니라 "지금 이렇게 되어 있다"는 사실 기록에 가깝다.
-
-### `plans/`
-
-Jira 티켓 하나를 맡은 AI가 구현 방향 논의 결과를 정리해두는 문서. 컨텍스트를 공유하지 않는 리뷰어에게 "무엇을, 왜, 어디까지" 작업했는지 전달하는 역할을 한다 ([`workflow.md`](rules/workflow.md) §5 참고).
+저장소 루트에서 `./scripts/ai-start codex` 또는 `./scripts/ai-start claude`를 실행하면, 두 도구 모두 같은 작업 접수 질문으로 대화형 세션을 시작한다. 이 첫 단계는 변경 없이 작업 유형·범위·완료 기준을 수집하는 단계다.

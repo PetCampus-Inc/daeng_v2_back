@@ -1,0 +1,24 @@
+name: Docs check
+
+on:
+  pull_request:
+    paths:
+      - 'docs/**'
+      - 'scripts/docs-check.mjs'
+      - '.github/workflows/docs-check.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  docs-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Verify docs structure
+        run: node scripts/docs-check.mjs
