@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class UserTest {
@@ -11,11 +12,26 @@ class UserTest {
 
     @Test
     fun `HOME 타입 주소가 없으면 회원가입에 실패한다`() {
-        val workAddress = UserAddress.create(AddressType.WORK, null, "서울시 서초구", null, 37.4, 127.1)
+        val otherAddress = UserAddress.create(AddressType.OTHER, null, "서울시 서초구", null, 37.4, 127.1)
 
         assertFailsWith<IllegalArgumentException> {
-            User.create("홍길동", null, null, listOf(workAddress))
+            User.create("홍길동", null, null, listOf(otherAddress))
         }
+    }
+
+    /** 레거시가 KD3-372에서 WORK를 OTHER로 통합했다. 신규 서버가 되살리지 않는지 고정한다. */
+    @Test
+    fun `주소 타입은 HOME과 OTHER 두 가지뿐이다`() {
+        assertEquals(listOf(AddressType.HOME, AddressType.OTHER), AddressType.entries.toList())
+    }
+
+    /** 레거시가 KD3-372에서 user.nickname을 NULL 허용으로 바꿨다(RegisterRequest에도 @NotBlank 없음). */
+    @Test
+    fun `닉네임 없이도 회원가입할 수 있다`() {
+        val user = User.create(null, null, null, listOf(homeAddress()))
+
+        assertNull(user.nickname)
+        assertEquals(8, user.code.value.length)
     }
 
     @Test

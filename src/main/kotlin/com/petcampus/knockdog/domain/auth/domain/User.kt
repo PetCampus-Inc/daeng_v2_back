@@ -9,7 +9,7 @@ import java.time.LocalDateTime
 class User private constructor(
     val id: UserId?,
     val code: UserCode,
-    val nickname: String,
+    val nickname: String?,
     val profileImage: String?,
     val infoReceiveEmail: String?,
     val gender: String?,
@@ -32,7 +32,7 @@ class User private constructor(
     companion object {
         /** 신규 회원가입: 주소 목록 중 HOME 타입이 최소 1개 있어야 한다(불변식). */
         fun create(
-            nickname: String,
+            nickname: String?,
             profileImage: String?,
             infoReceiveEmail: String?,
             addresses: List<UserAddress>,
@@ -57,7 +57,7 @@ class User private constructor(
         fun reconstitute(
             id: UserId,
             code: UserCode,
-            nickname: String,
+            nickname: String?,
             profileImage: String?,
             infoReceiveEmail: String?,
             gender: String?,

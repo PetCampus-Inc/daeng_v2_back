@@ -1,7 +1,7 @@
 CREATE TABLE users (
   id                      BIGINT PRIMARY KEY AUTO_INCREMENT,
   user_code               VARCHAR(8)   NOT NULL,
-  nickname                VARCHAR(100) NOT NULL,
+  nickname                VARCHAR(100),
   profile_image           VARCHAR(500),
   info_receive_email      VARCHAR(255),
   gender                  VARCHAR(20),

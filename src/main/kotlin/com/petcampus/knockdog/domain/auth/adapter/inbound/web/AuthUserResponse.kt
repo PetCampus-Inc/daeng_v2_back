@@ -7,7 +7,7 @@ import com.petcampus.knockdog.domain.auth.domain.UserAddress
 /** 레거시 AuthUserResponse와 동일한 필드 유지 — 로그인/회원가입 성공 시 프론트가 그대로 User 스토어에 저장한다. */
 data class AuthUserResponse(
     val userId: String,
-    val nickname: String,
+    val nickname: String?,
     val profileImage: String?,
     val addresses: List<UserAddressResponse>,
     val status: String,

@@ -53,7 +53,7 @@ class UserController(
 }
 
 data class RegisterUserRequest(
-    val nickname: String,
+    val nickname: String?,
     val profileImage: String?,
     val infoReceiveEmail: String?,
     val addresses: List<RegisterAddressRequest>,

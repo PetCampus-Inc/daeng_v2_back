@@ -21,8 +21,8 @@ class UserJpaEntity(
     val id: Long? = null,
     @Column(name = "user_code", nullable = false, unique = true, length = 8)
     val userCode: String,
-    @Column(name = "nickname", nullable = false, length = 100)
-    val nickname: String,
+    @Column(name = "nickname", length = 100)
+    val nickname: String? = null,
     @Column(name = "profile_image", length = 500)
     val profileImage: String? = null,
     @Column(name = "info_receive_email")

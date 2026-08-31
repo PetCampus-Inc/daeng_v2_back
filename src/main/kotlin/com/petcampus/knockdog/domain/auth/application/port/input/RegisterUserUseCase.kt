@@ -9,7 +9,7 @@ interface RegisterUserUseCase {
 
 data class RegisterUserCommand(
     val oidcToken: String,
-    val nickname: String,
+    val nickname: String?,
     val profileImage: String?,
     val infoReceiveEmail: String?,
     val addresses: List<RegisterAddressCommand>,
