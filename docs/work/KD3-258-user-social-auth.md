@@ -1,4 +1,4 @@
-> 생성: 2026-08-03 · 최종 수정: 2026-08-31 18:00
+> 생성: 2026-08-03 · 최종 수정: 2026-08-31 18:10
 
 # KD3-258 — User 엔티티 + 소셜 로그인 회원가입 + 인증/인가 기반 구축
 
@@ -154,7 +154,7 @@ CREATE TABLE user_agreements (
 - provider별 OIDC 검증기 단위 테스트 (JWKS mock)
 - Flyway 마이그레이션이 로컬 MySQL에 정상 적용됨 (`./gradlew flywayMigrate` 또는 앱 기동 시 자동 적용)
 - `KnockdogApplicationTests`(컨텍스트 로딩) 통과 — Redis 연결 없이도 컨텍스트가 뜨는지 확인(레이지 커넥션 확인)
-- `SecurityFilterChain` 도입 후 기존 `OwnerController` 엔드포인트 동작 확인 — 401로 막히는 게 의도된 변화임을 인지하고 기록만 남김(별도 조치는 owner 도메인 범위)
+- `SecurityFilterChain` 도입 후 기존 `OwnerController` 엔드포인트 동작 확인 — 막히는 게 의도된 변화임을 인지하고 기록만 남김(별도 조치는 owner 도메인 범위). **실측 결과 401이 아니라 403이다** — [`auth.md`](../domains/auth.md) §3 참고
 - 약관 동의 단위 테스트: 필수 3종 동의 저장, 하나라도 빠지면 `REQUIRED_AGREEMENT_NOT_COMPLETED`, 중복 동의 미저장, 미존재 회원 `NOT_FOUND_USER`, 상태 조회 true/false
 
 **2026-08-31 검증 결과** (epic 머지 + §방향 논의 8·9 반영 후):
@@ -162,10 +162,30 @@ CREATE TABLE user_agreements (
 | 항목 | 결과 |
 |---|---|
 | `./gradlew build` (ktlint·ArchUnit 포함) | BUILD SUCCESSFUL |
-| 단위 테스트 | 50개 통과, 실패 0 |
+| 단위 테스트 | 51개 통과, 실패 0 |
 | `node scripts/docs-check.mjs` | 통과 |
 
-아직 확인하지 못한 것: 로컬 MySQL에 V1·V2 마이그레이션 실제 적용, `OwnerController` 401 확인. 둘 다 로컬 기동이 필요해 이번 세션에서 수행하지 않았다.
+**로컬 기동 검증 (빈 DB `knockdog_verify`, MySQL 8.0 + Redis 컨테이너):**
+
+| 항목 | 결과 |
+|---|---|
+| Flyway V1·V2·V3 적용 | `Successfully applied 3 migrations ... now at version v3` |
+| 앱 기동 (`JPA_DDL_AUTO=validate`) | `Started KnockdogApplicationKt` |
+| `users.nickname` nullable | `IS_NULLABLE=YES` (§방향 논의 8 반영 확인) |
+| `user_agreements` 생성 | 4개 컬럼 + `(user_id, term_type)` unique |
+| 약관 동의 2개 인증 요구 | 토큰 없이 호출 시 403 |
+| permit 목록 통과 | `/api/v1/auth/login`, `/api/v1/users`가 403이 아님 |
+| 필수 쿠키 누락 | 400 `INVALID_INPUT_VALUE` (아래 §발견 3 수정 후) |
+
+### 로컬 기동에서 발견한 문제
+
+1. **기존 로컬 DB는 Flyway checksum 불일치로 기동 실패한다.** §방향 논의 8에서 V1을 직접 수정했기 때문이다. 실제로 재현했다 — `Migration checksum mismatch for migration version 1 / Applied to database: 1207543218 / Resolved locally: -1900621767`. 로컬 DB를 초기화해야 한다(운영/스테이징은 아직 이 스키마가 적용된 적이 없어 영향 없음).
+
+2. **빈 DB에서는 앱이 아예 뜨지 못했다** — `Schema-validation: missing table [bookmark]`. `owner`/`bookmark` 예제 슬라이스 테이블이 `ddl-auto: update`로만 만들어져 있었고 마이그레이션이 없었다. 기존 로컬 DB에는 테이블이 이미 있어 드러나지 않던 문제로, KD3-258이 `validate`로 전환하면서 **새로 받는 사람은 앱을 띄울 수 없는 상태**였다. `V3__create_example_slice_tables.sql`로 해결했다.
+
+3. **필수 쿠키 누락이 500으로 나갔다.** `@CookieValue`가 던지는 `MissingRequestCookieException`을 `GlobalExceptionHandler`가 처리하지 않아 `Exception` 핸들러로 떨어졌다. 쿠키로 토큰을 받는 3개 API(`/api/v1/auth/login`, `/refresh`, `POST /api/v1/users`)가 전부 해당된다. 클라이언트 실수를 서버 오류로 보고하던 것이라 400 `INVALID_INPUT_VALUE`로 고치고 회귀 테스트를 추가했다.
+
+아직 확인하지 못한 것: 실제 OIDC 토큰이 필요한 정상 경로(로그인→약관 동의 200)는 provider 인증이 필요해 검증하지 못했다.
 
 ## 작업 후 확인 목록
 

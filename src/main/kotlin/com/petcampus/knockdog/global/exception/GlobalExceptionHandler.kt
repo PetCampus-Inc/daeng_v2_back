@@ -5,6 +5,7 @@ import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.http.converter.HttpMessageNotReadableException
 import org.springframework.web.HttpRequestMethodNotSupportedException
+import org.springframework.web.bind.MissingRequestCookieException
 import org.springframework.web.bind.MissingServletRequestParameterException
 import org.springframework.web.bind.annotation.ExceptionHandler
 import org.springframework.web.bind.annotation.RestControllerAdvice
@@ -35,6 +36,16 @@ class GlobalExceptionHandler {
 
     @ExceptionHandler(MissingServletRequestParameterException::class)
     fun handleMissingParameter(e: MissingServletRequestParameterException): ResponseEntity<Response<Unit>> =
+        ResponseEntity
+            .status(HttpStatus.BAD_REQUEST)
+            .body(Response.error(CommonErrorCode.INVALID_INPUT_VALUE, e.message))
+
+    /**
+     * 필수 쿠키 누락. 인증 토큰을 쿠키로 받는 API(`/api/v1/auth/login`, `/refresh`, `POST /api/v1/users`)를
+     * 쿠키 없이 호출하면 발생한다. 클라이언트 실수이므로 500이 아니라 400으로 내린다.
+     */
+    @ExceptionHandler(MissingRequestCookieException::class)
+    fun handleMissingCookie(e: MissingRequestCookieException): ResponseEntity<Response<Unit>> =
         ResponseEntity
             .status(HttpStatus.BAD_REQUEST)
             .body(Response.error(CommonErrorCode.INVALID_INPUT_VALUE, e.message))

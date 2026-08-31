@@ -113,6 +113,8 @@ domain/auth/
 
 - 원본의 `TokenAuthenticationFilter`는 `@PrivateAccess` 붙은 엔드포인트만 인증을 요구하고, 나머지는 토큰이 있으면 검증하되 없어도 통과시키는 "선택적 인증"이다. 신규 서버는 메인 설계 문서 §8(기본 deny)을 따르되, **A-1~A-4, A-6, A-7은 로그인 전 단계이므로 명시적으로 공개(permit) 목록에 올려야 한다.** 인증이 필요한 것은 `withdraw`(A-5)와 약관 동의(A-3.5)다.
   - **구현 완료(KD3-258)**: `global/config/SecurityConfig.kt`가 `/api/v1/auth/oidc-verifications`, `/api/v1/auth/login`, `/api/v1/auth/refresh`, `/api/v1/auth/logout`, `/api/v1/users`를 permit 목록에 올리고 나머지는 `authenticated()`. 커스텀 필터(`domain/auth/adapter/inbound/security/AccessTokenAuthenticationFilter`)는 액세스 토큰이 있으면 `SecurityContext`에 `ROLE_USER`를 채우고, 없거나 유효하지 않으면 그대로 통과시켜 `authorizeHttpRequests`가 최종 판정하게 한다. 이 기본 deny 도입으로 기존 `owner` 도메인의 `/owners` 엔드포인트도 인증을 요구하게 되는 부수효과가 있음 — `owner` 도메인 쪽 대응은 별도 판단 필요.
+  - **2026-08-31 로컬 실측**: 토큰 없이 호출하면 `/owners`, `/owners/{id}`, `/bookmarks` 모두 **403**이다(401 아님). Spring Security가 익명 요청에 `AuthenticationEntryPoint` 없이 `AccessDeniedException`을 내기 때문이다. 응답 본문도 `Response` 규격이 아니라 Spring 기본 오류 형식(`{timestamp, status, error, path}`)이다.
+  - ⚠️ **컷오버 전 확인 필요**: 프론트 인터셉터가 액세스 토큰 만료를 **401로 분기해 재발급**한다면([`error-handling.md`](../conventions/error-handling.md) §1 참고), 신규 서버가 403을 내는 동안 토큰 자동 갱신이 동작하지 않는다. 인증 실패를 401로 내리고 본문을 `Response` 규격에 맞출지 결정해야 한다 — 이번 티켓에서는 사실만 기록하고 바꾸지 않았다.
 - `application.yml`의 `security.roles.*`(`ROLE_MEMBER`, `ROLE_OWNER` 등)는 **v3에서 사용되지 않는 죽은 설정**이다(`SecurityRoleProperties` 참조처가 정의 클래스 자신뿐). `TokenAuthenticationFilter`는 인증된 모든 사용자에게 단일 권한(`ROLE_USER`)만 부여한다. 세분화된 역할(원장 권한 등)은 Spring Security 권한이 아니라 `owner` 도메인이 자체 테이블로 검증하는 방식이며, auth 도메인은 이 패턴을 유지한다 — 신규 서버에서 역할 기반 Spring Security를 새로 도입하지 않는다.
 
 ## 4. 참조
