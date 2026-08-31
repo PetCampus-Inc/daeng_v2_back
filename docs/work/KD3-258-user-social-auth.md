@@ -218,6 +218,35 @@ Testcontainers로 테스트를 실제 MySQL + Flyway 위에서 돌리면 `./grad
 
 다만 도메인이 늘어 마이그레이션이 쌓이면 "테스트는 통과하는데 배포하면 안 뜬다"가 반복된다. **다음 도메인 이관 착수 시 함께 도입을 검토한다.**
 
+### 성공 응답 `code`를 `"SUCCESS"`로 (2026-09-01)
+
+KD3-257은 `code`를 "성공 시 생략 가능"으로 뒀는데, 레거시는 성공에도 `code: "SUCCESS"`를 내리고 프론트에 그 값으로 분기하는 곳이 있다(`searchAddress.ts`의 `code !== 'SUCCESS'`). `v0` 계약 유지 대상이라 채우는 쪽으로 바꿨다.
+
+`code`는 성공/실패 2종이 아니다. 실패는 `ErrorCode` 18개(공통 4 + auth 14)이고, **성공에도 결과를 구분하는 코드가 온다** — 레거시 `Response.success(data, code, message)`가 이메일 인증 결과 등에 쓴다. 그래서 `success()`에 `code` 파라미터를 열어뒀다(기본값 `"SUCCESS"`).
+
+남은 차이: 레거시는 `@JsonInclude(NON_NULL)`로 null 필드 키를 생략하는데 신규는 `"data": null`을 내려보낸다. 프론트 `ApiResponse` 타입은 `data: T`(non-optional)라 타입상으로는 신규 쪽이 오히려 맞고, 현재 이 차이로 깨지는 곳은 확인되지 않았다.
+
+### `v1` 유지 근거 재검토 (2026-09-01)
+
+[`api-migration.md`](../rules/api-migration.md) §2가 "경로가 같으면 `v1` 트윈을 만들지 않는다"를 규칙으로 정했다. 이 티켓의 `v1` 5개를 그 기준으로 다시 봤다.
+
+| v1 | v0 대비 경로 | v0 대비 응답 | 판단 |
+|---|---|---|---|
+| `POST /api/v1/auth/oidc-verifications` | 재설계됨 | | `v1` 유지 |
+| `POST /api/v1/users` | 재설계됨 (`user/register`) | | `v1` 유지 |
+| `POST /api/v1/auth/login` | **동일** | `addresses[]`에서 `id`·`addressDetail` 누락 | **확인 필요 — 아래** |
+| `POST /api/v1/auth/refresh` | **동일** | `code` 수정 후 **완전히 동일** | **`v1` 근거 없음** |
+| `POST /api/v1/auth/logout` | **동일** | `code` 수정 후 **완전히 동일** | **`v1` 근거 없음** |
+
+`login`의 응답 차이는 의도한 재설계가 아니라 **누락으로 보인다.** 레거시는 `UserAddress` **JPA 엔티티를 그대로 직렬화**해서 `id`·`addressDetail`이 나가는데, 신규 `UserAddressResponse`는 6개 필드만 담는다. 프론트는 둘 다 쓴다 —
+
+- `MypageProfileLocationPage.tsx:69`가 `String(address.id)`로 주소 id를 뽑아 수정·삭제 요청(`operation: UPDATE|DELETE`)에 넣는다. `id`가 없으면 `"undefined"`가 되어 **주소 수정·삭제가 깨진다.**
+- `LocationField.tsx:115`가 `address.detail || address.addressDetail`을 표시한다. 없으면 상세주소가 화면에서 사라진다.
+
+프론트가 아직 `v0`를 호출하므로 지금 깨지는 것은 없다. `v1`으로 전환하는 시점에 터진다.
+
+**결정 필요**: (a) `UserAddressResponse`에 `id`·`addressDetail`을 추가해 `v0`와 맞추고 `login`도 `v1` 근거를 잃게 할지, (b) 의도적 축소로 두고 프론트 전환 시 함께 고칠지. `refresh`/`logout`은 (a)와 무관하게 `v1` 근거가 없어 `v0` 단독으로 내릴지 결정해야 한다.
+
 ### 로컬 기동에서 발견한 문제
 
 1. **기존 로컬 DB는 Flyway checksum 불일치로 기동 실패한다.** §방향 논의 8에서 V1을 직접 수정했기 때문이다. 실제로 재현했다 — `Migration checksum mismatch for migration version 1 / Applied to database: 1207543218 / Resolved locally: -1900621767`. 로컬 DB를 초기화해야 한다(운영/스테이징은 아직 이 스키마가 적용된 적이 없어 영향 없음).
