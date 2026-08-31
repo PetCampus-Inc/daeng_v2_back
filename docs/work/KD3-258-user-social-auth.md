@@ -1,4 +1,4 @@
-> 생성: 2026-08-03
+> 생성: 2026-08-03 · 최종 수정: 2026-08-31 17:05
 
 # KD3-258 — User 엔티티 + 소셜 로그인 회원가입 + 인증/인가 기반 구축
 
@@ -24,7 +24,7 @@ domain/auth/
     outbound/oidc/                 AppleTokenVerifier, GoogleTokenVerifier, KakaoTokenVerifier (JWKS 기반 서명 검증)
 ```
 
-### 엔드포인트 (v1, 5개)
+### 엔드포인트 (7개)
 
 | 메서드/경로 | 유스케이스 | 인증 요구 |
 |---|---|---|
@@ -33,6 +33,10 @@ domain/auth/
 | `POST /api/v1/auth/refresh` | RefreshTokenUseCase | 공개 (리프레시 토큰으로 자체 검증) |
 | `POST /api/v1/auth/logout` | LogoutUseCase | 공개 (리프레시 토큰으로 자체 검증) |
 | `POST /api/v1/users` | RegisterUserUseCase | 공개 (OIDC 임시 토큰으로 자체 검증) |
+| `POST /api/v0/user/agreements` | AgreeToTermsUseCase | 인증 필요 (기본 deny) |
+| `GET /api/v0/user/agreements/status` | GetAgreementStatusUseCase | 인증 필요 (기본 deny) |
+
+약관 동의 2개만 `v0` 경로인 이유는 아래 §방향 논의 9를 참고한다.
 
 ### DB 스키마 (신규 Flyway 마이그레이션)
 
@@ -42,7 +46,7 @@ domain/auth/
 CREATE TABLE users (
   id                      BIGINT PRIMARY KEY AUTO_INCREMENT,
   user_code               VARCHAR(8)   NOT NULL UNIQUE,
-  nickname                VARCHAR(100) NOT NULL,
+  nickname                VARCHAR(100),                   -- NULL 허용 (§방향 논의 8)
   profile_image           VARCHAR(500),
   info_receive_email      VARCHAR(255),
   gender                  VARCHAR(20),
@@ -73,7 +77,7 @@ CREATE TABLE social_users (
 CREATE TABLE user_addresses (
   id            BIGINT PRIMARY KEY AUTO_INCREMENT,
   user_id       BIGINT NOT NULL,               -- FK 제약 없음
-  type          VARCHAR(20) NOT NULL,           -- HOME, WORK, OTHER
+  type          VARCHAR(20) NOT NULL,           -- HOME, OTHER (§방향 논의 8)
   alias         VARCHAR(20),
   address       VARCHAR(200) NOT NULL,
   road_address  VARCHAR(200),
@@ -82,6 +86,15 @@ CREATE TABLE user_addresses (
   created_at    DATETIME(6) NOT NULL,
   updated_at    DATETIME(6) NOT NULL,
   deleted_at    DATETIME(6)
+);
+
+-- V2 (A-3.5, §방향 논의 9). append-only 이력이라 BaseEntity 공통 컬럼을 두지 않는다.
+CREATE TABLE user_agreements (
+  id         BIGINT PRIMARY KEY AUTO_INCREMENT,
+  user_id    BIGINT      NOT NULL,               -- FK 제약 없음
+  term_type  VARCHAR(30) NOT NULL,               -- TERMS_OF_SERVICE, PRIVACY_POLICY, AGE_OVER_14
+  agreed_at  DATETIME(6) NOT NULL,
+  UNIQUE (user_id, term_type)
 );
 ```
 
@@ -99,7 +112,7 @@ CREATE TABLE user_addresses (
 
 - **A-5 회원 탈퇴, A-6 이메일 인증, A-7 개발용 로그인**: 이번 브레인스토밍에서 범위로 정하지 않음. 후속 티켓.
 - **`gender`/`phone_number`/`emergency_phone_number` 입력**: 컬럼은 스키마에 두지만, 회원가입 요청(`RegisterUserUseCase`)에는 포함하지 않는다 — 레거시 회원가입 화면도 이 값들을 받지 않았고(닉네임/프로필이미지/주소/`info_receive_email`만 받음), 마이페이지에서 별도 입력받는 것으로 보이는데 마이페이지 자체가 이번 범위 밖이다. 값은 전부 `null`로 생성된다.
-- **`user_notification_settings`**: 이번 스키마 문서엔 있지만 어느 화면/유스케이스가 채우는지 확인되지 않았고, 다른 테이블이 FK로 참조하지도 않아 존재가 필수가 아니다. 스키마/코드 모두에서 제외 — 마케팅 동의 관련 티켓이 생기면 그때 추가.
+- **알림 수신 설정**: 스키마/코드 모두에서 제외한다. 제외 근거가 KD3-402 재대조로 바뀌었다 — 레거시에 `user_notification_setting`과 `notification_preference`가 **공존**하고(KD3-287이 앞의 테이블을 건드리지 않고 뒤를 새로 만듦) 어느 쪽이 진실인지 미정이다. notification 도메인 티켓에서 통합 대상을 먼저 확정해야 여기서 만들 것이 정해진다.
 - **소셜 계정 재연동(A-4, `ReconnectSocialUserUseCase`)**: `VerifyOidcUseCase`가 `PENDING`/`EMAIL_ALREADY_EXISTS` 응답은 내려주지만, 실제 병합(재연동) 액션은 이번 범위에 없다. 클라이언트는 이 응답을 받아도 아직 연동을 완료할 방법이 없다 — 후속 티켓에서 A-4를 붙여야 실제로 동작한다.
 - **owner 도메인 인증 적용**: 이번에 `SecurityFilterChain` 기본 deny를 도입하면 기존 `OwnerController`(`/owners`, `/owners/{id}`)도 기본적으로 인증을 요구하게 된다. 이 엔드포인트들을 permit 목록에 올릴지, 인증을 요구하게 둘지는 owner 도메인 담당 범위이므로 이번 티켓에서 결정하지 않는다 — 일단 permit 목록에 넣지 않고, 완료 확인 시 실제 영향(401 여부)만 확인한다.
 
@@ -122,6 +135,15 @@ CREATE TABLE user_addresses (
 
 7. **`info_rcv_email` → `info_receive_email` 이름 변경**: 컬럼/필드명 축약이 불명확하다는 지적에 따라 풀어씀. 기능(마이페이지에서 조회/수정하는 부가 이메일)은 유지하되 마이페이지 자체는 범위 밖이라 이번엔 값만 받아서 저장한다.
 
+8. **레거시 KD3-372 계약 변경 반영 (KD3-402 재대조)**: 인벤토리를 레거시 `dev@2479b02c`(2026-08-30) 기준으로 재대조하면서, 이 문서가 기준으로 삼은 `2026-08-02-db-schema-redesign-design.md` 이후에 레거시가 계약을 바꾼 걸 발견했다. 둘 다 신규 서버가 **제품이 이미 버린 계약을 되살리는** 형태라 레거시를 따라간다.
+   - `AddressType`에서 `WORK` 제거 — 레거시가 KD3-372(2026-08-20)에서 `WORK`를 `OTHER`로 통합하고 기존 데이터도 마이그레이션했다. 컬럼이 `VARCHAR`라 DDL 변경은 불필요하고 enum과 요청 타입만 바뀐다.
+   - `users.nickname`을 NULL 허용으로 — 같은 KD3-372가 레거시 `user.nickname`을 NULL 허용으로 바꿨고 `RegisterRequest.nickname`에도 `@NotBlank`가 없다. `NOT NULL`로 두면 닉네임 없는 가입이 실패한다.
+   - `V1__create_auth_tables.sql`은 새 마이그레이션을 추가하지 않고 직접 수정했다. 이 파일은 KD3-258에서 처음 도입돼 아직 어떤 환경에도 적용된 적이 없고, 존재한 적 없는 테이블을 `ALTER`하는 V2를 남기는 편이 스키마 이력을 더 읽기 어렵게 만들기 때문이다. **로컬에서 V1을 이미 적용해 둔 사람은 로컬 DB를 초기화해야 한다.**
+
+9. **약관 동의(A-3.5)를 `v0` 경로로 구현**: KD3-402 재대조에서 `POST /api/v0/user/agreements`와 `GET /api/v0/user/agreements/status`가 `KEEP`(프론트 호출 확인)으로 판정돼 범위에 들어왔다. 다른 auth API처럼 `v1`으로 옮기지 않는다 — `KEEP`은 path/method와 요청·응답 필드를 유지해야 하고([`api-migration.md`](../rules/api-migration.md) §2), 프론트가 이미 이 경로를 호출 중이라 경로를 바꾸면 breaking change다. `AgreementTermType` enum 이름도 프론트가 요청 본문에 그대로 싣기 때문에 레거시와 동일하게 둔다.
+   - 중복 동의 처리는 레거시와 구현이 다르다. 레거시는 `insertIgnoringDuplicateKey`로 중복을 흘려보내는데, 여기서는 이미 동의한 약관을 뺀 차집합만 저장한다 — `(user_id, term_type)` unique를 건드리지 않고 최초 동의 시각을 보존한다. 외부에서 관찰되는 동작(재제출해도 200, 이력 1건 유지)은 같다.
+   - `UserAgreementJpaEntity`는 `BaseEntity`를 상속하지 않는다. 동의는 갱신·soft delete 대상이 아니라 append-only 이력이라 `updated_at`/`deleted_at`이 의미가 없다.
+
 ## 완료 확인 기준
 
 - ArchUnit 전체 규칙 통과 (`domain.auth.domain` 규칙 4 등록 포함)
@@ -133,11 +155,36 @@ CREATE TABLE user_addresses (
 - Flyway 마이그레이션이 로컬 MySQL에 정상 적용됨 (`./gradlew flywayMigrate` 또는 앱 기동 시 자동 적용)
 - `KnockdogApplicationTests`(컨텍스트 로딩) 통과 — Redis 연결 없이도 컨텍스트가 뜨는지 확인(레이지 커넥션 확인)
 - `SecurityFilterChain` 도입 후 기존 `OwnerController` 엔드포인트 동작 확인 — 401로 막히는 게 의도된 변화임을 인지하고 기록만 남김(별도 조치는 owner 도메인 범위)
+- 약관 동의 단위 테스트: 필수 3종 동의 저장, 하나라도 빠지면 `REQUIRED_AGREEMENT_NOT_COMPLETED`, 중복 동의 미저장, 미존재 회원 `NOT_FOUND_USER`, 상태 조회 true/false
+
+**2026-08-31 검증 결과** (epic 머지 + §방향 논의 8·9 반영 후):
+
+| 항목 | 결과 |
+|---|---|
+| `./gradlew build` (ktlint·ArchUnit 포함) | BUILD SUCCESSFUL |
+| 단위 테스트 | 50개 통과, 실패 0 |
+| `node scripts/docs-check.mjs` | 통과 |
+
+아직 확인하지 못한 것: 로컬 MySQL에 V1·V2 마이그레이션 실제 적용, `OwnerController` 401 확인. 둘 다 로컬 기동이 필요해 이번 세션에서 수행하지 않았다.
 
 ## 작업 후 확인 목록
 
-- `docs/domains/auth.md` — 레거시 스키마 기준 문서를 이번에 확정된 신규 스키마/엔드포인트/유스케이스 분해로 갱신
-- `docs/conventions/jpa-entity.md` (신규) — BaseEntity 공통 컬럼, status 컬럼 사용 기준, FK 미적용 + `NO_CONSTRAINT` 연관관계 매핑 정책 기록
-- `docs/conventions/infra.md` §3, §4 — Flyway 전환 완료, Redis 도입(접속 구성·레거시와 공유 여부) 반영
-- `docs/specs/2026-07-30-auth-daycare-schema-draft.md` — 이번에 확정된 `knockdog_server`발 스키마로 대체/보류 처리되었음을 표시
-- Notion API 명세서 — 신규 5개 엔드포인트 반영 ([`docs/rules/notion-api-spec-sync.md`](../rules/notion-api-spec-sync.md) 절차)
+| 문서 | 결과 | 근거 |
+|---|---|---|
+| [`docs/domains/auth.md`](../domains/auth.md) | 갱신 | 신규 스키마/엔드포인트/유스케이스 분해로 갱신. 2026-08-31에 약관 동의 2개와 `AddressType` 변경 추가 반영 |
+| [`docs/conventions/jpa-entity.md`](../conventions/jpa-entity.md) | 갱신 | BaseEntity 공통 컬럼, status 컬럼 사용 기준, FK 미적용 + `NO_CONSTRAINT` 정책 기록 |
+| [`docs/conventions/error-handling.md`](../conventions/error-handling.md) | 갱신 | 도메인 전용 `ErrorCode` 첫 도입 사례로 `AuthErrorCode` 예시 추가 |
+| `docs/conventions/infra.md` | 해당 없음 | epic의 docs 재편(KD3-242)에서 삭제됐고 내용이 [`docs/inventory/operations.md`](../inventory/operations.md)로 재배치됐다. Flyway 전환·Redis 도입 사실은 아래 인벤토리 항목으로 넘긴다 |
+| `docs/specs/2026-07-30-auth-daycare-schema-draft.md` | 해당 없음 | `docs/specs/` 폴더가 KD3-242 재편에서 사라졌다. 이 문서를 참조하던 서술은 §방향 논의 1에 근거가 남아 있어 별도 조치가 필요 없다 |
+| [`docs/inventory/api.md`](../inventory/api.md), [`docs/inventory/database.md`](../inventory/database.md), [`docs/inventory/operations.md`](../inventory/operations.md) | **미처리 — 후속 필요** | 이 브랜치가 머지한 epic에는 KD3-402(인벤토리 최신화)가 아직 없어 219행 버전이다. 여기서 고치면 KD3-402 PR과 정면 충돌하므로 손대지 않았다. KD3-402가 epic에 머지된 뒤 별도로 반영한다 (아래 참고) |
+| Notion API 명세서 | 미처리 | 신규 7개 엔드포인트 반영 ([`docs/rules/notion-api-spec-sync.md`](../rules/notion-api-spec-sync.md) 절차) |
+
+### 인벤토리에 반영할 사실 (KD3-402 머지 후)
+
+KD3-402가 epic에 들어간 뒤 아래를 반영한다. 여기 적어두는 이유는, 이 브랜치에서 고치면 충돌하지만 잊으면 인벤토리가 다시 사실과 어긋나기 때문이다.
+
+- `operations.md` `스키마 관리` — 신규 서버는 KD3-258부터 Flyway가 단일 출처다. `FLYWAY_ENABLED=true` + `JPA_DDL_AUTO=validate`가 기본값이고 `db/migration/V1`, `V2`가 존재한다. "migration 파일이 없고 `FLYWAY_ENABLED=false`"는 더 이상 사실이 아니다.
+- `operations.md` `로컬 실행` — `docker-compose.local.yaml`이 MySQL만이 아니라 MySQL + Redis를 제공한다.
+- `integrations.md` Redis — 신규 서버가 리프레시 토큰 저장 용도로 Redis를 도입했다(TTL 30일, 레거시와 별개 인스턴스, 로컬 호스트 포트 기본 6380). "신규 서버 미도입"은 더 이상 사실이 아니다.
+- `api.md` — 약관 동의 2행의 후속 확인에 이 티켓 링크를 달고, auth `v0+v1` 행들의 v1 구현 상태를 반영한다.
+- `database.md` `user_agreement` 행 — 신규 서버에서 `user_agreements`로 확정됐고 `(user_id, term_type)` unique·append-only로 결정됐다.

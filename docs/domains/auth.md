@@ -13,14 +13,15 @@
 
 | 저장소 | 이름 | 비고 |
 |---|---|---|
-| MySQL (JPA) | `users` | PK는 auto-increment `Long`(내부용), 대외 식별자는 `user_code`(8자 영숫자). `status` 컬럼 없음 — 탈퇴 여부는 `deleted_at`으로 표현([`jpa-entity.md`](../conventions/jpa-entity.md) §2) |
-| MySQL (JPA) | `user_addresses` | FK 제약 없이 `user_id` 컬럼만 저장([`jpa-entity.md`](../conventions/jpa-entity.md) §3). HOME 주소가 최소 1개 있어야 함(도메인 불변식, `User.create`) |
+| MySQL (JPA) | `users` | PK는 auto-increment `Long`(내부용), 대외 식별자는 `user_code`(8자 영숫자). `status` 컬럼 없음 — 탈퇴 여부는 `deleted_at`으로 표현([`jpa-entity.md`](../conventions/jpa-entity.md) §2). `nickname`은 **NULL 허용** — 레거시가 KD3-372에서 NULL 허용으로 바꿨고 회원가입 요청도 닉네임을 필수로 받지 않는다 |
+| MySQL (JPA) | `user_addresses` | FK 제약 없이 `user_id` 컬럼만 저장([`jpa-entity.md`](../conventions/jpa-entity.md) §3). HOME 주소가 최소 1개 있어야 함(도메인 불변식, `User.create`). **타입은 `HOME`/`OTHER` 둘뿐** — 레거시가 KD3-372에서 `WORK`를 `OTHER`로 통합했고 신규 서버도 되살리지 않는다 |
 | MySQL (JPA) | `social_users` | `(provider, provider_id)` 유니크. **`email`은 유니크 아님** — 동일 이메일 다른 provider row가 공존할 수 있다(레거시 `VerifyOidcService` 로직 그대로 포팅, PENDING 상태). `user_id`는 nullable(연동 전 상태 존재), FK 제약 없음 |
+| MySQL (JPA) | `user_agreements` | `(user_id, term_type)` 유니크. append-only 이력이라 `BaseEntity`를 상속하지 않는다(갱신·soft delete 대상 아님). 필수 약관은 `TERMS_OF_SERVICE`/`PRIVACY_POLICY`/`AGE_OVER_14` 3종 |
 | Redis (`@RedisHash`) | `refresh_token` | TTL 30일. kindergarten 도메인과는 별개의 신규 Redis 인스턴스 사용(공유 안 함) |
 | MySQL (JPA) | `withdraw_reason` | **미구현** (A-5, 후속 티켓) |
 | Redis (`@RedisHash`) | `email_verification` | **미구현** (A-6, 후속 티켓) — 새 스키마는 비밀번호 없는 소셜 전용 가입이라 이메일 인증의 역할 자체가 레거시와 다를 수 있음, 착수 전 재확인 필요 |
 
-## 1. 마이그레이션 대상 엔드포인트 (14 → 12)
+## 1. 마이그레이션 대상 엔드포인트 (16 → 14)
 
 | 기존 (`v0`, 그대로 유지) | 신규 (`v1`) | 판정 |
 |---|---|---|
@@ -35,11 +36,18 @@
 | `GET /api/v0/user/social/user` | `GET /api/v1/users/me/social-account` | 이관 (미착수, A-4) |
 | `POST /api/v0/user/social/reconnect` | `PUT /api/v1/users/me/social-account` | 이관 (미착수, A-4) |
 | `POST /api/v0/user/register` | `POST /api/v1/users` | **구현 완료** (A-3) |
+| `POST /api/v0/user/agreements` | — (`v0` 유지) | **구현 완료** (A-3.5) |
+| `GET /api/v0/user/agreements/status` | — (`v0` 유지) | **구현 완료** (A-3.5) |
 | `POST /api/v0/user/withdraw` | `DELETE /api/v1/users/me` | 이관 (미착수, A-5) |
 
 **삭제 (프론트 호출 0건, 메인 설계 문서 §4.1 근거):**
 - `POST /api/v0/user/social/delete` — 미사용
 - `POST /api/v0/user/restore` — 미사용. 참고로 이 엔드포인트는 인증 없이 임의의 `id`(Long PK)만으로 탈퇴 계정을 복구시킬 수 있어 미사용이 아니었어도 재검토 대상이었음
+
+**KD3-402 인벤토리 재대조(2026-08-31)로 바뀐 것:**
+- 약관 동의 2개가 새로 들어왔다. 이 둘만 `v1`이 아니라 `v0` 경로 그대로인 이유는 인벤토리 판정이 `KEEP`이기 때문이다 — `KEEP`은 path/method와 요청·응답 필드를 유지해야 한다([`api-migration.md`](../rules/api-migration.md) §2). 프론트가 이미 이 경로를 호출 중이라 경로를 바꾸면 breaking change다.
+- `GET /api/v0/mypage/getPushSetting`, `POST /api/v0/mypage/updatePushSetting`은 프론트가 `notification-settings`(KD3-338)로 이전해 인벤토리에서 `KEEP` → `DEFER`로 내려갔다. 원래 이 도메인 대상이 아니었지만, auth/user 주변에서 사라진 호출이라 여기 적어둔다 — 실제 판정은 notification 도메인에서 정리한다.
+- `POST /api/v0/user/withdraw`(A-5)는 레거시가 `pushDeviceService.deactivateAllForWithdrawal()`로 등록 기기 푸시를 모두 끈다. **탈퇴를 auth 도메인 안에서만 구현할 수 없다** — A-5 착수 시 notification 도메인과의 경계를 먼저 정해야 한다.
 
 ## 2. 작업 단위 분해 (선행 기반 + 유스케이스 슬라이스)
 
@@ -78,6 +86,12 @@ domain/auth/
 - `RegisterUseCase` — 1개 엔드포인트
 - 주소 목록 중 `HOME` 타입이 최소 1개 있어야 하는 불변식은 **순수 도메인 모델(`User.create`)에 유지** — JPA/서비스 레이어가 아니라 도메인이 검증
 
+### A-3.5 가입 약관 동의 — **구현 완료**
+- `AgreeToTermsUseCase`, `GetAgreementStatusUseCase` — 2개 엔드포인트(`v0` 유지, §1 참고)
+- 필수 약관 3종이 모두 들어오지 않으면 `REQUIRED_AGREEMENT_NOT_COMPLETED`(400)로 거부한다
+- 이미 동의한 약관은 저장하지 않는다. 레거시는 `insertIgnoringDuplicateKey`로 중복을 흘려보내는데, 신규는 차집합만 저장해 `(user_id, term_type)` unique를 건드리지 않고 최초 동의 시각을 보존한다 — 외부에서 보이는 동작(재제출해도 200, 이력 1건)은 같다
+- 회원가입 직후 흐름이지만 **인증이 필요하다**(기본 deny). A-3와 달리 permit 목록에 넣지 않았다 — 프론트가 가입으로 받은 액세스 토큰으로 호출한다
+
 ### A-4 소셜 계정 연동 조회/재연동
 - `GetLinkedSocialUserUseCase`, `ReconnectSocialUserUseCase` — 2개 엔드포인트
 
@@ -97,7 +111,7 @@ domain/auth/
 
 ## 3. 인가 정책 (이 도메인에 한정된 노트)
 
-- 원본의 `TokenAuthenticationFilter`는 `@PrivateAccess` 붙은 엔드포인트만 인증을 요구하고, 나머지는 토큰이 있으면 검증하되 없어도 통과시키는 "선택적 인증"이다. 신규 서버는 메인 설계 문서 §8(기본 deny)을 따르되, **A-1~A-4, A-6, A-7은 로그인 전 단계이므로 명시적으로 공개(permit) 목록에 올려야 한다.** 인증이 필요한 것은 `withdraw`(A-5) 뿐이다.
+- 원본의 `TokenAuthenticationFilter`는 `@PrivateAccess` 붙은 엔드포인트만 인증을 요구하고, 나머지는 토큰이 있으면 검증하되 없어도 통과시키는 "선택적 인증"이다. 신규 서버는 메인 설계 문서 §8(기본 deny)을 따르되, **A-1~A-4, A-6, A-7은 로그인 전 단계이므로 명시적으로 공개(permit) 목록에 올려야 한다.** 인증이 필요한 것은 `withdraw`(A-5)와 약관 동의(A-3.5)다.
   - **구현 완료(KD3-258)**: `global/config/SecurityConfig.kt`가 `/api/v1/auth/oidc-verifications`, `/api/v1/auth/login`, `/api/v1/auth/refresh`, `/api/v1/auth/logout`, `/api/v1/users`를 permit 목록에 올리고 나머지는 `authenticated()`. 커스텀 필터(`domain/auth/adapter/inbound/security/AccessTokenAuthenticationFilter`)는 액세스 토큰이 있으면 `SecurityContext`에 `ROLE_USER`를 채우고, 없거나 유효하지 않으면 그대로 통과시켜 `authorizeHttpRequests`가 최종 판정하게 한다. 이 기본 deny 도입으로 기존 `owner` 도메인의 `/owners` 엔드포인트도 인증을 요구하게 되는 부수효과가 있음 — `owner` 도메인 쪽 대응은 별도 판단 필요.
 - `application.yml`의 `security.roles.*`(`ROLE_MEMBER`, `ROLE_OWNER` 등)는 **v3에서 사용되지 않는 죽은 설정**이다(`SecurityRoleProperties` 참조처가 정의 클래스 자신뿐). `TokenAuthenticationFilter`는 인증된 모든 사용자에게 단일 권한(`ROLE_USER`)만 부여한다. 세분화된 역할(원장 권한 등)은 Spring Security 권한이 아니라 `owner` 도메인이 자체 테이블로 검증하는 방식이며, auth 도메인은 이 패턴을 유지한다 — 신규 서버에서 역할 기반 Spring Security를 새로 도입하지 않는다.
 
