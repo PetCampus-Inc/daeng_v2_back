@@ -1,4 +1,4 @@
-> 생성: 2026-08-03 14:00 · 최종 수정: 2026-08-31 23:30
+> 생성: 2026-08-03 14:00 · 최종 수정: 2026-09-01 01:10
 
 # KD3-258 — User 엔티티 + 소셜 로그인 회원가입 + 인증/인가 기반 구축
 
@@ -12,7 +12,7 @@
 
 - 활성 workflow: `003-migration`, `005-new-feature`
 - 현재 공통 단계: `5` (PR #4 리뷰 반영 중)
-- 다음 결정 또는 전환 조건: 머지 가능 상태. 미결 질문(KEEP parity 봉투 차이)은 프론트 확인으로 해소됐다
+- 다음 결정 또는 전환 조건: 머지 가능 상태. 미결 질문 없음 — KEEP parity는 프론트 확인으로, Flyway 정합성 자동 검증은 보류로 정리됐다
 
 ## 작업 목표
 
@@ -210,6 +210,14 @@ CREATE TABLE user_agreements (
 
 따라서 (c)를 택한다 — 공통 `Response` 봉투를 그대로 두고 차이를 허용한다. 단 이건 **이 두 endpoint에 한정된 판단**이다. 다른 `KEEP` API를 이관할 때는 그 API의 프론트 소비처를 각각 확인해야 한다. `POST /api/v0/address/search` 계열처럼 `code !== 'SUCCESS'`로 분기하는 곳이 실제로 있다(`features/address-picker/api/searchAddress.ts`).
 
+### 보류한 것 — Flyway↔엔티티 정합성 자동 검증 (2026-09-01)
+
+테스트 환경이 H2 + `ddl-auto: create-drop` + `flyway.enabled: false`라 **`V1`·`V2` SQL이 테스트에서 한 번도 실행되지 않는다.** 반면 로컬·운영은 `validate`라 마이그레이션과 엔티티가 어긋나면 기동 자체가 실패한다. 이번에 그 간극이 실제로 두 번 드러났고(아래 §발견 1·2), 둘 다 손으로 앱을 띄워서야 잡았다.
+
+Testcontainers로 테스트를 실제 MySQL + Flyway 위에서 돌리면 `./gradlew build`가 이런 걸 자동으로 잡는다. **이번 티켓에서는 넣지 않기로 했다** — 마이그레이션이 2개뿐이고 로컬 기동으로 직접 확인했으며, Docker 의존이 생겨 CI·로컬 테스트가 함께 무거워진다.
+
+다만 도메인이 늘어 마이그레이션이 쌓이면 "테스트는 통과하는데 배포하면 안 뜬다"가 반복된다. **다음 도메인 이관 착수 시 함께 도입을 검토한다.**
+
 ### 로컬 기동에서 발견한 문제
 
 1. **기존 로컬 DB는 Flyway checksum 불일치로 기동 실패한다.** §방향 논의 8에서 V1을 직접 수정했기 때문이다. 실제로 재현했다 — `Migration checksum mismatch for migration version 1 / Applied to database: 1207543218 / Resolved locally: -1900621767`. 로컬 DB를 초기화해야 한다(운영/스테이징은 아직 이 스키마가 적용된 적이 없어 영향 없음).
@@ -234,6 +242,12 @@ CREATE TABLE user_agreements (
 | [`docs/inventory/api.md`](../inventory/api.md), [`docs/inventory/database.md`](../inventory/database.md), [`docs/inventory/integrations.md`](../inventory/integrations.md), [`docs/inventory/operations.md`](../inventory/operations.md) | 갱신 | KD3-402가 epic에 머지된 뒤(2026-08-31) 반영했다. 아래 목록 참고 |
 | [`docs/rules/notion-api-spec-sync.md`](../rules/notion-api-spec-sync.md) | 갱신 | 명세서 `이름` 속성 규칙을 정정하고 "Cookie" 섹션(§3)을 신설했다. auth 5개 페이지를 만들면서 쿠키 값을 HTTP Header 표에 잘못 적은 걸 발견해 팀 규칙 자체를 고친 것이다 |
 | `docs/rules/notion-api-page-template.json` | 갱신 | 위 규칙 변경에 맞춰 Cookie 섹션 블록을 템플릿에 추가 |
+| [`docs/rules/api-migration.md`](../rules/api-migration.md) | 갱신 | §4가 요구하던 golden/parity 테스트에 실행 수단이 없었다. 자동 테스트가 없다는 사실을 명시하고 로컬 대조 절차를 가리키게 했다 |
+| [`docs/rules/documentation.md`](../rules/documentation.md) | 갱신 | 인벤토리 `이관 진척` 열을 사실상 금지하던 "확인 상태 열 일괄 추가 금지" 규칙을 갱신. `완료`를 근거 있을 때만 적도록 제약은 유지 |
+| [`docs/workflows/003-migration.md`](../workflows/003-migration.md) | 갱신 | 4단계에 "`KEEP` API 로컬 응답 대조" 절차 신설 |
+| [`docs/architecture/hexagonal.md`](../architecture/hexagonal.md) | 갱신 | 실용형을 선택지에서 제거, 기준 예제를 `owner` → `auth`로 교체 |
+| `README.md` | 갱신 | 예제 슬라이스 절 교체, 로컬 실행에 Redis·`JWT_SECRET_KEY`·Flyway 안내 추가 |
+| `.github/workflows/build.yml` | 신규 | PR에서 `./gradlew build` 실행 |
 | Notion API 명세서(외부) | 미처리 | v1 5개는 생성했고 약관 동의 2개가 미반영이다 ([`notion-api-spec-sync.md`](../rules/notion-api-spec-sync.md) 절차) |
 
 ### 인벤토리 반영 내역 (2026-08-31, KD3-402 머지 후)
