@@ -1,6 +1,7 @@
 package com.petcampus.knockdog.global.config
 
 import com.petcampus.knockdog.domain.auth.adapter.inbound.security.AccessTokenAuthenticationFilter
+import com.petcampus.knockdog.domain.auth.adapter.inbound.security.AuthenticationFailureResponder
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.security.config.annotation.web.builders.HttpSecurity
@@ -14,6 +15,7 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 @EnableWebSecurity
 class SecurityConfig(
     private val accessTokenAuthenticationFilter: AccessTokenAuthenticationFilter,
+    private val authenticationFailureResponder: AuthenticationFailureResponder,
 ) {
     @Bean
     fun securityFilterChain(http: HttpSecurity): SecurityFilterChain {
@@ -23,6 +25,12 @@ class SecurityConfig(
             .authorizeHttpRequests { authorize ->
                 authorize.requestMatchers(*PUBLIC_ENDPOINTS).permitAll()
                 authorize.anyRequest().authenticated()
+            }
+            // 기본값은 인증 실패에 403 + Spring 기본 오류 본문을 내는데, 프론트 인터셉터가
+            // 401에서만 토큰 갱신을 시도하므로 그대로 두면 액세스 토큰 만료가 복구되지 않는다.
+            .exceptionHandling {
+                it.authenticationEntryPoint(authenticationFailureResponder)
+                it.accessDeniedHandler(authenticationFailureResponder)
             }.addFilterBefore(accessTokenAuthenticationFilter, UsernamePasswordAuthenticationFilter::class.java)
 
         return http.build()

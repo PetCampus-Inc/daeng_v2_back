@@ -1,4 +1,4 @@
-> 생성: 2026-08-03 14:00 · 최종 수정: 2026-08-31 22:15
+> 생성: 2026-08-03 14:00 · 최종 수정: 2026-08-31 23:30
 
 # KD3-258 — User 엔티티 + 소셜 로그인 회원가입 + 인증/인가 기반 구축
 
@@ -12,7 +12,7 @@
 
 - 활성 workflow: `003-migration`, `005-new-feature`
 - 현재 공통 단계: `5` (PR #4 리뷰 반영 중)
-- 다음 결정 또는 전환 조건: 아래 §미결 질문의 **KEEP parity 응답 봉투 차이**를 어떻게 처리할지 정해지면 머지 가능
+- 다음 결정 또는 전환 조건: 머지 가능 상태. 미결 질문(KEEP parity 봉투 차이)은 프론트 확인으로 해소됐다
 
 ## 작업 목표
 
@@ -189,7 +189,7 @@ CREATE TABLE user_agreements (
 | permit 목록 통과 | `/api/v1/auth/login`, `/api/v1/users`가 403이 아님 |
 | 필수 쿠키 누락 | 400 `INVALID_INPUT_VALUE` (아래 §발견 3 수정 후) |
 
-### 미결 질문 — KEEP parity 응답 봉투가 레거시와 다르다
+### 해소된 질문 — KEEP parity 응답 봉투 차이 (2026-08-31 프론트 확인)
 
 약관 동의 2개는 `KEEP` 판정이라 [`api-migration.md`](../rules/api-migration.md) §2가 "응답 필드명·타입·null 처리 유지"를 요구한다. 레거시 저장소의 `common/response/Response.java`와 대조한 결과 **봉투가 다르다.**
 
@@ -202,7 +202,13 @@ CREATE TABLE user_agreements (
 
 즉 `GET /api/v0/user/agreements/status`의 응답이 레거시는 `{"data":{"hasAgreedRequiredTerms":true},"status":200,"code":"SUCCESS","message":"정상 처리되었습니다.","responseTime":"..."}`인데 신규는 `{"status":200,"code":null,"message":"정상 처리되었습니다.","data":{...}}`가 된다. `data` 안쪽(`hasAgreedRequiredTerms`)은 일치한다.
 
-프론트가 봉투의 어느 필드를 읽는지에 따라 영향이 갈린다. `data`만 꺼내 쓴다면 문제없고, `code === "SUCCESS"`로 분기하거나 `responseTime`을 쓴다면 깨진다. **결정이 필요하다** — (a) v0 KEEP 전용 봉투를 따로 두기, (b) 공통 `Response`를 레거시 형태에 맞추기(KD3-257 범위), (c) 프론트가 `data`만 쓴다는 걸 확인하고 차이를 허용하기. 확인 전에는 golden/parity 테스트도 쓸 수 없다.
+프론트 저장소(`daeng_v2_front` `develop@0abacd7`)를 확인한 결과 **차이를 허용해도 안전하다**.
+
+- 프론트의 `ApiResponse` 타입(`shared/api/model/response.ts`)은 `{status, code, message, data}`뿐이다. `responseTime`은 저장소 전체에서 참조가 0건이다.
+- 약관 동의 소비처(`entities/user/api/useUserAgreementQuery.ts`, `features/required-terms-consent/`, `views/guardian-invite/privacy-consent/`)는 `data.hasAgreedRequiredTerms`만 읽는다.
+- `useUserAgreementQuery.ts:40`에 `code: 'SUCCESS'`가 있지만 이건 서버 응답을 읽는 게 아니라 mutation 성공 후 **react-query 캐시에 넣는 로컬 객체**다.
+
+따라서 (c)를 택한다 — 공통 `Response` 봉투를 그대로 두고 차이를 허용한다. 단 이건 **이 두 endpoint에 한정된 판단**이다. 다른 `KEEP` API를 이관할 때는 그 API의 프론트 소비처를 각각 확인해야 한다. `POST /api/v0/address/search` 계열처럼 `code !== 'SUCCESS'`로 분기하는 곳이 실제로 있다(`features/address-picker/api/searchAddress.ts`).
 
 ### 로컬 기동에서 발견한 문제
 
@@ -210,7 +216,9 @@ CREATE TABLE user_agreements (
 
 2. **빈 DB에서는 앱이 아예 뜨지 못했다** — `Schema-validation: missing table [bookmark]`. `owner`/`bookmark` 예제 슬라이스 테이블이 `ddl-auto: update`로만 만들어져 있었고 마이그레이션이 없었다. 기존 로컬 DB에는 테이블이 이미 있어 드러나지 않던 문제로, KD3-258이 `validate`로 전환하면서 **새로 받는 사람은 앱을 띄울 수 없는 상태**였다. `V3__create_example_slice_tables.sql`로 해결했다.
 
-3. **필수 쿠키 누락이 500으로 나갔다.** `@CookieValue`가 던지는 `MissingRequestCookieException`을 `GlobalExceptionHandler`가 처리하지 않아 `Exception` 핸들러로 떨어졌다. 쿠키로 토큰을 받는 3개 API(`/api/v1/auth/login`, `/refresh`, `POST /api/v1/users`)가 전부 해당된다. 클라이언트 실수를 서버 오류로 보고하던 것이라 400 `INVALID_INPUT_VALUE`로 고치고 회귀 테스트를 추가했다.
+3. **인증 실패가 403 + Spring 기본 본문으로 나갔다.** 프론트 `tokenRefreshInterceptor`는 `status === 401`일 때만 토큰 갱신에 진입하고 본문 `code`로 갱신/로그아웃을 분기하는데, 신규 서버는 Spring Security 기본값대로 403을 냈다. **액세스 토큰이 만료되면 자동 갱신이 아예 동작하지 않아 모든 인증 요청이 조용히 실패하는 상태**였다. `AuthenticationFailureResponder`로 401 + `Response` 규격 + 정확한 `code`를 내도록 고쳤다(로컬 실측: 토큰 없음 `UNAUTHORIZED_REQUEST`, 만료 `EXPIRED_TOKEN`, 무효 `INVALID_TOKEN` 모두 401).
+
+4. **필수 쿠키 누락이 500으로 나갔다.** `@CookieValue`가 던지는 `MissingRequestCookieException`을 `GlobalExceptionHandler`가 처리하지 않아 `Exception` 핸들러로 떨어졌다. 쿠키로 토큰을 받는 3개 API(`/api/v1/auth/login`, `/refresh`, `POST /api/v1/users`)가 전부 해당된다. 클라이언트 실수를 서버 오류로 보고하던 것이라 400 `INVALID_INPUT_VALUE`로 고치고 회귀 테스트를 추가했다.
 
 아직 확인하지 못한 것: 실제 OIDC 토큰이 필요한 정상 경로(로그인→약관 동의 200)는 provider 인증이 필요해 검증하지 못했다.
 

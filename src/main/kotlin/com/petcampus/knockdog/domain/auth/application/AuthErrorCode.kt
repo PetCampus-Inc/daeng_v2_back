@@ -21,6 +21,7 @@ enum class AuthErrorCode(
     USER_NOT_LINKED(HttpStatus.FORBIDDEN, "USER_NOT_LINKED", "소셜 계정과 연동되지 않은 회원입니다."),
     REJOINING_RESTRICTION_PERIOD(HttpStatus.FORBIDDEN, "REJOINING_RESTRICTION_PERIOD", "탈퇴 후 재가입 제한 기간입니다."),
     WITHDRAWN_USER(HttpStatus.FORBIDDEN, "WITHDRAWN_USER", "탈퇴 처리 된 회원입니다."),
+    UNAUTHORIZED_REQUEST(HttpStatus.UNAUTHORIZED, "UNAUTHORIZED_REQUEST", "인증이 필요한 요청입니다."),
     NOT_FOUND_USER(HttpStatus.NOT_FOUND, "NOT_FOUND_USER", "존재하지 않는 회원입니다."),
     NOT_FOUND_SOCIAL_USER(HttpStatus.NOT_FOUND, "NOT_FOUND_SOCIAL_USER", "존재하지 않는 소셜 계정입니다."),
 
