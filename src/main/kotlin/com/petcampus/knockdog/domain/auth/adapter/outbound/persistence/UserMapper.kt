@@ -39,13 +39,25 @@ fun UserJpaEntity.toDomain(): User =
 
 private fun UserAddress.toJpaEntity(user: UserJpaEntity): UserAddressJpaEntity =
     UserAddressJpaEntity(
+        id = id,
         user = user,
         type = type,
         alias = alias,
         address = address,
         roadAddress = roadAddress,
+        addressDetail = addressDetail,
         lat = lat,
         lng = lng,
     )
 
-private fun UserAddressJpaEntity.toDomain(): UserAddress = UserAddress.create(type, alias, address, roadAddress, lat, lng)
+private fun UserAddressJpaEntity.toDomain(): UserAddress =
+    UserAddress.reconstitute(
+        id = requireNotNull(id) { "저장되지 않은 UserAddressJpaEntity입니다." },
+        type = type,
+        alias = alias,
+        address = address,
+        roadAddress = roadAddress,
+        addressDetail = addressDetail,
+        lat = lat,
+        lng = lng,
+    )

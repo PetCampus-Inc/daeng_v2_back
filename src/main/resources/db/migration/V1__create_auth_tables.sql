@@ -37,6 +37,7 @@ CREATE TABLE user_addresses (
   alias         VARCHAR(20),
   address       VARCHAR(200) NOT NULL,
   road_address  VARCHAR(200),
+  address_detail VARCHAR(100),                 -- v0 계약: 프론트가 화면에 표시한다
   lat           DOUBLE NOT NULL,
   lng           DOUBLE NOT NULL,
   created_at    DATETIME(6) NOT NULL,

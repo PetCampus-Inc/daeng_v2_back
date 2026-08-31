@@ -25,6 +25,34 @@ class UserTest {
         assertEquals(listOf(AddressType.HOME, AddressType.OTHER), AddressType.entries.toList())
     }
 
+    /**
+     * v0 계약: 프론트가 `address.id`로 주소 수정·삭제를, `addressDetail`을 화면 표시에 쓴다.
+     * 응답에서 빠지면 주소 수정·삭제가 깨진다.
+     */
+    @Test
+    fun `영속성에서 복원한 주소는 id와 addressDetail을 갖는다`() {
+        val address =
+            UserAddress.reconstitute(
+                id = 7L,
+                type = AddressType.HOME,
+                alias = null,
+                address = "서울시 강남구",
+                roadAddress = null,
+                addressDetail = "101동 202호",
+                lat = 37.5,
+                lng = 127.0,
+            )
+
+        assertEquals(7L, address.id)
+        assertEquals("101동 202호", address.addressDetail)
+    }
+
+    /** 신규 가입 시점에는 아직 PK가 없다. */
+    @Test
+    fun `신규 생성한 주소는 id가 없다`() {
+        assertNull(homeAddress().id)
+    }
+
     /** 레거시가 KD3-372에서 user.nickname을 NULL 허용으로 바꿨다(RegisterRequest에도 @NotBlank 없음). */
     @Test
     fun `닉네임 없이도 회원가입할 수 있다`() {

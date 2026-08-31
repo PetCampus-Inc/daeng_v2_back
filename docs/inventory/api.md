@@ -1,4 +1,4 @@
-> 생성: 2026-08-02 13:45 · 최종 수정: 2026-09-01 00:20
+> 생성: 2026-08-02 13:45 · 최종 수정: 2026-09-01 11:40
 
 # API 인벤토리
 
@@ -48,7 +48,7 @@
 
 | 전체 | 프론트 호출 확인 행 | KEEP | REDESIGN | DROP | DEFER |
 |---:|---:|---:|---:|---:|---:|
-| 259 | 116 | 89 | 26 | 137 | 7 |
+| 259 | 116 | 92 | 23 | 137 | 7 |
 
 **이관 진척** — 이관 대상은 `해당없음`(DROP 137개)을 뺀 **122개**다.
 
@@ -56,7 +56,7 @@
 |---:|---:|---:|---:|
 | 7 | 0 | 115 | 137 |
 
-완료 7개는 전부 auth 도메인이다 — v1 5개(`oidc-verifications`, `login`, `refresh`, `logout`, `users`)와 v0 유지 2개(약관 동의 제출·조회). [`KD3-258`](../work/KD3-258-user-social-auth.md).
+완료 7개는 전부 auth 도메인이다 — `v1` 2개(`oidc-verifications`, `users`)와 `v0` 유지 5개(`login`, `refresh`, `logout`, 약관 동의 제출·조회). [`KD3-258`](../work/KD3-258-user-social-auth.md).
 
 ## 6. 인벤토리
 
@@ -165,9 +165,9 @@
 | POST | `/api/v0/auth/email/send` | 있음: src/entities/email-verification/api/verifyEmail.ts | `REDESIGN` | `미착수` | v0+v1 | auth | P1 | auth 도메인 문서 v1 매핑 대상<br>src/main/java/com/petcampus/knockdog/auth/controller/UserAuthController.java#UserAuthController.sendVerificationEmail | 상세 v1 계약은 도메인/계획 문서에서 확정 |
 | GET | `/api/v0/auth/email/verification` | 있음: src/entities/email-verification/api/verifyEmail.ts | `REDESIGN` | `미착수` | v0+v1 | auth | P1 | auth 도메인 문서 v1 매핑 대상<br>src/main/java/com/petcampus/knockdog/auth/controller/UserAuthController.java#UserAuthController.checkEmailVerification | 상세 v1 계약은 도메인/계획 문서에서 확정 |
 | POST | `/api/v0/auth/email/verify` | 있음: src/entities/email-verification/api/verifyEmail.ts | `REDESIGN` | `미착수` | v0+v1 | auth | P1 | auth 도메인 문서 v1 매핑 대상<br>src/main/java/com/petcampus/knockdog/auth/controller/UserAuthController.java#UserAuthController.verifyEmail | 상세 v1 계약은 도메인/계획 문서에서 확정 |
-| POST | `/api/v0/auth/login` | 있음: src/shared/api/endpoint/auth.ts | `REDESIGN` | `완료` | v0+v1 | auth | P1 | auth 도메인 문서 v1 매핑 대상<br>src/main/java/com/petcampus/knockdog/auth/controller/UserAuthController.java#UserAuthController.login | v1 `POST /api/v1/auth/login` 구현 완료([`KD3-258`](../work/KD3-258-user-social-auth.md)). v0는 컷오버까지 레거시가 계속 제공한다 |
-| POST | `/api/v0/auth/logout` | 있음: src/shared/api/endpoint/auth.ts | `REDESIGN` | `완료` | v0+v1 | auth | P1 | auth 도메인 문서 v1 매핑 대상<br>src/main/java/com/petcampus/knockdog/auth/controller/UserAuthController.java#UserAuthController.logout | v1 `POST /api/v1/auth/logout` 구현 완료([`KD3-258`](../work/KD3-258-user-social-auth.md)). v0는 컷오버까지 레거시가 계속 제공한다 |
-| POST | `/api/v0/auth/refresh` | 있음: src/shared/api/endpoint/auth.ts | `REDESIGN` | `완료` | v0+v1 | auth | P1 | auth 도메인 문서 v1 매핑 대상<br>src/main/java/com/petcampus/knockdog/auth/controller/UserAuthController.java#UserAuthController.refresh | v1 `POST /api/v1/auth/refresh` 구현 완료([`KD3-258`](../work/KD3-258-user-social-auth.md)). v0는 컷오버까지 레거시가 계속 제공한다 |
+| POST | `/api/v0/auth/login` | 있음: src/shared/api/endpoint/auth.ts | `KEEP` | `완료` | v0 | auth | P1 | 프론트 호출 확인<br>src/main/java/com/petcampus/knockdog/auth/controller/UserAuthController.java#UserAuthController.login | v0 경로 그대로 구현 완료([`KD3-258`](../work/KD3-258-user-social-auth.md)). 재설계할 것이 없어 `v1`을 만들지 않았다 — [`api-migration.md`](../rules/api-migration.md) §2 |
+| POST | `/api/v0/auth/logout` | 있음: src/shared/api/endpoint/auth.ts | `KEEP` | `완료` | v0 | auth | P1 | 프론트 호출 확인<br>src/main/java/com/petcampus/knockdog/auth/controller/UserAuthController.java#UserAuthController.logout | v0 경로 그대로 구현 완료([`KD3-258`](../work/KD3-258-user-social-auth.md)). 재설계할 것이 없어 `v1`을 만들지 않았다 — [`api-migration.md`](../rules/api-migration.md) §2 |
+| POST | `/api/v0/auth/refresh` | 있음: src/shared/api/endpoint/auth.ts | `KEEP` | `완료` | v0 | auth | P1 | 프론트 호출 확인<br>src/main/java/com/petcampus/knockdog/auth/controller/UserAuthController.java#UserAuthController.refresh | v0 경로 그대로 구현 완료([`KD3-258`](../work/KD3-258-user-social-auth.md)). 재설계할 것이 없어 `v1`을 만들지 않았다 — [`api-migration.md`](../rules/api-migration.md) §2 |
 | POST | `/api/v0/auth/verify/oidc` | 있음: src/entities/social-user/api/verifyOidc.ts | `REDESIGN` | `완료` | v0+v1 | auth | P1 | auth 도메인 문서 v1 매핑 대상<br>src/main/java/com/petcampus/knockdog/auth/controller/UserAuthController.java#UserAuthController.verifyOidc | v1 `POST /api/v1/auth/oidc-verifications` 구현 완료([`KD3-258`](../work/KD3-258-user-social-auth.md)). v0는 컷오버까지 레거시가 계속 제공한다 |
 | GET | `/api/v0/autocomplete` | 있음: src/entities/kindergarten/api/autocomplete.ts | `KEEP` | `미착수` | v0 | kindergarten | P1 | 프론트 호출 확인<br>src/main/java/com/petcampus/knockdog/kindergardeninfo/AutocompleteController.java#AutocompleteController.autocomplete | v0 계약 보존/parity 대상 |
 | GET | `/api/v0/bookmark` | 있음: src/entities/bookmark/api/bookmark.ts | `KEEP` | `미착수` | v0 | bookmark | P1 | 프론트 호출 확인<br>src/main/java/com/petcampus/knockdog/bookmark/controller/BookMarkController.java#BookMarkController.getBookmark | v0 계약 보존/parity 대상 |

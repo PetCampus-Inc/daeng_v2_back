@@ -41,9 +41,9 @@ domain/auth/
 | 메서드/경로 | 유스케이스 | 인증 요구 |
 |---|---|---|
 | `POST /api/v1/auth/oidc-verifications` | VerifyOidcUseCase | 공개 |
-| `POST /api/v1/auth/login` | LoginUseCase | 공개 (OIDC 임시 토큰으로 자체 검증) |
-| `POST /api/v1/auth/refresh` | RefreshTokenUseCase | 공개 (리프레시 토큰으로 자체 검증) |
-| `POST /api/v1/auth/logout` | LogoutUseCase | 공개 (리프레시 토큰으로 자체 검증) |
+| `POST /api/v0/auth/login` | LoginUseCase | 공개 (OIDC 임시 토큰으로 자체 검증) |
+| `POST /api/v0/auth/refresh` | RefreshTokenUseCase | 공개 (리프레시 토큰으로 자체 검증) |
+| `POST /api/v0/auth/logout` | LogoutUseCase | 공개 (리프레시 토큰으로 자체 검증) |
 | `POST /api/v1/users` | RegisterUserUseCase | 공개 (OIDC 임시 토큰으로 자체 검증) |
 | `POST /api/v0/user/agreements` | AgreeToTermsUseCase | 인증 필요 (기본 deny) |
 | `GET /api/v0/user/agreements/status` | GetAgreementStatusUseCase | 인증 필요 (기본 deny) |
@@ -186,7 +186,7 @@ CREATE TABLE user_agreements (
 | `users.nickname` nullable | `IS_NULLABLE=YES` (§방향 논의 8 반영 확인) |
 | `user_agreements` 생성 | 4개 컬럼 + `(user_id, term_type)` unique |
 | 약관 동의 2개 인증 요구 | 토큰 없이 호출 시 403 |
-| permit 목록 통과 | `/api/v1/auth/login`, `/api/v1/users`가 403이 아님 |
+| permit 목록 통과 | `/api/v0/auth/login`, `/api/v1/users`가 인증 없이 통과 |
 | 필수 쿠키 누락 | 400 `INVALID_INPUT_VALUE` (아래 §발견 3 수정 후) |
 
 ### 해소된 질문 — KEEP parity 공통 응답 래퍼 차이 (2026-08-31 프론트 확인)
@@ -230,13 +230,13 @@ KD3-257은 `code`를 "성공 시 생략 가능"으로 뒀는데, 레거시는 �
 
 [`api-migration.md`](../rules/api-migration.md) §2가 "경로가 같으면 `v1` 트윈을 만들지 않는다"를 규칙으로 정했다. 이 티켓의 `v1` 5개를 그 기준으로 다시 봤다.
 
-| v1 | v0 대비 경로 | v0 대비 응답 | 판단 |
+| 엔드포인트 | v0 대비 경로 | v0 대비 응답 | 결정 |
 |---|---|---|---|
 | `POST /api/v1/auth/oidc-verifications` | 재설계됨 | | `v1` 유지 |
 | `POST /api/v1/users` | 재설계됨 (`user/register`) | | `v1` 유지 |
-| `POST /api/v1/auth/login` | **동일** | `addresses[]`에서 `id`·`addressDetail` 누락 | **확인 필요 — 아래** |
-| `POST /api/v1/auth/refresh` | **동일** | `code` 수정 후 **완전히 동일** | **`v1` 근거 없음** |
-| `POST /api/v1/auth/logout` | **동일** | `code` 수정 후 **완전히 동일** | **`v1` 근거 없음** |
+| `POST /api/v0/auth/login` | 동일 | `id`·`addressDetail`을 채워 **동일하게 맞춤** | **`v0` 단독으로 내림** |
+| `POST /api/v0/auth/refresh` | 동일 | `code` 수정 후 동일 | **`v0` 단독으로 내림** |
+| `POST /api/v0/auth/logout` | 동일 | `code` 수정 후 동일 | **`v0` 단독으로 내림** |
 
 `login`의 응답 차이는 의도한 재설계가 아니라 **누락으로 보인다.** 레거시는 `UserAddress` **JPA 엔티티를 그대로 직렬화**해서 `id`·`addressDetail`이 나가는데, 신규 `UserAddressResponse`는 6개 필드만 담는다. 프론트는 둘 다 쓴다 —
 
@@ -245,7 +245,12 @@ KD3-257은 `code`를 "성공 시 생략 가능"으로 뒀는데, 레거시는 �
 
 프론트가 아직 `v0`를 호출하므로 지금 깨지는 것은 없다. `v1`으로 전환하는 시점에 터진다.
 
-**결정 필요**: (a) `UserAddressResponse`에 `id`·`addressDetail`을 추가해 `v0`와 맞추고 `login`도 `v1` 근거를 잃게 할지, (b) 의도적 축소로 두고 프론트 전환 시 함께 고칠지. `refresh`/`logout`은 (a)와 무관하게 `v1` 근거가 없어 `v0` 단독으로 내릴지 결정해야 한다.
+**결정 (2026-09-01, 사용자 승인)**: `UserAddressResponse`에 `id`·`addressDetail`을 추가해 `v0`와 맞추고, 트윈 3개(`login`/`refresh`/`logout`)를 `v0` 단독으로 내렸다. 결과적으로 `v1`은 실제 재설계가 있는 2개(`oidc-verifications`, `users`)만 남는다.
+
+함께 반영한 것:
+- `user_addresses`에 `address_detail` 컬럼 추가(V1 직접 수정 — §방향 논의 8과 같은 이유)
+- `UserAddress` 도메인에 `id`·`addressDetail`과 `reconstitute()` 추가. 내부 PK를 응답에 노출하는 형태라 좋은 설계는 아니지만 `KEEP` 계약이라 뺄 수 없다
+- `POST /api/v0/auth/logout`이 레거시처럼 `pushDeviceId` body를 받도록 했다. **다만 푸시 비활성화는 구현하지 않았다** — notification 도메인이 미이관이라 A-5(탈퇴)와 같은 의존이다. 계약은 맞췄고 동작 차이는 여기 기록한다
 
 ### 로컬 기동에서 발견한 문제
 

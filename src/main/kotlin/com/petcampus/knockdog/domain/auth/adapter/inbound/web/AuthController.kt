@@ -11,6 +11,7 @@ import org.springframework.http.HttpHeaders
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.CookieValue
 import org.springframework.web.bind.annotation.PostMapping
+import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
 
@@ -22,7 +23,12 @@ import org.springframework.web.bind.annotation.RestController
  * AccessToken은 레거시와 동일하게 `Authorization` 응답 헤더로 내려준다 — 프론트가 헤더에서만 읽는다.
  */
 @RestController
-@RequestMapping("/api/v1/auth")
+/**
+ * 로그인·재발급·로그아웃은 `v0` 경로 그대로다. 경로도 응답도 레거시와 같아
+ * 재설계할 것이 없고, `v1` 트윈을 만들면 프론트가 옮길 동기가 없어 `v0`가 죽지 않는다
+ * (docs/rules/api-migration.md §2).
+ */
+@RequestMapping("/api/v0/auth")
 class AuthController(
     private val loginUseCase: LoginUseCase,
     private val refreshTokenUseCase: RefreshTokenUseCase,
@@ -59,9 +65,14 @@ class AuthController(
             .body(Response.success<Unit>())
     }
 
+    /**
+     * 레거시는 body의 `pushDeviceId`로 해당 기기의 푸시 수신을 끈다. 계약 유지를 위해 받기는 하지만
+     * **비활성화는 아직 구현하지 않았다** — notification 도메인이 미이관이다(A-5 탈퇴와 같은 의존).
+     */
     @PostMapping("/logout")
     fun logout(
         @CookieValue(AuthCookieFactory.REFRESH_TOKEN_COOKIE, required = false) refreshToken: String?,
+        @RequestBody(required = false) request: LogoutRequest? = null,
     ): ResponseEntity<Response<Unit>> {
         logoutUseCase.logout(LogoutCommand(refreshToken ?: ""))
 
@@ -75,3 +86,7 @@ class AuthController(
         private const val BEARER_PREFIX = "Bearer "
     }
 }
+
+data class LogoutRequest(
+    val pushDeviceId: String? = null,
+)

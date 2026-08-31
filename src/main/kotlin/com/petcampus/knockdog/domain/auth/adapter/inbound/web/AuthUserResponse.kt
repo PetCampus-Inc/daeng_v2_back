@@ -27,21 +27,26 @@ data class AuthUserResponse(
     }
 }
 
+/** `id`·`addressDetail`은 `v0` 계약이다 — 프론트가 `id`로 주소 수정·삭제를, `addressDetail`을 화면 표시에 쓴다. */
 data class UserAddressResponse(
+    val id: Long?,
     val type: AddressType,
     val alias: String?,
     val address: String,
     val roadAddress: String?,
+    val addressDetail: String?,
     val lat: Double,
     val lng: Double,
 ) {
     companion object {
         fun from(address: UserAddress): UserAddressResponse =
             UserAddressResponse(
+                id = address.id,
                 type = address.type,
                 alias = address.alias,
                 address = address.address,
                 roadAddress = address.roadAddress,
+                addressDetail = address.addressDetail,
                 lat = address.lat,
                 lng = address.lng,
             )

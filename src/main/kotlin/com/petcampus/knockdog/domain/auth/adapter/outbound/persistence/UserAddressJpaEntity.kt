@@ -37,6 +37,8 @@ class UserAddressJpaEntity(
     val address: String,
     @Column(name = "road_address", length = 200)
     val roadAddress: String? = null,
+    @Column(name = "address_detail", length = 100)
+    val addressDetail: String? = null,
     @Column(name = "lat", nullable = false)
     val lat: Double,
     @Column(name = "lng", nullable = false)

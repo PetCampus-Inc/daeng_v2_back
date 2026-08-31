@@ -14,7 +14,7 @@
 | 저장소 | 이름 | 비고 |
 |---|---|---|
 | MySQL (JPA) | `users` | PK는 auto-increment `Long`(내부용), 대외 식별자는 `user_code`(8자 영숫자). `status` 컬럼 없음 — 탈퇴 여부는 `deleted_at`으로 표현([`jpa-entity.md`](../conventions/jpa-entity.md) §2). `nickname`은 **NULL 허용** — 레거시가 KD3-372에서 NULL 허용으로 바꿨고 회원가입 요청도 닉네임을 필수로 받지 않는다 |
-| MySQL (JPA) | `user_addresses` | FK 제약 없이 `user_id` 컬럼만 저장([`jpa-entity.md`](../conventions/jpa-entity.md) §3). HOME 주소가 최소 1개 있어야 함(도메인 불변식, `User.create`). **타입은 `HOME`/`OTHER` 둘뿐** — 레거시가 KD3-372에서 `WORK`를 `OTHER`로 통합했고 신규 서버도 되살리지 않는다 |
+| MySQL (JPA) | `user_addresses` | FK 제약 없이 `user_id` 컬럼만 저장([`jpa-entity.md`](../conventions/jpa-entity.md) §3). HOME 주소가 최소 1개 있어야 함(도메인 불변식, `User.create`). 응답에 `id`·`address_detail`을 포함한다 — 프론트가 `id`로 주소 수정·삭제를, `addressDetail`을 화면 표시에 쓰는 `v0` 계약이다. **타입은 `HOME`/`OTHER` 둘뿐** — 레거시가 KD3-372에서 `WORK`를 `OTHER`로 통합했고 신규 서버도 되살리지 않는다 |
 | MySQL (JPA) | `social_users` | `(provider, provider_id)` 유니크. **`email`은 유니크 아님** — 동일 이메일 다른 provider row가 공존할 수 있다(레거시 `VerifyOidcService` 로직 그대로 포팅, PENDING 상태). `user_id`는 nullable(연동 전 상태 존재), FK 제약 없음 |
 | MySQL (JPA) | `user_agreements` | `(user_id, term_type)` 유니크. append-only 이력이라 `BaseEntity`를 상속하지 않는다(갱신·soft delete 대상 아님). 필수 약관은 `TERMS_OF_SERVICE`/`PRIVACY_POLICY`/`AGE_OVER_14` 3종 |
 | Redis (`@RedisHash`) | `refresh_token` | TTL 30일. kindergarten 도메인과는 별개의 신규 Redis 인스턴스 사용(공유 안 함) |
@@ -26,9 +26,9 @@
 | 기존 (`v0`, 그대로 유지) | 신규 (`v1`) | 판정 |
 |---|---|---|
 | `POST /api/v0/auth/verify/oidc` | `POST /api/v1/auth/oidc-verifications` | **구현 완료** (A-1) |
-| `POST /api/v0/auth/login` | `POST /api/v1/auth/login` | **구현 완료** (A-2) |
-| `POST /api/v0/auth/logout` | `POST /api/v1/auth/logout` | **구현 완료** (A-2) |
-| `POST /api/v0/auth/refresh` | `POST /api/v1/auth/refresh` | **구현 완료** (A-2) |
+| `POST /api/v0/auth/login` | — (`v0` 유지) | **구현 완료** (A-2) |
+| `POST /api/v0/auth/logout` | — (`v0` 유지) | **구현 완료** (A-2) |
+| `POST /api/v0/auth/refresh` | — (`v0` 유지) | **구현 완료** (A-2) |
 | `POST /api/v0/auth/email/send` | `POST /api/v1/email-verifications` | 이관 (미착수) |
 | `POST /api/v0/auth/email/verify` | `PATCH /api/v1/email-verifications` | 이관 (미착수) |
 | `GET /api/v0/auth/email/verification` | `GET /api/v1/email-verifications` | 이관 (미착수) |
@@ -77,10 +77,10 @@ domain/auth/
 - 동일 이메일 다른 provider 존재 시 `PENDING`/`EMAIL_ALREADY_EXISTS` 처리 로직 그대로 이관
 
 ### A-2 로그인/토큰 발급/재발급/로그아웃 — **구현 완료**
-- `LoginUseCase`, `RefreshTokenUseCase`, `LogoutUseCase` — 3개 엔드포인트: `POST /api/v1/auth/login`, `/refresh`, `/logout`
+- `LoginUseCase`, `RefreshTokenUseCase`, `LogoutUseCase` — 3개 엔드포인트: `POST /api/v0/auth/login`, `/refresh`, `/logout` (`v0` 유지)
 - 이 셋은 리프레시 토큰 Redis 레코드를 공유하므로 한 슬라이스로 묶는다(따로 쪼개면 토큰 회전 로직이 두 곳에 중복됨)
 - 탈퇴 유저 로그인 시도 시 "탈퇴 후 7일 이내 재가입 제한" 분기(`REJOINING_RESTRICTION_PERIOD`) 포함
-- **엔드포인트 설계**: 처음엔 `POST/PATCH/DELETE /api/v1/auth/sessions`(리소스 기반)로 설계했다가, 리뷰 논의 중 재검토해 액션 기반(`/login`/`/refresh`/`/logout`)으로 변경했다. "세션"을 실제 리소스로 다루지 않기 때문(`GET`으로 조회 불가, URL에 식별자 없음, Redis에 "세션" 객체 자체가 없음)— REST 리소스화가 오히려 억지스러웠다. ADR 0004의 RESTful 재설계 취지는 `getUserInfo` 같은 "경로에 동사가 들어간" 안티패턴을 없애자는 것이지, 인증처럼 원래 액션성이 강한 도메인까지 무조건 리소스로 묶으라는 뜻은 아니라고 판단했다.
+- **엔드포인트 설계**: 처음엔 `POST/PATCH/DELETE /api/v1/auth/sessions`(리소스 기반)로 설계했다가, 리뷰 논의 중 재검토해 액션 기반(`/login`/`/refresh`/`/logout`)으로 변경했다. 그 결과 경로가 `v0`와 같아졌고, 응답까지 `v0`와 동일해 재설계할 것이 남지 않아 **`v1`을 만들지 않고 `v0` 경로로 확정했다**([`api-migration.md`](../rules/api-migration.md) §2 트윈 금지). "세션"을 실제 리소스로 다루지 않기 때문(`GET`으로 조회 불가, URL에 식별자 없음, Redis에 "세션" 객체 자체가 없음)— REST 리소스화가 오히려 억지스러웠다. ADR 0004의 RESTful 재설계 취지는 `getUserInfo` 같은 "경로에 동사가 들어간" 안티패턴을 없애자는 것이지, 인증처럼 원래 액션성이 강한 도메인까지 무조건 리소스로 묶으라는 뜻은 아니라고 판단했다.
 
 ### A-3 회원가입 — **구현 완료**
 - `RegisterUseCase` — 1개 엔드포인트
@@ -112,7 +112,7 @@ domain/auth/
 ## 3. 인가 정책 (이 도메인에 한정된 노트)
 
 - 원본의 `TokenAuthenticationFilter`는 `@PrivateAccess` 붙은 엔드포인트만 인증을 요구하고, 나머지는 토큰이 있으면 검증하되 없어도 통과시키는 "선택적 인증"이다. 신규 서버는 메인 설계 문서 §8(기본 deny)을 따르되, **A-1~A-4, A-6, A-7은 로그인 전 단계이므로 명시적으로 공개(permit) 목록에 올려야 한다.** 인증이 필요한 것은 `withdraw`(A-5)와 약관 동의(A-3.5)다.
-  - **구현 완료(KD3-258)**: `global/config/SecurityConfig.kt`가 `/api/v1/auth/oidc-verifications`, `/api/v1/auth/login`, `/api/v1/auth/refresh`, `/api/v1/auth/logout`, `/api/v1/users`를 permit 목록에 올리고 나머지는 `authenticated()`. 커스텀 필터(`domain/auth/adapter/inbound/security/AccessTokenAuthenticationFilter`)는 액세스 토큰이 있으면 `SecurityContext`에 `ROLE_USER`를 채우고, 없거나 유효하지 않으면 그대로 통과시켜 `authorizeHttpRequests`가 최종 판정하게 한다. 이 기본 deny 도입으로 기존 `owner` 도메인의 `/owners` 엔드포인트도 인증을 요구하게 되는 부수효과가 있음 — `owner` 도메인 쪽 대응은 별도 판단 필요.
+  - **구현 완료(KD3-258)**: `global/config/SecurityConfig.kt`가 `/api/v1/auth/oidc-verifications`, `/api/v0/auth/login`, `/api/v0/auth/refresh`, `/api/v0/auth/logout`, `/api/v1/users`를 permit 목록에 올리고 나머지는 `authenticated()`. 커스텀 필터(`domain/auth/adapter/inbound/security/AccessTokenAuthenticationFilter`)는 액세스 토큰이 있으면 `SecurityContext`에 `ROLE_USER`를 채우고, 없거나 유효하지 않으면 그대로 통과시켜 `authorizeHttpRequests`가 최종 판정하게 한다. 이 기본 deny 도입으로 기존 `owner` 도메인의 `/owners` 엔드포인트도 인증을 요구하게 되는 부수효과가 있음 — `owner` 도메인 쪽 대응은 별도 판단 필요.
   - **인증 실패는 401 + `Response` 규격이다** (`AuthenticationFailureResponder`). Spring Security 기본값은 익명 요청에 403 + Spring 기본 오류 본문을 내는데, 그러면 프론트의 토큰 자동 갱신이 동작하지 않는다 — `tokenRefreshInterceptor`가 `status === 401`일 때만 진입하고 본문의 `code`로 갱신/로그아웃을 분기하기 때문이다(프론트 `shared/api/interceptor/index.ts`에서 확인). 레거시 `TokenAuthenticationFilter`도 401 + 에러 코드 JSON을 냈다.
 
     | 상황 | 응답 | 프론트 동작 |
