@@ -37,12 +37,12 @@ kindergarten처럼 DB가 아니라 **Redis가 주 저장소인 도메인**은 `a
 | 1 | `application` → `adapter` 의존 금지 | 전 도메인 |
 | 2 | `application` → `jakarta.persistence` 의존 금지 | 전 도메인 |
 | 3 | `domain` → `application`/`adapter` 의존 금지 | 전 도메인 |
-| 4 | 순수 도메인(`domain.owner.domain`) → `org.springframework.*`/`jakarta.persistence.*` 의존 금지 | 현재 `owner`만 등록됨 — 새 도메인 추가 시 그 도메인도 등록해야 함(아래 참고) |
+| 4 | 순수 도메인(`domain.<도메인>.domain`) → `org.springframework.*`/`jakarta.persistence.*` 의존 금지 | 현재 `auth`만 등록됨 — 새 도메인 추가 시 그 도메인도 등록해야 함(아래 참고) |
 
 새 도메인을 정석형으로 만들 때는 규칙 4의 대상 패키지 목록(`resideInAnyPackage(...)`)에 그 도메인의 `domain` 패키지를 추가해야 실제로 강제된다 — 추가하지 않으면 정석형으로 작성해도 위반이 빌드를 막아주지 않는다.
 
 ## 4. 참고
 
 - 설계 근거: [`0003`](../adr/0003-헥사고날-정석형-통일.md)(헥사고날 정석형 통일), [`0004`](../adr/0004-api-v0-유지-v1-신규.md) 구현 메모(작업 단위 분해)
-- 코드 예시: `src/main/kotlin/com/petcampus/knockdog/domain/owner/`
+- 코드 예시: `src/main/kotlin/com/petcampus/knockdog/domain/auth/` (KD3-258). 초기 세팅의 예제 슬라이스(`owner` 정석형 / `bookmark` 실용형)는 auth가 실제 구현으로 두 패턴을 대체해 KD3-258에서 삭제했다 — 실용형은 현재 쓰는 도메인이 없다
 - 경계 테스트: `src/test/kotlin/com/petcampus/knockdog/HexagonalArchitectureTest.kt`

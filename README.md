@@ -3,7 +3,7 @@
 똑독(daeng) 서버를 **Kotlin + 하이브리드 헥사고날 아키텍처**로 재구축하는 신규 리포지토리입니다.
 레거시(Java + 3-layered)의 v1 혼재·미사용 API를 걷어내는 것이 목표입니다. (Jira: KD3-194)
 
-> ⚠️ 현재는 **초기 세팅 + 참조용 예제 슬라이스** 단계입니다. 실제 도메인/테이블은 팀 회의 후 확정합니다.
+> ⚠️ 현재 구현된 도메인은 `auth`(유저·소셜 로그인·인증/인가, KD3-258) 하나입니다. 나머지 도메인은 순차 이관 중입니다.
 
 ## 기술 스택
 
@@ -31,13 +31,17 @@ sdk use java 21.0.10-tem      # 또는: export JAVA_HOME=~/.sdkman/candidates/ja
 ```bash
 cp .env.example .env.local
 
-# 1) 로컬 MySQL 기동 — compose는 기본적으로 .env 를 읽으므로 --env-file 이 필요합니다
+# 1) 로컬 MySQL + Redis 기동 — compose는 기본적으로 .env 를 읽으므로 --env-file 이 필요합니다
 docker compose --env-file .env.local -f docker-compose.local.yaml up -d
 
 # 2) 앱 실행 — Spring Boot는 .env 파일을 읽지 않으므로 셸에 export 해야 합니다
 set -a && source .env.local && set +a
 ./gradlew bootRun --args='--spring.profiles.active=local'
 ```
+
+`JWT_SECRET_KEY`는 **기본값이 없어 비워두면 기동이 실패합니다.** 최소 32바이트(HS256 요구 길이) 임의 문자열을 채우세요. 소셜 로그인 클라이언트 ID를 비워두면 해당 provider 로그인만 거부되고 기동 자체는 됩니다.
+
+스키마는 Flyway가 단일 출처입니다(`FLYWAY_ENABLED=true`, `JPA_DDL_AUTO=validate`가 기본값). 새 테이블은 `ddl-auto`가 아니라 `src/main/resources/db/migration/V<N>__<설명>.sql`로 추가합니다 — 자세한 기준은 [`docs/rules/database-change.md`](docs/rules/database-change.md).
 
 DB 포트·계정·컨테이너명 등은 모두 환경변수로 조정할 수 있고, 값을 비우면 기본값이 쓰입니다.
 IntelliJ에서 실행한다면 EnvFile 플러그인으로 `.env.local`을 지정하는 방법도 있습니다.
@@ -63,7 +67,8 @@ domain/<도메인>/
 2. `application`은 포트에만 의존 (JPA/adapter 직접 참조 금지)
 3. 순수 도메인(정석형)은 Spring/JPA를 모른다
 
-### 예제 슬라이스 (참조용, 추후 교체)
+### 구현된 도메인
 
-- **`owner` (정석형)**: 순수 도메인 `Owner` + JPA 엔티티 분리 + 매퍼. `POST /owners`, `GET /owners/{id}`
-- **`bookmark` (실용형)**: JPA 엔티티=도메인, 매퍼 없음. `POST /bookmarks`, `GET /bookmarks?ownerId=`
+- **`auth` (정석형)**: 순수 도메인 `User`/`SocialUser` + JPA 엔티티 분리 + 매퍼. 소셜 로그인 검증·회원가입·로그인/재발급/로그아웃·약관 동의. 자세한 내용은 [`docs/domains/auth.md`](docs/domains/auth.md)
+
+초기 세팅에 있던 예제 슬라이스(`owner` 정석형 / `bookmark` 실용형)는 `auth`가 실제 구현으로 두 패턴을 보여주게 되면서 KD3-258에서 삭제했습니다.

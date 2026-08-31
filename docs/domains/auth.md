@@ -4,7 +4,7 @@
 
 - 설계 근거: [`0001`](../adr/0001-legacy-v1-v2-폐기.md) 레거시 폐기, [`0002`](../adr/0002-db-스키마-유지.md)(→[`0010`](../adr/0010-신규-db-인스턴스-스키마-재작성.md)으로 대체됨) 스키마, [`0003`](../adr/0003-헥사고날-정석형-통일.md) 헥사고날 정석형, [`0004`](../adr/0004-api-v0-유지-v1-신규.md) API v0/v1 + 작업 단위 분해, [`0006`](../adr/0006-소셜로그인-id-token-직접검증-유지.md) 소셜 로그인 ID Token 유지. 전체 목록은 `docs/adr/` 폴더 참고(파일명이 일련번호순으로 정렬됨)
 - 원본: `knockdog_server` 의 `auth/` 패키지 (컨트롤러 2개, 서비스 5개, 총 58파일)
-- 슬라이스 규칙: [`docs/architecture/hexagonal.md`](../architecture/hexagonal.md) (정석형 — `domain/` 순수 모델 + JPA 엔티티 분리 + 매퍼, ArchUnit 경계 강제). 실제 코드 예시는 `domain/owner/`, `domain/auth/`
+- 슬라이스 규칙: [`docs/architecture/hexagonal.md`](../architecture/hexagonal.md) (정석형 — `domain/` 순수 모델 + JPA 엔티티 분리 + 매퍼, ArchUnit 경계 강제). 실제 코드 예시는 `domain/auth/`
 - **A-0~A-3 구현 완료** (KD3-258, [`docs/work/KD3-258-user-social-auth.md`](../work/KD3-258-user-social-auth.md) 참고). 아래 §0 테이블은 KD3-258에서 확정된 신규 스키마 기준으로 갱신됨 — 더 이상 레거시 스키마 참고 자료가 아님. `withdraw_reason`(A-5), `email_verification`(A-6)은 아직 미구현.
 
 이 도메인이 가장 먼저 마이그레이션되는 이유: 다른 모든 도메인의 인증 전제가 되고(`@AuthenticationPrincipal String userId`), owner/pet/memo 등 대부분 도메인이 이 위에서 동작한다.
