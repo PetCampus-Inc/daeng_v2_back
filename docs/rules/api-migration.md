@@ -1,8 +1,10 @@
-> 생성: 2026-08-02 13:45 · 최종 수정: 2026-08-30 22:20
+> 생성: 2026-08-02 13:45 · 최종 수정: 2026-08-31 01:05
 
-# API 계약 규칙
+# API 이관 규칙
 
 이 문서는 레거시 API를 신규 서버로 이관할 때 지킬 계약 보존, 버전, 판정 원칙을 정의한다. 실제 API별 판정은 [`docs/inventory/api.md`](../inventory/api.md)에서 관리한다.
+
+**적용 범위는 레거시 이관이다.** 신규 서버가 실제로 어떤 응답 형태를 쓰는지(`Response<T>` 필드, 에러 코드 체계)는 [`docs/conventions/api-contract.md`](../conventions/api-contract.md)와 [`docs/conventions/error-handling.md`](../conventions/error-handling.md)에 둔다. 이 문서의 규칙은 `v0` 컷오버가 끝나면 폐기 대상이다.
 
 ## 1. 기본 원칙
 

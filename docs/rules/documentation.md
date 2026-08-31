@@ -1,4 +1,4 @@
-> 생성: 2026-07-28 15:00 · 최종 수정: 2026-08-30 23:46
+> 생성: 2026-07-28 15:00 · 최종 수정: 2026-08-31 01:05
 
 # 문서 작성 규칙
 
@@ -11,10 +11,11 @@
 | 서비스/제품 맥락 | 제공 가치, 대상 사용자, 지원 범위 또는 현재 제품 단계가 바뀜 | `docs/service.md` |
 | 반드시 지킬 작업 규칙 | 팀·AI가 따라야 할 절차, 금지 사항, 검증 규칙을 새로 정하거나 바꿈 | `docs/rules/` |
 | 공통·작업 유형별 절차 | 공통 순서, 승인 게이트, 유형별 추가 조건, 작업 문서 기본 양식을 바꿈 | `docs/workflows/` |
-| 현재 아키텍처 | 시스템·모듈 구조, 책임 경계, 구성 요소 상호작용의 현재 상태가 바뀜 | `docs/architecture/<topic>.md` |
+| 현재 아키텍처 | 시스템 전체 구조, 모듈 경계, 구성 요소 상호작용의 현재 상태가 바뀜 | `docs/architecture/<topic>.md` |
+| 코드 작성 기준 | 코드를 쓸 때마다 참조하는 판단 기준(응답 계약, 예외 처리, 계층 책임 등)이 정해지거나 바뀜 | `docs/conventions/<topic>.md` |
 | 의사결정 기록 | 되돌리기 어렵거나 여러 도메인·팀에 영향을 주는 결정을 확정함 | `docs/adr/<slug>.md` (1건 1파일, §3 참고) |
 | 도메인별 장기 기억 | 도메인 경계, 불변식, 권한, 장기 API·데이터 제약, 이관 상태를 확정하거나 바꿈 | `docs/domains/<domain>.md` |
-| API 계약·인벤토리 | 공개 API의 경로·계약·버전·판정이 바뀜 | `docs/rules/api-contract.md`, `docs/inventory/api.md`, Notion API 명세 |
+| API 계약·인벤토리 | 공개 API의 경로·계약·버전·판정이 바뀜 | `docs/rules/api-migration.md`, `docs/inventory/api.md`, Notion API 명세 |
 | 데이터·이관 | 스키마, Flyway, 데이터 변환·보존·정합성·rollback 기준이 바뀜 | `docs/rules/database-change.md`, `docs/inventory/database.md` |
 | 외부 연동 | 외부 의존성의 사용처, 인증·권한 계약, fallback, 장애 시 사용자 영향이 바뀜 | `docs/inventory/integrations.md` |
 | 운영 전환 | 인프라 제공 방식, 배포, secret 주입, 관찰성, 백업, cutover·rollback이 바뀜 | `docs/inventory/operations.md` |
@@ -44,7 +45,7 @@ workflow 문서는 `docs/workflows/`에 둔다. 파일명 접두사는 `scripts/
 
 인벤토리의 기준 시점은 문서의 시간정보 헤더로 관리한다. 특정 항목을 작업에서 조사·구현·재판정했다면 해당 행에 관련 `work/` 링크와 재검토 조건을 추가한다. 모든 행에 근거 없는 확인 상태나 날짜 열을 일괄 추가하지 않는다.
 
-- `api.md`: endpoint, 호출 근거, 판정, 대상 버전, 도메인, 후속 확인만 관리한다. 상세 request/response는 Notion API 명세, 계약·versioning·breaking change 규칙은 [`api-contract.md`](api-contract.md)에 둔다.
+- `api.md`: endpoint, 호출 근거, 판정, 대상 버전, 도메인, 후속 확인만 관리한다. 상세 request/response는 Notion API 명세, 계약·versioning·breaking change 규칙은 [`api-migration.md`](api-migration.md)에 둔다.
 - `database.md`: 레거시 데이터 객체, 보존·이관 판정, 소유 도메인, 위험만 관리한다. 실제 신규 스키마는 Flyway migration, 스키마·데이터 이관 규칙은 [`database-change.md`](database-change.md)에 둔다.
 - `integrations.md`: 외부 의존성의 사용 도메인, 인증 방식, 장애 영향, 판정을 관리한다. secret, token, key 값은 기록하지 않는다.
 - `operations.md`: 현재 확인된 운영·실행 구성, 운영 전환 대상·미확인 항목·위험을 관리한다.
@@ -53,9 +54,17 @@ workflow 문서는 `docs/workflows/`에 둔다. 파일명 접두사는 `scripts/
 
 파일명·섹션 순서는 §3을 따른다. 결정 자체가 바뀌어도 기존 ADR은 고치지 않고 append-only로 새 ADR을 추가한다.
 
+### `conventions/`
+
+코드를 작성·리뷰할 때마다 참조하는 판단 기준을 둔다. `architecture/`와는 **읽는 시점**으로 나눈다 — `architecture/`는 프로젝트 구조를 파악할 때 한 번 읽고, `conventions/`는 코드를 쓸 때마다 연다. "이 코드가 이 프로젝트에서 옳은가"를 판정하는 근거는 항상 여기에 둔다.
+
+한 항목은 규칙 한 줄, 실제 코드 위치, 예외, 강제 수단(ArchUnit·ktlint 등)이 드러나게 쓴다. ArchUnit이나 ktlint로 강제할 수 있는 규칙은 문서에 서술만 남기지 말고 검사로 내리고, 문서에는 "왜 그렇게 정했는지"를 남긴다. 레거시 API 계약을 이관할 때 지킬 규칙은 컨벤션이 아니라 [`api-migration.md`](api-migration.md)에 둔다.
+
 ### `architecture/`
 
 ADR과 달리 append-only가 아니라 최신 상태를 계속 갱신하는 문서다. 설계가 바뀌면 과거 버전을 남기지 말고 현재 상태로 덮어쓴다 (과거 결정의 이유가 필요하면 `adr/`를 따로 참조).
+
+**시스템 전체의 형태만 둔다.** 패키지 구조, 모듈 경계, 전환 전략처럼 프로젝트를 파악할 때 한 번 읽는 내용이다. 개별 코드를 쓸 때마다 열어야 하는 기준(응답 형태, 예외 처리, 계층별 책임)은 `conventions/`에 둔다.
 
 ### `work/`
 
@@ -70,6 +79,7 @@ ADR(Architecture Decision Record) = 프로젝트 전반에 영향을 주는 결�
 - 파일명: `NNNN-슬러그.md` (4자리 일련번호, append-only — 번호는 결정이 내려진 순서를 그대로 반영하며 재사용하지 않는다)
 - 섹션 순서: **맥락 → 검토한 후보 → 결정 → 결과** (후보를 먼저 제시하고, 그 뒤에 결정이 나오도록)
 - **순수 append-only**: 결정이 바뀌어도 기존 ADR은 고치지 않는다. "대체됨" 같은 상태를 옛 ADR에 표시해두는 것도 하지 않는다 — 새 ADR을 쓸 때마다 그게 과거 어떤 ADR과 충돌하는지 전체 이력을 뒤져 표시해야 하는 부담이 생기고, 놓치면 오히려 잘못된 정보를 준다. 새 결정은 그냥 새 ADR로 추가하고, 맥락 절에서 "이전에는 X였는데 Y로 바뀌었다"처럼 필요한 만큼만 이전 ADR을 언급한다.
+- **파일 이동으로 링크가 깨진 경우 경로만 수정한다**: 참조 대상 문서가 다른 폴더로 옮겨져 상대 경로가 죽으면 그 경로만 고친다. 본문·결정 내용은 고치지 않는다 — 경로 수정은 결정을 바꾸는 것이 아니고, 깨진 링크를 그대로 두면 ADR을 읽는 사람과 AI가 참조 문서를 찾지 못한다.
 - **별도 인덱스 파일을 두지 않는다**: 파일명이 4자리 일련번호로 시작해 폴더를 그대로 보면 정렬된 목록이 되므로, 번호·제목을 다시 옮겨 적는 `docs/adr/README.md` 같은 인덱스 파일은 만들지 않는다 — ADR을 추가할 때마다 인덱스도 같이 갱신해야 하는 이중 관리 부담을 없앤다.
 
 ## 4. 시간정보 헤더

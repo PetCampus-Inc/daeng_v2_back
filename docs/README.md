@@ -1,4 +1,4 @@
-> 생성: 2026-07-28 11:43 · 최종 수정: 2026-08-30 23:52
+> 생성: 2026-07-28 11:43 · 최종 수정: 2026-08-31 01:05
 
 # docs 폴더 개요
 
@@ -17,10 +17,13 @@ docs/
 ├── rules/
 │   ├── documentation.md
 │   ├── git.md
-│   ├── api-contract.md
+│   ├── api-migration.md
 │   ├── database-change.md
 │   ├── notion-api-page-template.json
 │   └── notion-api-spec-sync.md
+├── conventions/
+│   ├── api-contract.md
+│   └── error-handling.md
 ├── workflows/
 │   ├── 000-common.md
 │   ├── 001-current-status.md
@@ -41,8 +44,7 @@ docs/
 │   ├── integrations.md
 │   └── operations.md
 ├── architecture/
-│   ├── hexagonal.md
-│   └── common-response-error.md
+│   └── hexagonal.md
 └── adr/
     └── NNNN-<slug>.md
 ```
@@ -53,19 +55,23 @@ docs/
 |---|---|
 | `service.md` | 서비스와 제품 범위 |
 | `rules/` | 반드시 지킬 저장소 규칙 |
+| `conventions/` | 코드를 쓸 때마다 참조하는 판단 기준 (응답 계약, 예외 처리 등) |
 | `workflows/` | 작업 유형별 진행 절차 |
 | `work/` | 티켓별 조사·결정·구현·검증 기록 |
 | `domains/` | 후속 작업에도 유지할 도메인 사실과 제약 |
 | `inventory/` | API·데이터·연동·운영 대상의 현재 구성, 누락 방지와 판정 |
-| `architecture/` | 현재 공통 기술 구조와 책임 경계 |
+| `architecture/` | 시스템 전체의 구조와 책임 경계. 처음 한 번 지도로 읽는 문서 |
 | `adr/` | 되돌리기 어려운 결정의 이유 |
+
+`conventions/`와 `architecture/`는 **읽는 시점**으로 나눈다. `architecture/`는 프로젝트 구조를 파악할 때 한 번 읽고, `conventions/`는 코드를 작성·리뷰할 때마다 연다. 개별 코드의 옳고 그름을 판단하는 기준은 항상 `conventions/`에 둔다.
 
 ## 읽는 순서
 
 1. 서비스·제품 맥락은 [`service.md`](service.md)를 읽는다.
 2. 문서의 배치와 갱신 기준은 [`rules/documentation.md`](rules/documentation.md)를 읽는다.
 3. 작업이면 [`workflows/000-common.md`](workflows/000-common.md)와 해당 유형 workflow를 읽는다.
-4. 그 뒤 관련 `domains/`, `architecture/`, `inventory/`, `adr/`를 작업 범위에 맞춰 읽는다.
+4. 코드를 작성·리뷰하면 [`conventions/`](conventions/)를 읽는다.
+5. 그 뒤 관련 `domains/`, `architecture/`, `inventory/`, `adr/`를 작업 범위에 맞춰 읽는다.
 
 문서의 용도, 단일 기준, 작성·갱신 위치는 `README.md`가 아니라 [`rules/documentation.md`](rules/documentation.md)가 유일한 기준이다.
 
