@@ -24,6 +24,12 @@ enum class AuthErrorCode(
     NOT_FOUND_USER(HttpStatus.NOT_FOUND, "NOT_FOUND_USER", "존재하지 않는 회원입니다."),
     NOT_FOUND_SOCIAL_USER(HttpStatus.NOT_FOUND, "NOT_FOUND_SOCIAL_USER", "존재하지 않는 소셜 계정입니다."),
 
+    REQUIRED_AGREEMENT_NOT_COMPLETED(
+        HttpStatus.BAD_REQUEST,
+        "REQUIRED_AGREEMENT_NOT_COMPLETED",
+        "필수 약관에 모두 동의해야 합니다.",
+    ),
+
     /** 레거시엔 없던 신규 규칙 — PENDING 상태 소셜 계정의 회원가입 우회를 막는다 (KD3-258 리뷰 반영). */
     PENDING_SOCIAL_USER(HttpStatus.CONFLICT, "PENDING_SOCIAL_USER", "다른 소셜 계정으로 이미 가입된 이메일입니다. 재연동이 필요합니다."),
 }
