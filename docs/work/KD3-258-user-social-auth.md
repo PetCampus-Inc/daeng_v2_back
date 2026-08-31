@@ -189,9 +189,9 @@ CREATE TABLE user_agreements (
 | permit 목록 통과 | `/api/v1/auth/login`, `/api/v1/users`가 403이 아님 |
 | 필수 쿠키 누락 | 400 `INVALID_INPUT_VALUE` (아래 §발견 3 수정 후) |
 
-### 해소된 질문 — KEEP parity 응답 봉투 차이 (2026-08-31 프론트 확인)
+### 해소된 질문 — KEEP parity 공통 응답 래퍼 차이 (2026-08-31 프론트 확인)
 
-약관 동의 2개는 `KEEP` 판정이라 [`api-migration.md`](../rules/api-migration.md) §2가 "응답 필드명·타입·null 처리 유지"를 요구한다. 레거시 저장소의 `common/response/Response.java`와 대조한 결과 **봉투가 다르다.**
+약관 동의 2개는 `KEEP` 판정이라 [`api-migration.md`](../rules/api-migration.md) §2가 "응답 필드명·타입·null 처리 유지"를 요구한다. 레거시 저장소의 `common/response/Response.java`와 대조한 결과, `data` 안쪽 DTO는 같고 **그걸 감싸는 공통 응답 래퍼가 다르다.**
 
 | | 레거시 v0 | 신규 |
 |---|---|---|
@@ -208,7 +208,7 @@ CREATE TABLE user_agreements (
 - 약관 동의 소비처(`entities/user/api/useUserAgreementQuery.ts`, `features/required-terms-consent/`, `views/guardian-invite/privacy-consent/`)는 `data.hasAgreedRequiredTerms`만 읽는다.
 - `useUserAgreementQuery.ts:40`에 `code: 'SUCCESS'`가 있지만 이건 서버 응답을 읽는 게 아니라 mutation 성공 후 **react-query 캐시에 넣는 로컬 객체**다.
 
-따라서 (c)를 택한다 — 공통 `Response` 봉투를 그대로 두고 차이를 허용한다. 단 이건 **이 두 endpoint에 한정된 판단**이다. 다른 `KEEP` API를 이관할 때는 그 API의 프론트 소비처를 각각 확인해야 한다. `POST /api/v0/address/search` 계열처럼 `code !== 'SUCCESS'`로 분기하는 곳이 실제로 있다(`features/address-picker/api/searchAddress.ts`).
+따라서 (c)를 택한다 — 공통 `Response<T>`를 그대로 두고 차이를 허용한다. 단 이건 **이 두 endpoint에 한정된 판단**이다. 다른 `KEEP` API를 이관할 때는 그 API의 프론트 소비처를 각각 확인해야 한다. `POST /api/v0/address/search` 계열처럼 `code !== 'SUCCESS'`로 분기하는 곳이 실제로 있다(`features/address-picker/api/searchAddress.ts`).
 
 ### 보류한 것 — Flyway↔엔티티 정합성 자동 검증 (2026-09-01)
 
