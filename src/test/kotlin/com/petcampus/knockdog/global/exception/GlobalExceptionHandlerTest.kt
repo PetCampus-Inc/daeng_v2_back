@@ -1,11 +1,14 @@
 package com.petcampus.knockdog.global.exception
 
 import org.junit.jupiter.api.Test
+import org.springframework.core.MethodParameter
 import org.springframework.http.HttpStatus
 import org.springframework.http.converter.HttpMessageNotReadableException
 import org.springframework.mock.http.MockHttpInputMessage
 import org.springframework.web.HttpRequestMethodNotSupportedException
+import org.springframework.web.bind.MissingRequestCookieException
 import org.springframework.web.bind.MissingServletRequestParameterException
+import kotlin.reflect.jvm.javaMethod
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
 
@@ -78,6 +81,18 @@ class GlobalExceptionHandlerTest {
         assertEquals(CommonErrorCode.INVALID_INPUT_VALUE.code, response.body?.code)
     }
 
+    /** 인증 토큰을 쿠키로 받는 API에서 쿠키 없이 호출하면 실제로 500이 나오던 것을 고친 회귀 테스트. */
+    @Test
+    fun `필수 쿠키가 빠진 요청은 500이 아니라 400으로 응답한다`() {
+        val parameter = MethodParameter(::cookieParameterHolder.javaMethod!!, 0)
+        val exception = MissingRequestCookieException("OIDC_AUTH_TOKEN", parameter)
+
+        val response = handler.handleMissingCookie(exception)
+
+        assertEquals(HttpStatus.BAD_REQUEST, response.statusCode)
+        assertEquals(CommonErrorCode.INVALID_INPUT_VALUE.code, response.body?.code)
+    }
+
     @Test
     fun `지원하지 않는 HTTP 메소드는 500이 아니라 405로 응답한다`() {
         val exception = HttpRequestMethodNotSupportedException("POST")
@@ -98,3 +113,7 @@ class GlobalExceptionHandlerTest {
         assertNull(response.body?.data)
     }
 }
+
+/** MissingRequestCookieException 생성에 MethodParameter가 필요해서 두는 더미 시그니처. */
+@Suppress("UNUSED_PARAMETER")
+private fun cookieParameterHolder(oidcToken: String) = Unit

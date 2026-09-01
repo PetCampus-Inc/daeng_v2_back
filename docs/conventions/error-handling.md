@@ -1,4 +1,4 @@
-> 생성: 2026-08-31 01:05 · 최종 수정: 2026-08-31 01:05
+> 생성: 2026-08-31 01:05 · 최종 수정: 2026-08-31 17:20
 
 # 예외·에러 코드 처리
 
@@ -19,7 +19,23 @@ interface ErrorCode {
 ```
 
 - **도메인 무관 공통 에러**는 `global/exception/CommonErrorCode.kt`(enum)에 둔다.
-- **도메인 전용 에러**는 그 도메인 패키지 안에 `<Domain>ErrorCode.kt`(enum)를 만들어 `ErrorCode`를 구현한다. 도메인 착수 시 함께 추가한다(예: auth 마이그레이션 시 `domain/auth/.../AuthErrorCode.kt`). 아직 어떤 도메인도 이 패턴을 적용하지 않았다 — 첫 도입 시 이 문서에 예시를 추가할 것.
+- **도메인 전용 에러**는 그 도메인 패키지 안에 `<Domain>ErrorCode.kt`(enum)를 만들어 `ErrorCode`를 구현한다. 도메인 착수 시 함께 추가한다.
+
+첫 도입 사례는 auth 도메인의 `domain/auth/application/AuthErrorCode.kt`(KD3-258)다.
+
+```kotlin
+enum class AuthErrorCode(
+    override val status: HttpStatus,
+    override val code: String,
+    override val message: String,
+) : ErrorCode {
+    EXPIRED_TOKEN(HttpStatus.UNAUTHORIZED, "EXPIRED_TOKEN", "인증 토큰이 만료되었습니다."),
+    NOT_FOUND_USER(HttpStatus.NOT_FOUND, "NOT_FOUND_USER", "존재하지 않는 회원입니다."),
+    // ...
+}
+```
+
+던질 때는 `throw BusinessException(AuthErrorCode.NOT_FOUND_USER)`처럼 쓰고, 맥락을 덧붙일 게 있으면 두 번째 인자로 메시지를 넘긴다. 위치는 `application` 패키지 바로 아래다 — 에러 코드는 유스케이스가 결정하는 것이지 순수 도메인 모델이나 어댑터의 관심사가 아니다.
 
 ### code 문자열 값은 프론트와의 계약이다
 

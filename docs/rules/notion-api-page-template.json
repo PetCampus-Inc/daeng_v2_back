@@ -115,9 +115,23 @@
           "type": "table_row",
           "table_row": {
             "cells": [
+              [
+                {
+                  "type": "text",
+                  "text": {
+                    "content": "Authorization"
+                  }
+                }
+              ],
               [],
-              [],
-              [],
+              [
+                {
+                  "type": "text",
+                  "text": {
+                    "content": "보유 중인 액세스 토큰"
+                  }
+                }
+              ],
               [
                 {
                   "type": "text",
@@ -126,6 +140,83 @@
                   }
                 }
               ]
+            ]
+          }
+        }
+      ]
+    }
+  },
+  {
+    "object": "block",
+    "type": "heading_3",
+    "heading_3": {
+      "rich_text": [
+        {
+          "type": "text",
+          "text": {
+            "content": "Cookie"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "object": "block",
+    "type": "table",
+    "table": {
+      "table_width": 4,
+      "has_column_header": true,
+      "has_row_header": false,
+      "children": [
+        {
+          "object": "block",
+          "type": "table_row",
+          "table_row": {
+            "cells": [
+              [
+                {
+                  "type": "text",
+                  "text": {
+                    "content": "Name"
+                  }
+                }
+              ],
+              [
+                {
+                  "type": "text",
+                  "text": {
+                    "content": "Format"
+                  }
+                }
+              ],
+              [
+                {
+                  "type": "text",
+                  "text": {
+                    "content": "Description"
+                  }
+                }
+              ],
+              [
+                {
+                  "type": "text",
+                  "text": {
+                    "content": "Required"
+                  }
+                }
+              ]
+            ]
+          }
+        },
+        {
+          "object": "block",
+          "type": "table_row",
+          "table_row": {
+            "cells": [
+              [],
+              [],
+              [],
+              []
             ]
           }
         }

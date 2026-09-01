@@ -1,4 +1,4 @@
-> 생성: 2026-08-31 01:05 · 최종 수정: 2026-08-31 01:05
+> 생성: 2026-08-31 01:05 · 최종 수정: 2026-09-01 11:10
 
 # API 응답 계약
 
@@ -19,8 +19,11 @@ data class Response<T>(
 )
 ```
 
-- `Response.success(data)` — 200 + `data`
+- `Response.success(data)` — 200 + `data` + `code: "SUCCESS"`
+- `Response.success(data, message, code)` — 성공에도 결과를 구분해야 하는 API는 코드를 직접 넘긴다 (레거시 이메일 인증이 `ALREADY_VERIFIED` 같은 값을 쓰는 방식)
 - `Response.error(errorCode, message)` — `errorCode.status` + `errorCode.code` + (커스텀 메시지 없으면 `errorCode.message`)
+
+**성공 응답의 `code`는 `"SUCCESS"`다.** KD3-257에서는 "성공 시 생략 가능"으로 뒀으나, 레거시가 성공에도 `code: "SUCCESS"`를 내리고 **프론트가 그 값으로 분기하는 곳이 있어**(`features/address-picker/api/searchAddress.ts`의 `code !== 'SUCCESS'`) `v0` 계약 유지를 위해 채우는 쪽으로 바꿨다 (KD3-258).
 
 **필드를 임의로 추가/삭제하지 않는다.** 이 4개 필드는 프론트(`daeng_v2_front`) `shared/api/model/response.ts`의 `ApiResponse<T>` 타입과 정확히 매칭되어 있고, 프론트가 실제로 파싱해서 쓰는 값이다(바디의 `status === 200` 성공 판정, `code` 기반 에러 분기 등). 필드를 바꾸면 프론트도 함께 수정해야 한다.
 
