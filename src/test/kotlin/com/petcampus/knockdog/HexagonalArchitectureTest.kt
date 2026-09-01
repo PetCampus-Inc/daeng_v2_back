@@ -48,11 +48,12 @@ class HexagonalArchitectureTest {
     }
 
     @Test
-    fun `정석형 순수 도메인(owner)은 Spring, JPA에 의존하지 않는다`() {
+    fun `정석형 순수 도메인(auth)은 Spring, JPA에 의존하지 않는다`() {
         noClasses()
             .that()
-            .resideInAPackage("com.petcampus.knockdog.domain.owner.domain..")
-            .should()
+            .resideInAnyPackage(
+                "com.petcampus.knockdog.domain.auth.domain..",
+            ).should()
             .dependOnClassesThat()
             .resideInAnyPackage("org.springframework..", "jakarta.persistence..")
             .check(classes)

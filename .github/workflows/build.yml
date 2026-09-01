@@ -1,0 +1,49 @@
+name: Build
+
+# 컴파일·ktlint·ArchUnit·테스트를 PR에서 강제한다.
+# docs-check.yml과 달리 paths 필터를 두지 않는다 — 문서만 바뀐 PR에서도
+# 빌드가 깨져 있지 않은지 확인해야 하고, 필터를 걸면 required check로 지정했을 때
+# 필터에 걸리지 않은 PR이 "검사 없음" 상태로 통과해버린다.
+on:
+  pull_request:
+  push:
+    branches:
+      - dev
+      - 'epic/**'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # README의 "빌드는 JDK 21로 합니다"와 build.gradle.kts의 toolchain을 따른다.
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Build
+        run: ./gradlew build --no-daemon
+
+      # 실패 원인을 PR에서 바로 보기 위해 리포트를 남긴다.
+      - name: Upload test report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-report
+          path: |
+            build/reports/tests/test
+            build/reports/ktlint
+          retention-days: 7

@@ -12,3 +12,25 @@ spring:
         dialect: org.hibernate.dialect.H2Dialect
   flyway:
     enabled: false
+
+jwt:
+  issuer: test-issuer
+  secret-key: dGVzdC1vbmx5LXNlY3JldC1rZXktbm90LWZvci1wcm9kdWN0aW9uLXVzZS1hdC1hbGw=
+  token:
+    durations:
+      oidc-auth: 1200000
+      access: 86400000
+      refresh: 2592000000
+
+oauth:
+  kakao:
+    public-key-url: https://kauth.kakao.com/.well-known/jwks.json
+    client-ids: test-kakao-client-id
+  apple:
+    public-key-url: https://appleid.apple.com/auth/keys
+    client-ids: test-apple-client-id
+  google:
+    client-id:
+      web: test-web-client-id
+      ios: test-ios-client-id
+      android: test-android-client-id

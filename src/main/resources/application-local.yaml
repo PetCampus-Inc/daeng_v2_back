@@ -6,10 +6,19 @@ spring:
     driver-class-name: com.mysql.cj.jdbc.Driver
   jpa:
     hibernate:
-      ddl-auto: ${JPA_DDL_AUTO:update}
+      ddl-auto: ${JPA_DDL_AUTO:validate}
     show-sql: ${JPA_SHOW_SQL:false}
   flyway:
-    enabled: ${FLYWAY_ENABLED:false}
+    enabled: ${FLYWAY_ENABLED:true}
+    # 기존 ddl-auto:update로 만들어진 로컬 DB에 Flyway 이력 테이블이 없어도 그대로 베이스라인으로 인정한다.
+    # baseline-version을 0으로 둬서 V1부터는 그대로 실행되게 한다(기본값 1이면 V1이 "이미 적용됨"으로 착각해 건너뜀).
+    # 신규 DB 인스턴스(운영/스테이징)는 스키마가 비어 있어 이 옵션들이 아무 영향도 주지 않는다.
+    baseline-on-migrate: true
+    baseline-version: 0
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6380}
 
 server:
   port: ${SERVER_PORT:8080}
