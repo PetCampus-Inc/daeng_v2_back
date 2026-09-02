@@ -1,10 +1,10 @@
-> 생성: 2026-09-02 · 최종 수정: 2026-09-02 16:55
+> 생성: 2026-09-02 · 최종 수정: 2026-09-02 17:20
 
 # kindergarten 도메인 마이그레이션 지시서
 
 - 설계 근거: [`0010`](../adr/0010-신규-db-인스턴스-스키마-재작성.md)(신규 DB 인스턴스), [`0011`](../adr/0011-유치원-도메인-신규db-단발컷오버.md)(source of truth 전환), [`0012`](../adr/0012-신규-서버-v0-미제공-원칙.md)(신규 서버는 `v0`를 만들지 않는다 — 일반 정책). 컷오버 논의 배경은 [`docs/work/KD3-413-kindergarten-static-lookup.md`](../work/KD3-413-kindergarten-static-lookup.md).
 - 원본: `daeng_v1_back`의 `kindergardeninfo/` 패키지. 조회 API의 실제 source of truth는 MySQL이 아니라 **Redis**였다(크롤링 JSON을 적재한 캐시) — `tb_school*`은 원장 인증 후 프로필 오버라이드만 담당.
-- **KD3-413에서 정적 조회(요약/상세/요금표) `v1` 3종 구현 완료.** 이 서버는 레거시 `v0`(`main`/`basic`/`pricing`)를 만들지 않는다 — 기존 `v0` 클라이언트는 레거시 서버가 계속 응답한다. 지도/좌표 기반 동적 조회(map-view, near, autocomplete, filters/result)는 미착수(후속 하위 작업).
+- **KD3-413에서 정적 조회(요약/상세/요금표) 구현 완료.** 이 서버는 `v0`를 만들지 않는다([`0012`](../adr/0012-신규-서버-v0-미제공-원칙.md)) — 유치원 도메인은 `v1`만 제공한다. 레거시 엔드포인트별 판정·이관 진척은 [`docs/inventory/api.md`](../inventory/api.md)(kindergarten 행)가 단일 기준이다. 지도/좌표 기반 동적 조회(map-view, near, autocomplete, filters/result)는 미착수(후속 하위 작업).
 
 ## 0. 담당 데이터
 
@@ -18,26 +18,19 @@
 | `kindergarten_price_images` | 1:N, 크롤링 원본은 `info_new.json`의 `menu_image_s3_keys` |
 | `kindergarten_menus` | 1:N, 크롤링 원본은 `price_and_product.json`(kindergarten_id로 join) |
 | ~~`kindergarten_gallery_images`~~ | **스키마에 없음** — 레거시 `main/{id}`의 `banner`는 `[thumbnail_s3_key] + menu_image_s3_keys`를 이어붙인 것이라(레거시 `KindergartenMapper` 확인), 별도 갤러리 테이블이 필요 없다 |
-| ~~`kindergarten_avg_prices`~~ | **스키마에 없음** — `avg_price_per_time.json`은 `main`/`basic`/`pricing` 어디에도 안 쓰이고 필터용 태그 생성에만 쓰이는 것으로 보인다(확신도 중간). map-view 등 후속 작업에서 실제로 필요해지면 추가한다 |
+| ~~`kindergarten_avg_prices`~~ | **스키마에 없음** — `avg_price_per_time.json`은 `summary`/`detail`/`pricing` 어디에도 안 쓰이고 필터용 태그 생성에만 쓰이는 것으로 보인다(확신도 중간). map-view 등 후속 작업에서 실제로 필요해지면 추가한다 |
 
 시딩 대상 JSON은 `info_new.json` + `price_and_product.json` 둘뿐이다. `product_pricing.json`은 `comparison` 도메인 소관이고, 자치구별 원본 파일(`dobonggu.json` 등 25개)·`info_and_review.json`은 어떤 코드에서도 읽지 않는 것으로 보여(미검증) 시딩 대상에서 제외했다.
 
-## 1. 마이그레이션 대상 엔드포인트
+## 1. 이 서버가 제공하는 API
 
-이 서버는 `v0`를 만들지 않는다([`0012`](../adr/0012-신규-서버-v0-미제공-원칙.md)) — 아래 표의 "레거시 v0"는 카탈로그 목적으로만 남긴다. 실제 이 서버가 제공하는 경로는 `v1`뿐이다.
+| 경로 | 설명 |
+|---|---|
+| `GET /api/v1/kindergartens/{id}/summary` | 유치원 요약(상단 고정 헤더용) — 이름·카테고리·주소·영업상태·최저가·거리·리뷰수·태그·배너 |
+| `GET /api/v1/kindergartens/{id}/detail` | 유치원 상세("기본정보" 탭) — 주소·좌표·영업시간·견종/서비스/시설 태그·SNS 링크 |
+| `GET /api/v1/kindergartens/{id}/pricing` | 요금표("요금" 탭) — 상품유형·카테고리별 상품·가격표 이미지 |
 
-| 레거시 `v0` | 판정 | 이 서버의 경로 | 상태 |
-|---|---|---|---|
-| `GET /api/v0/kindergarten/main/{id}` | `KEEP` | `GET /api/v1/kindergartens/{id}/summary` | **구현 완료** — `address`/`roadAddress` 분리, `operationStatus`에 `HOLIDAY` 추가(레거시 버그 수정). `bookmarked`/`memoData` 필드 자체가 없음(도메인 생기면 추가) |
-| `GET /api/v0/kindergarten/basic/{id}` | `KEEP` | `GET /api/v1/kindergartens/{id}/detail` | **구현 완료** — 실체 없는 `breakTime` 필드 제거(레거시 버그 수정) |
-| `GET /api/v0/kindergarten/{id}/pricing` | `KEEP` | `GET /api/v1/kindergartens/{id}/pricing` | **구현 완료** — 응답 모양은 레거시와 동일(고칠 버그 없었음) |
-| `GET /api/v0/kindergarten/map-view`, `/map-view/aggregation`, `/{id}/near`, `/autocomplete` | `KEEP` | (미정) | 미착수(후속) |
-| `GET /api/v0/kindergarten/filters/result` | `REDESIGN` | `GET /v1/kindergartens/count`(가칭) | 미착수 — 이름이 실제 동작(개수 반환)과 달라 재설계 대상(ADR 0004) |
-| `GET /api/v0/kindergarten`, `/aggregations`, `/filters`, `POST /load-csv` | `DROP` | 없음 | 해당없음 (ADR 0004) |
-| `GET /api/v0/kindergarten/{placeId}/blog-reviews` | `DEFER` | 없음 | 해당없음 (ADR 0005) |
-| `POST /api/v0/kindergarten/{id}/change-requests` | 미판정 | (미정) | 미착수 — 조회가 아닌 쓰기, 대상 데이터(`kg_change_report`) 자체가 `DEFER` |
-
-기존 `v0` 3개(`main`/`basic`/`pricing`)를 호출하는 클라이언트는 레거시 서버가 계속 응답한다 — 이 서버 코드에는 없다.
+`{id}`는 `kindergartens.naver_place_id`(§0)다. 아직 없는 것(지도/좌표 기반 동적 조회, 지도-카운트 등)과 그 판정 근거는 [`docs/inventory/api.md`](../inventory/api.md)(kindergarten 행)에서 관리한다 — 여기서 다시 나열하지 않는다.
 
 ## 2. 레거시에서 발견해 `v1`에서 고친 버그 (로컬 응답 대조 시 참고)
 
