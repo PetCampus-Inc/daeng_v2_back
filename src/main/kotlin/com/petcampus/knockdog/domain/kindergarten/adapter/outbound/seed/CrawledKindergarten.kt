@@ -11,10 +11,8 @@ data class CrawledKindergarten(
     val thumbnailS3Key: String? = null,
     val menuImageS3Keys: List<String> = emptyList(),
     val roadAddress: String,
-    @JsonProperty("lat")
-    val latitude: Double? = null,
-    @JsonProperty("lng")
-    val longitude: Double? = null,
+    val lat: Double? = null,
+    val lng: Double? = null,
     val links: List<CrawledLink> = emptyList(),
     val dogBreedsAccepted: List<String> = emptyList(),
     val dogServices: List<String> = emptyList(),

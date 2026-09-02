@@ -26,10 +26,10 @@ class KindergartenJpaEntity(
     val address: String,
     @Column(name = "address_detail", length = 100)
     val addressDetail: String?,
-    @Column(name = "latitude")
-    val latitude: Double?,
-    @Column(name = "longitude")
-    val longitude: Double?,
+    @Column(name = "lat")
+    val lat: Double?,
+    @Column(name = "lng")
+    val lng: Double?,
     @Column(name = "thumbnail_s3_key", length = 512)
     val thumbnailS3Key: String?,
     @Column(name = "visitor_review_count", nullable = false)

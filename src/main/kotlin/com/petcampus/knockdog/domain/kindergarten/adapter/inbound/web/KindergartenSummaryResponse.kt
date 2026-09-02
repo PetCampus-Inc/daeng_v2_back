@@ -42,8 +42,8 @@ data class KindergartenSummaryResponse(
             val status = KindergartenOperatingStatusCalculator.calculate(kindergarten.businessHours, now)
             val range = KindergartenOperatingStatusCalculator.todayRange(kindergarten.businessHours, now.toLocalDate())
             val dist =
-                if (kindergarten.latitude != null && kindergarten.longitude != null) {
-                    KindergartenDistanceCalculator.calculateKm(userLat, userLng, kindergarten.latitude, kindergarten.longitude)
+                if (kindergarten.lat != null && kindergarten.lng != null) {
+                    KindergartenDistanceCalculator.calculateKm(userLat, userLng, kindergarten.lat, kindergarten.lng)
                 } else {
                     0.0
                 }
@@ -68,8 +68,8 @@ data class KindergartenSummaryResponse(
                 serviceTags = KindergartenServiceTags.allOf(kindergarten),
                 banner = KindergartenServiceTags.banner(kindergarten),
                 phoneNumber = kindergarten.phoneNumber,
-                lat = kindergarten.latitude,
-                lng = kindergarten.longitude,
+                lat = kindergarten.lat,
+                lng = kindergarten.lng,
             )
         }
 
