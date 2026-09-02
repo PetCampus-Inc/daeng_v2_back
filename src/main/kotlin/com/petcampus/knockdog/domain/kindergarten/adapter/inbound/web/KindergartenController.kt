@@ -9,17 +9,18 @@ import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
 
 /**
- * `v0` 계약 보존 대상(KEEP) — 레거시 `KindergartenController`의 정적 조회 3개 엔드포인트만 이관한다.
- * map-view/near/autocomplete/filters 등 지도·좌표 기반 동적 조회는 후속 하위 작업이다
- * (docs/work/KD3-413-kindergarten-static-lookup.md).
+ * 유치원 정적 조회(요약/상세/요금표). 레거시(`daeng_v1_back`) `main`/`basic`/`pricing`을 재설계했다 —
+ * 이 서버는 `v0` 경로를 만들지 않는다(2026-09-02 결정). 기존 `v0` 클라이언트는 계속 레거시 서버가
+ * 응답한다(라우팅/LB 레벨, 이 서버 코드와 무관). 레거시에서 발견한 버그 2개를 고쳤다
+ * (`roadAddress` 오염, `operationStatus` HOLIDAY 미구분) — docs/domains/kindergarten.md §2.
  */
 @RestController
-@RequestMapping("/api/v0/kindergarten")
+@RequestMapping("/api/v1/kindergartens")
 class KindergartenController(
     private val getKindergartenUseCase: GetKindergartenUseCase,
 ) {
-    @GetMapping("/main/{id}")
-    fun getMain(
+    @GetMapping("/{id}/summary")
+    fun getSummary(
         @PathVariable id: String,
         @RequestParam lat: Double,
         @RequestParam lng: Double,
@@ -28,8 +29,8 @@ class KindergartenController(
         return Response.success(KindergartenSummaryResponse.from(kindergarten, lat, lng))
     }
 
-    @GetMapping("/basic/{id}")
-    fun getBasic(
+    @GetMapping("/{id}/detail")
+    fun getDetail(
         @PathVariable id: String,
     ): Response<KindergartenDetailResponse> {
         val kindergarten = getKindergartenUseCase.getByNaverPlaceId(id)

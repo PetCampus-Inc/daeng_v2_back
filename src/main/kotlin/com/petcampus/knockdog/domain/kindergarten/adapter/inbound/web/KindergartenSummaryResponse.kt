@@ -7,48 +7,35 @@ import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 
 /**
- * `GET /api/v0/kindergarten/main/{id}` 응답 — 레거시 `MainInfoResponseDto`와 계약을 맞춘다.
+ * `GET /api/v1/kindergartens/{id}/summary` 응답 — 레거시(`daeng_v1_back`) `main/{id}`의 재설계판.
+ * 발견한 레거시 버그 중 이 응답에 있던 2개를 고쳤다(docs/domains/kindergarten.md §2):
+ * - `address`/`roadAddress`를 분리해서 각각 실제 값을 담는다(레거시는 `roadAddress`에 `address` 값이 들어감).
+ * - `operationStatus`에 `HOLIDAY`를 구분해서 넣는다(레거시는 휴무도 `CLOSED`로 뭉뚱그림).
  *
- * 알려진 계약 차이(레거시 버그를 그대로 이식한 것 포함, 로컬 응답 대조 시 확인 대상):
- * - `roadAddress` 필드는 이름과 달리 실제로 `address`(지번 주소) 값을 담는다 — 레거시
- *   `KindergartenMapper.toMainInfoResponseDto`가 `dto.getAddress()`를 그대로 넣는 걸 그대로 이식했다.
- * - `operationStatus`는 `OperatingStatusDescription.title`이 "영업중"일 때만 OPEN이고, 그 외(휴무 포함)는
- *   전부 CLOSED다 — 레거시 `OperationStatusParser.parseOperationInfo`가 HOLIDAY를 구분하지 않는 걸 그대로 이식했다.
- * - `bookmarked`/`memoData`는 `bookmark`/`memo` 도메인이 없어 고정값이다(docs/work/KD3-413-kindergarten-static-lookup.md).
- * - `serviceTags`는 4개 옵션 그룹의 코드를 합친 것이고, 레거시의 OPEN_NOW/가격정책 파생 태그는 포함하지 않는다.
+ * `bookmarked`/`memoData`는 아예 넣지 않는다 — `bookmark`/`memo` 도메인이 생기면 필드를 추가하는 쪽으로 간다.
  */
 data class KindergartenSummaryResponse(
     val id: String,
-    val title: String,
-    val ctg: String,
+    val name: String,
+    val categories: List<String>,
+    val address: String,
+    val roadAddress: String?,
     val operationTimes: OperationTimes,
     val operationStatus: String,
-    val businessStatus: BusinessStatusResponse,
-    val schoolStatus: String,
-    val price: Int,
-    val dist: Double,
-    val roadAddress: String,
+    val businessStatusDescription: String,
+    val status: String,
+    val lowestPrice: Int,
+    val distanceKm: Double,
     val reviewCount: Int,
     val serviceTags: List<String>,
     val banner: List<String>,
-    val bookmarked: Boolean,
     val phoneNumber: String?,
-    val coords: Coords,
-    val memoData: Any?,
+    val lat: Double?,
+    val lng: Double?,
 ) {
     data class OperationTimes(
         val startTime: String?,
         val endTime: String?,
-    )
-
-    data class BusinessStatusResponse(
-        val title: String,
-        val description: String,
-    )
-
-    data class Coords(
-        val lng: Double?,
-        val lat: Double?,
     )
 
     companion object {
@@ -71,27 +58,35 @@ data class KindergartenSummaryResponse(
 
             return KindergartenSummaryResponse(
                 id = requireNotNull(kindergarten.naverPlaceId),
-                title = kindergarten.name,
-                ctg = kindergarten.categories.joinToString(",") { it.value },
+                name = kindergarten.name,
+                categories = kindergarten.categories.map { it.value },
+                address = kindergarten.address,
+                roadAddress = kindergarten.roadAddress,
                 operationTimes =
                     OperationTimes(
                         startTime = range?.start?.let { TIME_FMT.format(it) },
                         endTime = range?.end?.let { TIME_FMT.format(it) },
                     ),
-                operationStatus = if (status.title == "영업중") "OPEN" else "CLOSED",
-                businessStatus = BusinessStatusResponse(status.title, status.description),
-                schoolStatus = kindergarten.status.name,
-                price = kindergarten.lowestPrice,
-                dist = dist,
-                roadAddress = kindergarten.address,
+                operationStatus = operationStatusOf(status.title),
+                businessStatusDescription = status.description,
+                status = kindergarten.status.name,
+                lowestPrice = kindergarten.lowestPrice,
+                distanceKm = dist,
                 reviewCount = kindergarten.reviewCount,
                 serviceTags = KindergartenServiceTags.allOf(kindergarten),
                 banner = KindergartenServiceTags.banner(kindergarten),
-                bookmarked = false,
                 phoneNumber = kindergarten.phoneNumber,
-                coords = Coords(lng = kindergarten.longitude, lat = kindergarten.latitude),
-                memoData = null,
+                lat = kindergarten.latitude,
+                lng = kindergarten.longitude,
             )
         }
+
+        /** 레거시와 달리 휴무를 `CLOSED`에 뭉개지 않고 `HOLIDAY`로 구분한다. */
+        private fun operationStatusOf(title: String): String =
+            when (title) {
+                "영업중" -> "OPEN"
+                "오늘 휴무" -> "HOLIDAY"
+                else -> "CLOSED"
+            }
     }
 }

@@ -10,7 +10,7 @@ import java.time.LocalDateTime
 import java.time.LocalTime
 import kotlin.test.assertEquals
 
-class KindergartenSummaryV1ResponseTest {
+class KindergartenSummaryResponseTest {
     private fun sample(businessHours: List<KindergartenBusinessHour> = emptyList()) =
         Kindergarten.reconstitute(
             id =
@@ -38,7 +38,7 @@ class KindergartenSummaryV1ResponseTest {
 
     @Test
     fun `address와 roadAddress를 각자 실제 값으로 분리해서 담는다`() {
-        val response = KindergartenSummaryV1Response.from(sample(), userLat = 37.5, userLng = 127.0)
+        val response = KindergartenSummaryResponse.from(sample(), userLat = 37.5, userLng = 127.0)
 
         assertEquals("서울시 중구 신당동", response.address)
         assertEquals("서울시 중구 동호로12길", response.roadAddress)
@@ -57,7 +57,7 @@ class KindergartenSummaryV1ResponseTest {
                 offdays = listOf(DayOfWeek.MONDAY),
             )
 
-        val response = KindergartenSummaryV1Response.from(sample(listOf(offdayProfile)), userLat = 37.5, userLng = 127.0, now = monday)
+        val response = KindergartenSummaryResponse.from(sample(listOf(offdayProfile)), userLat = 37.5, userLng = 127.0, now = monday)
 
         assertEquals("HOLIDAY", response.operationStatus)
     }
