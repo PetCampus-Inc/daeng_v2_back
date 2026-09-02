@@ -42,6 +42,7 @@ PR의 작업 문서와 고정된 diff를 독립적으로 대조해 범위 누락
 - 파일럿 설정은 CodeRabbit UI에만 남기지 않고 `.coderabbit.yaml`으로 KD3-417 PR에서 검토·버전 관리한다.
 - 리뷰 언어는 `ko-KR`로 설정하고, 기본 리뷰 강도는 `chill`로 시작한다.
 - GitHub Checks 연동은 끈다. CI 실패 로그를 CodeRabbit 리뷰의 입력으로 사용하지 않는다.
+- CodeRabbit 요약은 PR 본문이 아닌 Walkthrough 댓글에 표시하고, 관련 이슈·라벨·리뷰어 추천과 commit status는 파일럿에서 끈다.
 - Jira 연동, 멀티레포 분석, 중앙 설정 저장소, CodeRabbit의 자동 수정 기능은 파일럿 범위에서 제외한다.
 - 설치 직전에는 GitHub가 표시하는 실제 권한과 선택 저장소를 사용자에게 제시하고 최종 승인을 받는다.
 
@@ -56,6 +57,7 @@ PR의 작업 문서와 고정된 diff를 독립적으로 대조해 범위 누락
 - CodeRabbit은 `AGENTS.md`를 기본 감지하는 코드 가이드라인 파일로 지원한다. 따라서 이 저장소의 AI 작업 규칙은 별도 복제 없이 리뷰 기준에 포함될 수 있다. [Code guidelines](https://docs.coderabbit.ai/knowledge-base/code-guidelines)
 - CodeRabbit 경로별 지침은 해당 경로가 변경된 PR에 추가 리뷰 기준을 제공한다. PR 전체 변경과 작업 문서의 완전한 기계적 대조를 보장하지는 않으므로, 파일럿에서 실제 발견률을 검증한다. [Path instructions](https://docs.coderabbit.ai/configuration/path-instructions)
 - GitHub Checks 연동을 꺼도 자동 PR 리뷰 자체는 계속 실행된다. CI 성공 뒤에만 리뷰하려면 자동 리뷰를 끄고 CI 완료 후 수동으로 `@coderabbitai review`를 호출하거나, 별도 자동화가 필요하다. [GitHub Checks](https://docs.coderabbit.ai/tools/github-checks)
+- CodeRabbit은 설정 파일을 새로 추가·변경하는 PR에서 해당 파일을 적용하지 않고 대상 브랜치 또는 Repository UI 설정으로 리뷰할 수 있다. KD3-417 PR의 실제 리뷰도 `Repository UI` 설정으로 실행됐으므로, 이 파일의 변경은 병합 후 PR부터 검증한다.
 
 ### 검토한 대안
 

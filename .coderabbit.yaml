@@ -5,8 +5,14 @@ tone_instructions: "리뷰와 요약은 한국어로 작성한다. 코드 식별
 reviews:
   profile: "chill"
   request_changes_workflow: false
+  high_level_summary_in_walkthrough: true
   poem: false
+  collapse_walkthrough: false
+  related_issues: false
+  suggested_labels: false
+  suggested_reviewers: false
   review_status: true
+  commit_status: false
   tools:
     github-checks:
       enabled: false
