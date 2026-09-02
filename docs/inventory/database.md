@@ -1,4 +1,4 @@
-> 생성: 2026-08-02 13:45 · 최종 수정: 2026-09-01 00:20
+> 생성: 2026-08-02 13:45 · 최종 수정: 2026-09-02 15:30
 
 # 데이터 인벤토리
 
@@ -59,11 +59,11 @@
 | MySQL | `tb_breed` | 견종 | pet/reference | pet | `DROP` | `해당없음` | 레거시가 KD3-370에서 `breed_catalog`를 신설해 대체했고 프론트도 `GET /api/v0/breed-catalog`로 이전 | - | 잔존 참조가 없는지 확인 후 삭제. 기준 데이터는 `breed_catalog`로 단일화 |
 | MySQL | `bookmark` | 북마크 | bookmark | bookmark/comparison | `REDESIGN` | `미착수` | 사용자-유치원 북마크 후보 | bookmark 슬라이스 | target이 school 고정인지, 중복 unique |
 | MySQL | `comparison_history` | 비교 내역 | comparison | bookmark/comparison | `DEFER` | `미착수` | 유치원 비교 이력 후보 | comparison 슬라이스 | 기능 유지 여부, 보존 기간 |
-| MySQL | `tb_school` | 유치원 | school | school/owner | `REDESIGN` | `미착수` | 유치원 핵심 데이터 후보 | school/owner 슬라이스 | Redis 유치원 데이터와의 역할 분리, placeId 매핑 |
-| MySQL | `tb_school_profile` | 유치원 프로필 | school/owner | school/owner | `REDESIGN` | `미착수` | 유치원 상세 프로필 후보 | owner-school-profile 슬라이스 | 영업시간, 주소, 좌표, 공개 상태 |
+| MySQL | `tb_school` | 유치원 | school | school/owner | `REDESIGN` | `미착수` | 유치원 핵심 데이터 후보 | school/owner 슬라이스 | 원장 편집 오버라이드는 이 표 그대로 미착수. 크롤링 기반 읽기전용 대응은 신규 `kindergartens`(KD3-413, [`docs/domains/kindergarten.md`](../domains/kindergarten.md))로 별도 구축됨 — 이 테이블 자체를 이관한 게 아니다 |
+| MySQL | `tb_school_profile` | 유치원 프로필 | school/owner | school/owner | `REDESIGN` | `미착수` | 유치원 상세 프로필 후보 | owner-school-profile 슬라이스 | 영업시간, 주소, 좌표, 공개 상태. 크롤링 기반 영업시간은 신규 `kindergarten_business_hours`(KD3-413)로 별도 구축됨 |
 | MySQL | `tb_school_profile_image` | 유치원 프로필 이미지 | school/owner/media | school/owner/media | `REDESIGN` | `미착수` | 유치원 프로필 이미지 후보 | owner-school-profile 슬라이스 | S3 key 소유권, 정렬 순서 |
-| MySQL | `tb_school_price_image` | 유치원 가격표 이미지 | school/owner/media | school/owner/media | `REDESIGN` | `미착수` | 가격표 이미지 후보 | owner-school-price 슬라이스 | S3 key 소유권, 단일/다중 이미지 정책 |
-| MySQL | `tb_school_profile_option` | 유치원 프로필 옵션 | school/owner | school/owner | `DEFER` | `미착수` | 유치원 프로필 옵션 후보 | owner-school-profile 슬라이스 | 옵션 목록이 enum인지 별도 기준 데이터인지 확인 |
+| MySQL | `tb_school_price_image` | 유치원 가격표 이미지 | school/owner/media | school/owner/media | `REDESIGN` | `미착수` | 가격표 이미지 후보 | owner-school-price 슬라이스 | S3 key 소유권, 단일/다중 이미지 정책. 크롤링 기반 가격표 이미지는 신규 `kindergarten_price_images`(KD3-413)로 별도 구축됨 |
+| MySQL | `tb_school_profile_option` | 유치원 프로필 옵션 | school/owner | school/owner | `DEFER` | `미착수` | 유치원 프로필 옵션 후보 | owner-school-profile 슬라이스 | 옵션 목록이 enum인지 별도 기준 데이터인지 확인. 크롤링 기반 옵션은 신규 `kindergarten_options`(KD3-413)로 별도 구축됨 |
 | MySQL | `tb_school_business_registration` | 유치원 사업자등록 내역 | business-registration/school | owner-verification/business-registration | `REDESIGN` | `미착수` | 사업자등록 검증 이력 후보 | business-registration 슬라이스 | 검증 결과 보존, created_by 관계 |
 | MySQL | `tb_owner_verification` | 원장 권한 신청 내역 | owner-verification | owner-verification/business-registration | `REDESIGN` | `미착수` | 원장 권한 신청/검증 후보 | owner-verification 슬라이스 | 수동 유치원 선택, 신청 상태, 중복 신청 정책 |
 | MySQL | `tb_user_school_role` | 사용자 유치원 권한 | school/owner/authz | owner/authz | `REDESIGN` | `미착수` | 사용자-유치원 권한 후보 | owner/school-role 슬라이스 | owner/teacher/member 권한 범위, role enum |
