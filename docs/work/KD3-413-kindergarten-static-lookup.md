@@ -1,4 +1,4 @@
-> 생성: 2026-09-01 21:05 · 최종 수정: 2026-09-02 16:10
+> 생성: 2026-09-01 21:05 · 최종 수정: 2026-09-02 16:55
 
 # KD3-413 — 유치원 도메인 스키마 이관 및 정적 조회 기능
 
@@ -52,20 +52,19 @@ kindergartens                    루트: naver_place_id, name, address, road_add
 
 ### API — 정적 조회만
 
-`v0`(레거시 계약 보존, 그대로 유지)와 `v1`(재설계, 신규 추가) 둘 다 이 서버에 둔다:
+이 서버는 `v1`만 제공한다. `v0`는 이 서버에 만들지 않는다(2026-09-02 최종 결정 — [`ADR 0012`](../adr/0012-신규-서버-v0-미제공-원칙.md), 일반 정책으로 분리):
 
 | Method | Path | 비고 |
 |---|---|---|
-| GET | `/api/v0/kindergarten/main/{id}` | 레거시 계약 그대로(버그 포함) |
-| GET | `/api/v0/kindergarten/basic/{id}` | 레거시 계약 그대로(버그 포함) |
-| GET | `/api/v0/kindergarten/{id}/pricing` | 레거시 계약 그대로 |
-| GET | `/api/v1/kindergartens/{id}/summary` | 신규 — `address`/`roadAddress` 분리, `operationStatus`에 `HOLIDAY` 추가 |
-| GET | `/api/v1/kindergartens/{id}/detail` | 신규 — 실체 없는 `breakTime` 필드 제거 |
-| GET | `/api/v1/kindergartens/{id}/pricing` | 신규 — `v0`와 응답 모양 동일(고칠 버그 없음), 경로만 `v1` |
+| GET | `/api/v1/kindergartens/{id}/summary` | 레거시 `main/{id}` 재설계 — `address`/`roadAddress` 분리, `operationStatus`에 `HOLIDAY` 추가 |
+| GET | `/api/v1/kindergartens/{id}/detail` | 레거시 `basic/{id}` 재설계 — 실체 없는 `breakTime` 필드 제거 |
+| GET | `/api/v1/kindergartens/{id}/pricing` | 레거시 `{id}/pricing`과 응답 모양 동일(고칠 버그 없음), 경로만 `v1` |
 
-**`v1` 전면 전환 결정**: 처음엔 "이름이 실제 동작과 다를 때만 `v1`"(ADR 0011 원안)이었으나, 구현 중 "이번 기회에 3개 전부 `v1`으로 전환한다"로 바뀌었다. `v0`는 삭제하지 않고 남겨둔다 — **이 서버가 `v0`를 계속 host할지, 레거시로만 라우팅할지는 프론트 개발자 확인 후 결정**(미결, 아래 참고).
+기존 `v0`(`main`/`basic`/`pricing`) 호출은 레거시 서버가 계속 담당한다(라우팅/LB 레벨, 이 서버 코드와 무관).
 
-**`main/{id}`·`v1 summary` 재포함 결정**: 처음엔 `bookmarked`/`memoData`가 `bookmark`/`memo` 도메인에 의존해 범위에서 뺐으나(두 도메인 다 이 저장소에 없음, `memo`는 인벤토리에서도 `REDESIGN`/미착수), `v0`는 이 두 필드만 스텁(`bookmarked=false`, `memoData=null` 고정)으로 두고 나머지 필드는 구현했다. `v1 summary`는 애초에 이 두 필드를 넣지 않는다 — 신규 계약이라 스텁을 먼저 노출할 필요가 없고, 도메인이 생기면 필드를 추가하는 쪽이 더 자연스럽다. `bookmark`/`memo` 도메인이 생기기 전까지는 실제 데이터가 있어도(레거시 쪽) 신규 서버 응답엔 반영되지 않는다 — 신규 DB가 레거시와 분리돼 있어서다.
+**결정 경위**: "이름이 실제 동작과 다를 때만 v1"(ADR 0011 원안) → "이름 무관 3개 전부 v1, v0도 이 서버에 병행"(1차 변경) → "이 서버는 v0 자체를 만들지 않는다"(최종). 마지막 변경으로 `KindergartenController`(v0)와 v0 전용 응답 DTO 2개(`KindergartenSummaryResponse`/`KindergartenDetailResponse`의 v0판)를 삭제하고, v1 파일들의 `V1` 접미사를 뗐다(예: `KindergartenV1Controller` → `KindergartenController`) — 이제 이 도메인엔 버전 트윈이 없어 접미사가 불필요해졌다.
+
+**`summary`의 `bookmarked`/`memoData` 미제공**: 레거시 `main/{id}`엔 이 두 필드가 있지만 `bookmark`/`memo` 도메인이 이 저장소에 없어(`memo`는 인벤토리에서도 `REDESIGN`/미착수) `summary` 응답엔 아예 넣지 않는다 — 신규 계약이라 스텁 고정값을 먼저 노출할 필요가 없고, 도메인이 생기면 필드를 추가하는 쪽이 자연스럽다.
 
 **거리 계산(`dist`)**: 레거시는 저장된 값이 아니라 요청마다 계산한다(`KindergartenQueryService.calculateDistance`) — 구면 삼각법 기반 근사 공식(위경도 차이 → `acos` → 60 * 1.1515로 해리를 마일로, `* 1.609344`로 km 변환)이고 `lat`/`lng` 쿼리 파라미터가 필수다. 정밀한 Haversine은 아니지만 오차가 크지 않은 근사식이라 그대로 이식하면 된다. 스키마에 저장할 값이 아니라 애플리케이션 로직이다.
 
@@ -104,15 +103,15 @@ kindergartens                    루트: naver_place_id, name, address, road_add
 - **롤백 안전성**: 이번 컷오버는 별도 롤백 설계를 하지 않는다. 롤백이 필요할 상황을 낮게 보고 리스크를 수용하기로 결정했다(근거 상세 미기록 — 필요 시 보완).
 - **KD3-335 흡수**: 컷오버 전략 결정은 원래 별도 티켓(KD3-335)이었으나, `003-migration.md` 2단계가 이 티켓 자체의 승인 조건으로 요구하는 내용과 동일해 KD3-413에 흡수했다. KD3-335는 삭제됨.
 - **Jira 구조**: KD3-272를 에픽에서 작업(Task)으로 낮추고, KD3-273(폐기)을 대체해 KD3-413을 그 하위 작업으로 생성했다. `docs/domains/`, `docs/adr/` 등은 append-only/최신화 원칙을 그대로 따르므로 이 구조 변경과 무관하다.
-- **`main/{id}` 재포함**: 위 "API" 참고 — `bookmarked`/`memoData`만 스텁으로 두고 이번 티켓에서 구현한다.
-- **`main/{id}` 향후 네이밍**: `bookmark`/`memo` 도메인이 갖춰진 뒤에도 `v0` 이름(`main`)을 그대로 유지할지, `docs/rules/api-migration.md` "이름이 실제 동작과 다르다" 기준에 따라 `v1`으로 새 이름(상단 고정 헤더라는 의미가 드러나는 `/v1/kindergartens/{id}/summary`류)을 내고 `v0`는 프록시로 돌릴지는 여전히 유효한 논의이나 즉시 결정할 필요는 없다. `basic/{id}`는 "기본정보" 탭과 이름이 일치해 재설계 대상이 아니다. 이 정책은 `docs/domains/kindergarten.md` 신설 시 옮겨 담는다.
+- **`summary`(구 `main/{id}`) 재포함**: 위 "API" 참고 — `bookmarked`/`memoData`는 넣지 않고 나머지 필드는 구현한다.
+- **신규 서버는 `v0`를 만들지 않는다**: 유치원 도메인에서 시작된 논의가 일반 정책으로 굳어져 [`ADR 0012`](../adr/0012-신규-서버-v0-미제공-원칙.md)로 분리했다. `docs/rules/api-migration.md`도 이 정책에 맞춰 갱신했다(§1, §2 전면 개정 — "기본값은 v0 단독" → "v0는 만들지 않는다"). 이미 머지된 auth 도메인 v0(login/refresh/logout/약관 동의)는 소급 적용 대상이 아니다.
 
 ### 미결 질문
 
 - 유치원 폐업 감지·처리 정책(스키마의 `status` 컬럼을 언제·어떻게 `CLOSED`로 갱신할지) — 재크롤링 배치를 만드는 후속 작업에서 결정
 - `map-view`/`near`/`autocomplete`의 조회 아키텍처(DB 사전 계산 + Redis 캐시 여부, 줌 레벨 버킷 설계) — 해당 하위 작업에서 결정
 - `epic/KD3-272-kindergarten-schema` 브랜치가 향후 KD3-272의 다른 하위 작업(예: `comparison` 도메인의 "비교하기" 관련 작업)도 같이 태울지 — 지금 정하지 않고 그 작업이 실제로 생길 때 판단
-- **`v0`를 이 서버가 계속 host할지** — 지금은 `v0`(main/basic/pricing) 컨트롤러를 그대로 뒀다. 프론트 개발자가 확인해주면(트래픽을 LB에서 레거시로 바로 보낼지, 아니면 이 서버가 계속 응답할지) 그때 정리한다. 레거시로만 보내기로 하면 `KindergartenController`(`v0`)와 그 응답 DTO 3개를 삭제한다
+- ~~`v0`를 이 서버가 계속 host할지~~ — **해결됨.** 이 서버는 `v0`를 만들지 않기로 최종 결정(ADR 0012). `KindergartenController`(v0)와 v0 전용 응답 DTO를 삭제하고 v1 파일들에서 `V1` 접미사를 뗐다.
 
 ### 사용자 승인 기록
 
@@ -126,7 +125,7 @@ kindergartens                    루트: naver_place_id, name, address, road_add
 - 단위/통합 테스트(도메인 로직, 매퍼, 서비스) — **72개 전부 통과**, `KnockdogApplicationTests`(전체 Spring 컨텍스트 로드) 포함. 상세는 다음과 같다:
   - `KindergartenDistanceCalculatorTest`, `KindergartenOperatingStatusCalculatorTest` — TDD(RED 확인 후 구현)로 작성
   - `GetKindergartenServiceTest` — TDD로 작성(naverPlaceId 기준 조회로 설계 변경 시 RED 재확인 포함)
-  - `KindergartenSeedConverterTest`, `KindergartenSummaryV1ResponseTest` — 구현 후 작성(회귀 안전망 목적, 순수 TDD는 아님)
+  - `KindergartenSeedConverterTest`, `KindergartenSummaryResponseTest` — 구현 후 작성(회귀 안전망 목적, 순수 TDD는 아님)
 - `docs/adr/0011-유치원-도메인-신규db-단발컷오버.md` 작성 — **완료**
 - **`KEEP` API 로컬 응답 대조** (`003-migration.md` 4단계) — **미완료.** 로컬에서 `./gradlew bootRun --args='--spring.profiles.active=local'`을 실제로 띄워보려 했으나:
   1. `.env.local`을 통째로 `source`하면 빈 값(`DB_HOST=` 등)이 실제 OS 환경변수로 export되어 `application-local.yaml`의 `${VAR:default}` 기본값이 적용되지 않고 타입 바인딩이 깨진다(`spring.jpa.show-sql` 등) — `.env.local` 사용법 자체의 함정으로 보이며 이번 티켓과 무관.
@@ -146,4 +145,7 @@ kindergartens                    루트: naver_place_id, name, address, road_add
 | `docs/inventory/database.md` | `tb_school*` 4행에 신규 크롤링 기반 스키마(`kindergartens` 등)로의 별도 구축 사실을 후속 확인에 남김. 판정/진척 자체는 안 바꿈(원장 오버라이드 테이블은 여전히 미착수) | **갱신함** |
 | `docs/inventory/api.md` | `main/{id}`, `basic/{id}`, `{id}/pricing`의 이관 진척을 `완료`로 갱신, `v1` 3개 신규 행 추가, `work/` 링크·알려진 계약 차이 참조 추가. 5절 요약 카운트 갱신 | **갱신함** |
 | Notion API 명세 | `v1` 3개는 신규 API라 `notion-api-spec-sync.md` 대상(API 추가) | **미착수 — 사람 몫**(위 "완료 확인 기준" 참고, 이 세션의 Notion 연동 방식이 안 맞음) |
-| `docs/rules/api-migration.md` | v0=v1프록시 패턴이 이미 서술된 정책과 합치하는지 확인 | **확인함, 변경 불필요** — 이번엔 `v0`/`v1` 내용 자체가 달라(버그 유지 vs 수정) 프록시 패턴을 적용하지 않기로 한 예외 사례이며, 그 근거는 ADR 0011에 남겼다(정책 문서 자체를 고칠 정도의 일반 규칙 변경은 아니라고 판단) |
+| `docs/rules/api-migration.md` | "신규 서버는 v0를 만들지 않는다"가 이 문서의 기존 "기본값은 v0 단독" 원칙과 정면으로 충돌 | **갱신함** — §1(기본 원칙)·§2(전면 개정, "v1을 새로 만들 것인가"→"새 경로 이름")·§4(path 변경 기준 삭제)를 새 정책에 맞게 고쳤다 |
+| `docs/adr/0012-신규-서버-v0-미제공-원칙.md` | 여러 도메인에 영향을 주는 결정 확정 | **신규 작성** — append-only, 0004의 v0 기본 유지 원칙을 대체하는 결정이라 맥락 절에서 0004를 언급 |
+| `docs/workflows/003-migration.md` | "KEEP API 로컬 응답 대조" 절이 `api-migration.md` §2를 인용하던 게 개정 후 어긋남, "경로 대조"도 더 이상 의미 없어짐 | **갱신함** — 인용 절 번호 수정(§2→§1), 이 대조가 경로가 아니라 응답 내용만 본다는 점 명시 |
+| `docs/inventory/api.md`의 다른 도메인 행(`v0+v1`로 표시된 미착수 행 다수 — auth email-verification, pet, user, business-registration, owner-verification 등) | 같은 "v0를 안 만든다" 원칙과 충돌하나 이번 티켓 범위 밖 | **미착수 — 후속 확인으로 남김.** 각 도메인 담당자가 실제 착수할 때 반영하는 게 맞다고 판단해 일괄 수정하지 않았다 |
