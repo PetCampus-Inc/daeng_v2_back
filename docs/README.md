@@ -1,4 +1,4 @@
-> 생성: 2026-07-28 11:43 · 최종 수정: 2026-09-02 12:35
+> 생성: 2026-07-28 11:43 · 최종 수정: 2026-09-02 18:45
 
 # docs 폴더 개요
 
@@ -23,7 +23,9 @@ docs/
 │   └── notion-api-spec-sync.md
 ├── conventions/
 │   ├── api-contract.md
-│   └── error-handling.md
+│   ├── error-handling.md
+│   ├── jpa-entity.md
+│   └── code-style.md
 ├── workflows/
 │   ├── 000-common.md
 │   ├── 001-current-status.md
