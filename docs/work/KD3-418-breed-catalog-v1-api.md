@@ -1,4 +1,4 @@
-> 생성: 2026-09-02 19:24 · 최종 수정: 2026-09-03 00:05
+> 생성: 2026-09-02 19:24 · 최종 수정: 2026-09-03 00:12
 
 # KD3-418 견종 카탈로그 v1 API 구축
 
@@ -12,8 +12,9 @@
 
 - 활성 workflow: `003-migration`, `005-new-feature`
 - 현재 공통 단계: `5`
-- 독립 리뷰에서 permitAll 근거 미기록·검색 공백 처리 불일치를 발견해 반영 완료(4개 커밋). Notion API 명세 동기화는 사용자가 직접 처리하기로 함.
-- 다음 결정 또는 전환 조건: PR 생성 후 머지 직전 최종 확인.
+- 독립 리뷰에서 permitAll 근거 미기록·검색 공백 처리 불일치를 발견해 반영 완료. Notion API 명세 동기화는 사용자가 직접 처리하기로 함.
+- PR: [#14](https://github.com/PetCampus-Inc/daeng_v2_back/pull/14) (`feat/KD3-418-breed-catalog-v1-api` → `epic/KD3-404-pet-domain-migration`)
+- 다음 결정 또는 전환 조건: 머지 직전 작업 문서·PR 본문·코드 최종 대조.
 
 ## 작업 목표
 
