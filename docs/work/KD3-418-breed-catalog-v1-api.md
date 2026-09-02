@@ -1,4 +1,4 @@
-> 생성: 2026-09-02 19:24 · 최종 수정: 2026-09-02 23:55
+> 생성: 2026-09-02 19:24 · 최종 수정: 2026-09-03 00:05
 
 # KD3-418 견종 카탈로그 v1 API 구축
 
@@ -88,7 +88,7 @@
 | 대상 | 판정 | 근거 |
 |---|---|---|
 | `docs/work/KD3-418-breed-catalog-v1-api.md` | 갱신 | 작업 결정·검증 결과 기록 |
-| `docs/inventory/api.md` | 구현 시 갱신 | 신규 공개 API |
-| `docs/inventory/database.md` | 구현 시 갱신 | 카탈로그 스키마 이관 진척 |
-| `docs/domains/pet.md` | 구현 시 추가 또는 갱신 | 견종 기준 데이터와 도메인 제약 |
+| `docs/inventory/api.md` | 갱신 | `GET /api/v0/breed-catalog` 판정을 `REDESIGN`·`진행중`으로 갱신하고 v1 구현 티켓 링크 추가 (커밋 `6198768`) |
+| `docs/inventory/database.md` | 갱신 | `breed_catalog` 행을 신규 `breeds` 기준 테이블로 갱신, 진척을 `진행중`으로 반영 (커밋 `6198768`) |
+| `docs/domains/pet.md` | 갱신 | 견종 기준 데이터 소유·식별자·노출 순서·검색 규칙·공개 API를 신규 추가 (커밋 `6198768`) |
 | Notion API 명세서 (`GET /api/v1/breeds`) | 미착수 — 사용자 직접 처리 | 신규 공개 API. 이 세션 환경에 `API_NOTION_KEY`가 없어 AI가 생성 불가, 사용자가 `docs/rules/notion-api-spec-sync.md` 절차로 직접 등록하기로 함 |
