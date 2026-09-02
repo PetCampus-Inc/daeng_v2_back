@@ -22,3 +22,8 @@ spring:
 
 server:
   port: ${SERVER_PORT:8080}
+
+kindergarten:
+  seed:
+    # 로컬 기동 시 kindergarten/*.json을 DB로 시딩한다. 이미 존재하는 naverPlaceId는 건너뛰므로 재기동해도 안전하다.
+    enabled: ${KINDERGARTEN_SEED_ENABLED:true}
