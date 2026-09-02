@@ -48,11 +48,13 @@ class HexagonalArchitectureTest {
     }
 
     @Test
-    fun `정석형 순수 도메인(auth)은 Spring, JPA에 의존하지 않는다`() {
+    fun `정석형 순수 도메인은 Spring, JPA에 의존하지 않는다`() {
+        // jpa-entity.md: auth에서 처음 정한 컨벤션이고 "이후 모든 도메인의 JPA 엔티티가 따른다" —
+        // domain.<name>.domain 패턴이면 전부 검사 대상이다(도메인마다 규칙을 새로 추가하지 않는다).
         noClasses()
             .that()
             .resideInAnyPackage(
-                "com.petcampus.knockdog.domain.auth.domain..",
+                "com.petcampus.knockdog.domain.*.domain..",
             ).should()
             .dependOnClassesThat()
             .resideInAnyPackage("org.springframework..", "jakarta.persistence..")
