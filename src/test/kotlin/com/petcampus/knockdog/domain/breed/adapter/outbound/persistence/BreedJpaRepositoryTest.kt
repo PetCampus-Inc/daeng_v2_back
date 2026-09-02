@@ -26,6 +26,20 @@ class BreedJpaRepositoryTest(
     }
 
     @Test
+    fun `이름에 포함된 공백은 무시하고 검색한다`() {
+        breedJpaRepository.saveAll(
+            listOf(
+                entity(1, "골든 리트리버"),
+                entity(2, "래브라도 리트리버", "래브라도"),
+            ),
+        )
+
+        val result = breedJpaRepository.search("골든리트리버")
+
+        assertEquals(listOf("골든 리트리버"), result.map { it.nameKo })
+    }
+
+    @Test
     fun `전체 목록은 표시 순서로 정렬한다`() {
         breedJpaRepository.saveAll(
             listOf(

@@ -27,6 +27,15 @@ class BreedQueryServiceTest {
         assertEquals(listOf("휘펫"), port.queries)
     }
 
+    @Test
+    fun `검색어 내부 공백도 제거해 검색한다`() {
+        val port = FakeLoadBreedsPort(emptyList())
+
+        BreedQueryService(port).getBreeds(" 골든 리트리버 ")
+
+        assertEquals(listOf("골든리트리버"), port.queries)
+    }
+
     private fun breed(
         id: Long,
         nameKo: String,

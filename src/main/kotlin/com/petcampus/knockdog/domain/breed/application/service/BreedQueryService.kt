@@ -12,7 +12,11 @@ class BreedQueryService(
 ) : GetBreedsUseCase {
     @Transactional(readOnly = true)
     override fun getBreeds(query: String?): List<Breed> {
-        val keyword = query?.trim().orEmpty()
+        val keyword = query.orEmpty().replace(WHITESPACE_REGEX, "")
         return if (keyword.isEmpty()) loadBreedsPort.findAllByDisplayOrder() else loadBreedsPort.search(keyword)
+    }
+
+    companion object {
+        private val WHITESPACE_REGEX = Regex("\\s+")
     }
 }
