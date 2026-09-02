@@ -1,5 +1,6 @@
 package com.petcampus.knockdog.domain.kindergarten.adapter.outbound.seed
 
+import com.fasterxml.jackson.databind.DeserializationFeature
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.PropertyNamingStrategies
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
@@ -12,11 +13,6 @@ import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.core.io.ClassPathResource
 
-/**
- * `kindergarten/info_new.json` + `kindergarten/price_and_product.json`을 DB로 시딩한다.
- * `kindergarten.seed.enabled=true`일 때만 동작(기본 false — 테스트·운영에서 실수로 실행되지 않게).
- * 이미 존재하는 `naverPlaceId`는 건너뛴다(재시작해도 중복 적재되지 않는다).
- */
 @Configuration
 class KindergartenJsonSeederConfig {
     @Bean
@@ -36,8 +32,7 @@ data class KindergartenSeedProperties(
 class KindergartenJsonSeeder(
     private val saveKindergartenPort: SaveKindergartenPort,
 ) {
-    private val objectMapper: ObjectMapper =
-        jacksonObjectMapper().setPropertyNamingStrategy(PropertyNamingStrategies.SNAKE_CASE)
+    private val objectMapper: ObjectMapper = buildObjectMapper()
 
     fun seed() {
         val kindergartens: List<CrawledKindergarten> = readResource("kindergarten/info_new.json")
@@ -64,5 +59,10 @@ class KindergartenJsonSeeder(
 
     companion object {
         private val log = LoggerFactory.getLogger(KindergartenJsonSeeder::class.java)
+
+        fun buildObjectMapper(): ObjectMapper =
+            jacksonObjectMapper()
+                .setPropertyNamingStrategy(PropertyNamingStrategies.SNAKE_CASE)
+                .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
     }
 }
