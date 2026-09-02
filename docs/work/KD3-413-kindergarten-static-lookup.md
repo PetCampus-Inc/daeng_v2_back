@@ -1,4 +1,4 @@
-> 생성: 2026-09-01 21:05 · 최종 수정: 2026-09-02 17:40
+> 생성: 2026-09-01 21:05 · 최종 수정: 2026-09-02 17:50
 
 # KD3-413 — 유치원 도메인 스키마 이관 및 정적 조회 기능
 
@@ -46,8 +46,9 @@ kindergartens                    루트: naver_place_id, name, address(도로명
 ├─ kindergarten_options           1:N — option_group(DOG_BREED/DOG_SERVICE/SAFETY_FACILITY/VISITOR_AMENITY) + option_code.
 │                                        display_order 컬럼 없음 — 정렬은 option_code 고정 순서(애플리케이션 레벨)를 따른다
 ├─ kindergarten_price_images      1:N — s3_key, display_order (`menu_image_s3_keys` 배열)
-└─ kindergarten_menus             1:N — product_type, service_type, product_name, unit, unit_str, unit_type, weight_range,
-                                         price, hourly_price, is_min_price, is_max_price, total_duration_str, total_duration_minutes,
+└─ kindergarten_menus             1:N — product_type, service_type, product_name, unit, unit_label(크롤링 원본 unit_str),
+                                         unit_type, weight_range, price, hourly_price, is_min_price, is_max_price,
+                                         total_duration_label(크롤링 원본 total_duration_str), total_duration_minutes,
                                          display_order (`price_and_product.json`, kindergarten_id로 join)
 ```
 
@@ -109,6 +110,7 @@ kindergartens                    루트: naver_place_id, name, address(도로명
 - **신규 서버는 `v0`를 만들지 않는다**: 유치원 도메인에서 시작된 논의가 일반 정책으로 굳어져 [`ADR 0012`](../adr/0012-신규-서버-v0-미제공-원칙.md)로 분리했다. `docs/rules/api-migration.md`도 이 정책에 맞춰 갱신했다(§1, §2 전면 개정 — "기본값은 v0 단독" → "v0는 만들지 않는다"). 이미 머지된 auth 도메인 v0(login/refresh/logout/약관 동의)는 소급 적용 대상이 아니다.
 - **주소는 도로명 주소만 저장**: 리뷰 중 지번 주소는 더 이상 저장하지 않고 도로명 주소만 저장하기로 결정. 상세 주소(`addressDetail`, nullable)를 신설. `V4__kindergartens_road_address_only.sql`로 반영(`kindergartens.address` 컬럼을 도로명 주소 값으로 교체, `address_detail` 컬럼 추가) — `info_new.json` 435건 전수 확인 결과 `road_address`가 전부 비어있지 않아 `address` NOT NULL을 유지했다.
 - **코드 내 설명 주석 금지**: TODO성 주석을 제외하고 코드 사이 설명 주석(KDoc 포함)을 작성하지 않기로 결정. 유치원 도메인 전체 파일에서 기존 주석을 제거했다. 앞으로 이 코드베이스에 적용되는 일반 컨벤션이다.
+- **컬럼명(필드명)에 약어 금지**: 리뷰 중 `KindergartenMenu.unitStr`/`totalDurationStr`의 `Str`이 무슨 뜻인지 알아보기 어렵다는 지적으로, `unitLabel`/`totalDurationLabel`로 개명(도메인/JPA 컬럼/응답 DTO 전부). 크롤링 원본 JSON의 실제 필드명(`unit_str`/`total_duration_str`)은 외부 계약이라 그대로 두고, `CrawledMenu`에서만 `@JsonProperty`로 명시 매핑해 내부 이름과 분리했다. DB 컬럼명은 `V5__kindergarten_menus_rename_label_columns.sql`로 리네임(V3/V4는 이미 커밋된 마이그레이션이라 직접 수정하지 않고 새로 추가 — `database-change.md`). 앞으로 이 코드베이스에 적용되는 일반 컨벤션이다.
 
 ### 미결 질문
 
