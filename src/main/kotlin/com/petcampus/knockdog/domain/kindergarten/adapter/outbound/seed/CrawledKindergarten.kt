@@ -1,5 +1,7 @@
 package com.petcampus.knockdog.domain.kindergarten.adapter.outbound.seed
 
+import com.fasterxml.jackson.annotation.JsonProperty
+
 data class CrawledKindergarten(
     val id: Long,
     val name: String,
@@ -46,7 +48,8 @@ data class CrawledMenu(
     val productType: String,
     val serviceType: String,
     val productName: String,
-    val unitStr: String? = null,
+    @JsonProperty("unit_str")
+    val unitLabel: String? = null,
     val unit: Double? = null,
     val unitType: String? = null,
     val weightRange: String? = null,
@@ -54,6 +57,7 @@ data class CrawledMenu(
     val hourlyPrice: Double? = null,
     val minPrice: Boolean = false,
     val maxPrice: Boolean = false,
-    val totalDurationStr: String? = null,
+    @JsonProperty("total_duration_str")
+    val totalDurationLabel: String? = null,
     val totalDurationMinutes: Int? = null,
 )

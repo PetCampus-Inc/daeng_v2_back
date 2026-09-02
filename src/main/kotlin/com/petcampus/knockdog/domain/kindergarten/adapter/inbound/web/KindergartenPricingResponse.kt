@@ -37,7 +37,7 @@ data class KindergartenPricingResponse(
                                 menus.map {
                                     ProductItem(
                                         price = it.price?.let { price -> "%,d원".format(price) },
-                                        count = it.unitStr ?: it.totalDurationStr,
+                                        count = it.unitLabel ?: it.totalDurationLabel,
                                         weightSection = it.weightRange,
                                     )
                                 },

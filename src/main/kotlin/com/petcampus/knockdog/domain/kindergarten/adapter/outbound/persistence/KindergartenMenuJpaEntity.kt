@@ -26,8 +26,8 @@ class KindergartenMenuJpaEntity(
     val productName: String,
     @Column(name = "unit")
     val unit: Double?,
-    @Column(name = "unit_str", length = 50)
-    val unitStr: String?,
+    @Column(name = "unit_label", length = 50)
+    val unitLabel: String?,
     @Column(name = "unit_type", length = 20)
     val unitType: String?,
     @Column(name = "weight_range", length = 50)
@@ -40,8 +40,8 @@ class KindergartenMenuJpaEntity(
     val isMinPrice: Boolean,
     @Column(name = "is_max_price", nullable = false)
     val isMaxPrice: Boolean,
-    @Column(name = "total_duration_str", length = 100)
-    val totalDurationStr: String?,
+    @Column(name = "total_duration_label", length = 100)
+    val totalDurationLabel: String?,
     @Column(name = "total_duration_minutes")
     val totalDurationMinutes: Int?,
     @Column(name = "display_order", nullable = false)
