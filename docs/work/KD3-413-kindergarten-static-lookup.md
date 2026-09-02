@@ -1,4 +1,4 @@
-> 생성: 2026-09-01 21:05 · 최종 수정: 2026-09-02 17:05
+> 생성: 2026-09-01 21:05 · 최종 수정: 2026-09-02 17:40
 
 # KD3-413 — 유치원 도메인 스키마 이관 및 정적 조회 기능
 
@@ -11,7 +11,7 @@
 ## 현재 제어점
 
 - 활성 workflow: `003-migration`
-- 현재 공통 단계: `5`(독립 리뷰·PR·문서 동기화) — [PR #12](https://github.com/PetCampus-Inc/daeng_v2_back/pull/12) 생성 완료(`epic/KD3-272-kindergarten-schema` 대상). 로컬 응답 대조·시딩 데이터 검증(4단계 항목)은 여전히 환경 문제로 미완료 — PR Test plan에 미체크로 남겨뒀다.
+- 현재 공통 단계: `5`(독립 리뷰·PR·문서 동기화) — [PR #12](https://github.com/PetCampus-Inc/daeng_v2_back/pull/12) 생성 완료(`epic/KD3-272-kindergarten-schema` 대상). 리뷰 코멘트 반영 라운드 진행 중(주소 스키마 변경 V4 추가, 시딩 ObjectMapper 버그 수정, 코드 내 설명 주석 전면 제거). 로컬 응답 대조·시딩 데이터 검증(4단계 항목)은 여전히 환경 문제로 미완료 — PR Test plan에 미체크로 남겨뒀다.
 - 다음 결정 또는 전환 조건: 리뷰 반영 + 사람이 로컬 응답 대조·시딩 검증을 완료해야 머지 가능(`000-common.md` §5 "문서 갱신과 필수 검증이 끝난 뒤에만 머지를 준비한다").
 
 ## 작업 목표
@@ -37,7 +37,8 @@
 - **`kindergarten_avg_prices` 스키마에서 제외 확정**: 미결이었던 항목을 실제 코드로 재확인한 결과 `main`/`basic`/`pricing` 응답 어디에도 안 쓰이는 게 맞아, 이번 스키마에서 뺀다. 필요해지면 map-view 등 후속 작업에서 추가한다.
 
 ```
-kindergartens                    루트: naver_place_id, name, address, road_address, lat/lng, phone_number, thumbnail_s3_key,
+kindergartens                    루트: naver_place_id, name, address(도로명 주소만), address_detail(상세 주소, nullable),
+│                                        lat/lng, phone_number, thumbnail_s3_key,
 │                                        source(CRAWLED/OWNER_REGISTERED), status(ACTIVE/CLOSED), visitor_review_count, blog_review_count
 ├─ kindergarten_categories        1:N — KINDERGARTEN/HOTEL 등 복수 업종 (`categories` 배열)
 ├─ kindergarten_business_hours    1:N — name(DEFAULT/KINDERGARTEN/HOTEL 프로필 구분), weekday/weekend open·close, offdays(JSON 배열)
@@ -56,7 +57,7 @@ kindergartens                    루트: naver_place_id, name, address, road_add
 
 | Method | Path | 비고 |
 |---|---|---|
-| GET | `/api/v1/kindergartens/{id}/summary` | 레거시 `main/{id}` 재설계 — `address`/`roadAddress` 분리, `operationStatus`에 `HOLIDAY` 추가 |
+| GET | `/api/v1/kindergartens/{id}/summary` | 레거시 `main/{id}` 재설계 — 지번 주소는 저장하지 않고 `address`(도로명 주소)/`addressDetail`(상세 주소, nullable)로 분리, `operationStatus`에 `HOLIDAY` 추가 |
 | GET | `/api/v1/kindergartens/{id}/detail` | 레거시 `basic/{id}` 재설계 — 실체 없는 `breakTime` 필드 제거 |
 | GET | `/api/v1/kindergartens/{id}/pricing` | 레거시 `{id}/pricing`과 응답 모양 동일(고칠 버그 없음), 경로만 `v1` |
 
@@ -72,6 +73,7 @@ kindergartens                    루트: naver_place_id, name, address, road_add
 
 - `domain/kindergarten/` 신규 패키지 — domain/application/adapter 헥사고날 계층
 - Flyway migration (`src/main/resources/db/migration/V3__*.sql` — V1·V2는 auth 도메인이 이미 사용 중)
+- Flyway migration (`V4__kindergartens_road_address_only.sql`) — 리뷰 중 결정된 지번 주소 폐기·상세 주소 신설 반영(V3는 이미 공유된 마이그레이션이라 직접 수정하지 않고 V4로 추가, `database-change.md`)
 
 ### 문서
 
@@ -105,6 +107,8 @@ kindergartens                    루트: naver_place_id, name, address, road_add
 - **Jira 구조**: KD3-272를 에픽에서 작업(Task)으로 낮추고, KD3-273(폐기)을 대체해 KD3-413을 그 하위 작업으로 생성했다. `docs/domains/`, `docs/adr/` 등은 append-only/최신화 원칙을 그대로 따르므로 이 구조 변경과 무관하다.
 - **`summary`(구 `main/{id}`) 재포함**: 위 "API" 참고 — `bookmarked`/`memoData`는 넣지 않고 나머지 필드는 구현한다.
 - **신규 서버는 `v0`를 만들지 않는다**: 유치원 도메인에서 시작된 논의가 일반 정책으로 굳어져 [`ADR 0012`](../adr/0012-신규-서버-v0-미제공-원칙.md)로 분리했다. `docs/rules/api-migration.md`도 이 정책에 맞춰 갱신했다(§1, §2 전면 개정 — "기본값은 v0 단독" → "v0는 만들지 않는다"). 이미 머지된 auth 도메인 v0(login/refresh/logout/약관 동의)는 소급 적용 대상이 아니다.
+- **주소는 도로명 주소만 저장**: 리뷰 중 지번 주소는 더 이상 저장하지 않고 도로명 주소만 저장하기로 결정. 상세 주소(`addressDetail`, nullable)를 신설. `V4__kindergartens_road_address_only.sql`로 반영(`kindergartens.address` 컬럼을 도로명 주소 값으로 교체, `address_detail` 컬럼 추가) — `info_new.json` 435건 전수 확인 결과 `road_address`가 전부 비어있지 않아 `address` NOT NULL을 유지했다.
+- **코드 내 설명 주석 금지**: TODO성 주석을 제외하고 코드 사이 설명 주석(KDoc 포함)을 작성하지 않기로 결정. 유치원 도메인 전체 파일에서 기존 주석을 제거했다. 앞으로 이 코드베이스에 적용되는 일반 컨벤션이다.
 
 ### 미결 질문
 
@@ -122,10 +126,11 @@ kindergartens                    루트: naver_place_id, name, address, road_add
 
 - ArchUnit(`HexagonalArchitectureTest`, `main/{id}`의 pure-domain 규칙을 auth 전용에서 전체 도메인 공통으로 일반화) — **통과**
 - ktlint(`ktlintCheck`) — **통과**
-- 단위/통합 테스트(도메인 로직, 매퍼, 서비스) — **72개 전부 통과**, `KnockdogApplicationTests`(전체 Spring 컨텍스트 로드) 포함. 상세는 다음과 같다:
+- 단위/통합 테스트(도메인 로직, 매퍼, 서비스) — **73개 전부 통과**, `KnockdogApplicationTests`(전체 Spring 컨텍스트 로드) 포함. 상세는 다음과 같다:
   - `KindergartenDistanceCalculatorTest`, `KindergartenOperatingStatusCalculatorTest` — TDD(RED 확인 후 구현)로 작성
   - `GetKindergartenServiceTest` — TDD로 작성(naverPlaceId 기준 조회로 설계 변경 시 RED 재확인 포함)
-  - `KindergartenSeedConverterTest`, `KindergartenSummaryResponseTest` — 구현 후 작성(회귀 안전망 목적, 순수 TDD는 아님)
+  - `KindergartenSeedConverterTest`, `KindergartenSummaryResponseTest` — 구현 후 작성(회귀 안전망 목적, 순수 TDD는 아님), 주소 스키마 변경(도로명 주소만 저장)에 맞춰 갱신
+  - `KindergartenJsonSeederTest` — TDD로 신규 작성. 실제 크롤링 JSON의 미매핑 필드(`business_services` 등)로 `UnrecognizedPropertyException`이 나던 버그를 RED로 재현 후 `FAIL_ON_UNKNOWN_PROPERTIES=false`로 수정
 - `docs/adr/0011-유치원-도메인-신규db-단발컷오버.md` 작성 — **완료**
 - **`KEEP` API 로컬 응답 대조** (`003-migration.md` 4단계) — **미완료.** 로컬에서 `./gradlew bootRun --args='--spring.profiles.active=local'`을 실제로 띄워보려 했으나:
   1. `.env.local`을 통째로 `source`하면 빈 값(`DB_HOST=` 등)이 실제 OS 환경변수로 export되어 `application-local.yaml`의 `${VAR:default}` 기본값이 적용되지 않고 타입 바인딩이 깨진다(`spring.jpa.show-sql` 등) — `.env.local` 사용법 자체의 함정으로 보이며 이번 티켓과 무관.

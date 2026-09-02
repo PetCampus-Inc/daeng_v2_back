@@ -1,4 +1,4 @@
-> 생성: 2026-09-02 · 최종 수정: 2026-09-02 17:20
+> 생성: 2026-09-02 · 최종 수정: 2026-09-02 17:40
 
 # kindergarten 도메인 마이그레이션 지시서
 
@@ -10,7 +10,7 @@
 
 | 테이블 | 비고 |
 |---|---|
-| `kindergartens` | 루트. `naver_place_id`가 **대외 식별자**다(내부 PK가 아니다 — `GET /api/v1/kindergartens/{id}/**`의 `{id}`가 받는 값). 원장 자체 등록(네이버 미등재) 유치원은 레거시 `manual_` 접두사 관례를 계승한다. `status`(ACTIVE/CLOSED) 컬럼은 있으나 크롤링 시딩은 항상 ACTIVE로 채운다 — 폐업 감지는 후속 재크롤링 작업 |
+| `kindergartens` | 루트. `naver_place_id`가 **대외 식별자**다(내부 PK가 아니다 — `GET /api/v1/kindergartens/{id}/**`의 `{id}`가 받는 값). 원장 자체 등록(네이버 미등재) 유치원은 레거시 `manual_` 접두사 관례를 계승한다. `status`(ACTIVE/CLOSED) 컬럼은 있으나 크롤링 시딩은 항상 ACTIVE로 채운다 — 폐업 감지는 후속 재크롤링 작업. `address`는 도로명 주소만 저장한다(지번 주소는 저장하지 않음, V4). `address_detail`(상세 주소)은 nullable로 별도 저장 |
 | `kindergarten_categories` | 1:N, 업종(KINDERGARTEN/HOTEL 등). `summary`에서만 쓰인다 |
 | `kindergarten_business_hours` | 1:N, 프로필별(DEFAULT/KINDERGARTEN/HOTEL 등 `name`으로 구분 — 실제로 나뉘어 관리되는 사례가 있어 유지). 브레이크타임·공휴일 휴무 컬럼은 없다 — 크롤링 원본에 그 개념 자체가 없다(§2 참고) |
 | `kindergarten_links` | 1:N, `code`(INSTAGRAM/BLOG/HOMEPAGE/YOUTUBE 등)는 크롤링 값을 그대로 담는 열린 문자열 |
@@ -38,7 +38,7 @@
 
 | 항목 | 레거시 동작 | `v1`에서 고친 점 |
 |---|---|---|
-| `roadAddress` 필드 (summary, detail 둘 다) | 이름과 달리 실제로는 `address`(지번 주소) 값이 들어간다 — 레거시 `KindergartenMapper`가 `dto.getAddress()`를 그대로 넣는 버그 | `address`/`roadAddress`를 분리해 각자 실제 값을 담는다 |
+| `roadAddress` 필드 (summary, detail 둘 다) | 이름과 달리 실제로는 `address`(지번 주소) 값이 들어간다 — 레거시 `KindergartenMapper`가 `dto.getAddress()`를 그대로 넣는 버그 | 지번 주소는 아예 저장하지 않는다. `address`(도로명 주소)만 저장하고, 상세 주소는 `addressDetail`(nullable)로 분리한다 |
 | `operationStatus` (summary) | `businessStatus.title`이 "영업중"일 때만 `OPEN`, 그 외(휴무 포함)는 전부 `CLOSED` — `OperationStatusParser.parseOperationInfo`가 HOLIDAY를 구분하지 않는 버그 | 휴무일엔 `HOLIDAY`를 명시적으로 구분한다 |
 | `detail`의 `operationTimes[].weekday/weekend[].breakTime` | 실제로는 마감 시각이 들어간다 — "open~close" 문자열을 "~" 기준으로 쪼개 두 번째 조각을 `breakTime`으로 넣는 버그(크롤링 데이터엔 브레이크타임 개념 자체가 없다) | `breakTime` 필드를 아예 뺐다 |
 
