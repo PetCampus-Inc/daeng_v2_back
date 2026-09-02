@@ -6,20 +6,12 @@ import com.petcampus.knockdog.domain.kindergarten.domain.KindergartenOperatingSt
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 
-/**
- * `GET /api/v1/kindergartens/{id}/summary` 응답 — 레거시(`daeng_v1_back`) `main/{id}`의 재설계판.
- * 발견한 레거시 버그 중 이 응답에 있던 2개를 고쳤다(docs/domains/kindergarten.md §2):
- * - `address`/`roadAddress`를 분리해서 각각 실제 값을 담는다(레거시는 `roadAddress`에 `address` 값이 들어감).
- * - `operationStatus`에 `HOLIDAY`를 구분해서 넣는다(레거시는 휴무도 `CLOSED`로 뭉뚱그림).
- *
- * `bookmarked`/`memoData`는 아예 넣지 않는다 — `bookmark`/`memo` 도메인이 생기면 필드를 추가하는 쪽으로 간다.
- */
 data class KindergartenSummaryResponse(
     val id: String,
     val name: String,
     val categories: List<String>,
     val address: String,
-    val roadAddress: String?,
+    val addressDetail: String?,
     val operationTimes: OperationTimes,
     val operationStatus: String,
     val businessStatusDescription: String,
@@ -61,7 +53,7 @@ data class KindergartenSummaryResponse(
                 name = kindergarten.name,
                 categories = kindergarten.categories.map { it.value },
                 address = kindergarten.address,
-                roadAddress = kindergarten.roadAddress,
+                addressDetail = kindergarten.addressDetail,
                 operationTimes =
                     OperationTimes(
                         startTime = range?.start?.let { TIME_FMT.format(it) },
@@ -81,7 +73,6 @@ data class KindergartenSummaryResponse(
             )
         }
 
-        /** 레거시와 달리 휴무를 `CLOSED`에 뭉개지 않고 `HOLIDAY`로 구분한다. */
         private fun operationStatusOf(title: String): String =
             when (title) {
                 "영업중" -> "OPEN"

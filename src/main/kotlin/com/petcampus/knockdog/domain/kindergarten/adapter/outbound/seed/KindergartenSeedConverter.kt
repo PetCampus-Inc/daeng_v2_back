@@ -12,7 +12,6 @@ import java.time.DayOfWeek
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 
-/** 크롤링 JSON → 도메인 애그리거트 변환. 순수 함수라 Spring 없이 단위 테스트 가능하다. */
 object KindergartenSeedConverter {
     private val TIME_FMT = DateTimeFormatter.ofPattern("HH:mm")
 
@@ -24,8 +23,8 @@ object KindergartenSeedConverter {
             naverPlaceId = crawled.id.toString(),
             name = crawled.name,
             phoneNumber = crawled.tel?.takeIf { it.isNotBlank() },
-            address = crawled.address,
-            roadAddress = crawled.roadAddress,
+            address = crawled.roadAddress,
+            addressDetail = null,
             latitude = crawled.lat,
             longitude = crawled.lng,
             thumbnailS3Key = crawled.thumbnailS3Key,

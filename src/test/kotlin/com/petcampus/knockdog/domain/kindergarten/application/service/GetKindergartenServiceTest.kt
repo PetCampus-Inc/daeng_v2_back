@@ -23,7 +23,7 @@ class GetKindergartenServiceTest {
             name = "테스트 유치원",
             phoneNumber = null,
             address = "서울시 강남구",
-            roadAddress = null,
+            addressDetail = null,
             latitude = 37.5,
             longitude = 127.0,
             thumbnailS3Key = null,

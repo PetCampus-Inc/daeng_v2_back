@@ -24,8 +24,8 @@ class KindergartenJpaEntity(
     val phoneNumber: String?,
     @Column(name = "address", nullable = false)
     val address: String,
-    @Column(name = "road_address")
-    val roadAddress: String?,
+    @Column(name = "address_detail", length = 100)
+    val addressDetail: String?,
     @Column(name = "latitude")
     val latitude: Double?,
     @Column(name = "longitude")

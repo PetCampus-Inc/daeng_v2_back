@@ -19,7 +19,6 @@ class KindergartenSeedConverterTest {
         tel = "",
         thumbnailS3Key = "thumb.png",
         menuImageS3Keys = listOf("menu0.png", "menu1.png"),
-        address = "서울시 중구",
         roadAddress = "서울시 중구 동호로12길",
         lat = 37.5,
         lng = 127.0,

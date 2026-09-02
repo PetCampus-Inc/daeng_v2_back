@@ -1,6 +1,5 @@
 package com.petcampus.knockdog.domain.kindergarten.adapter.outbound.seed
 
-/** `kindergarten/info_new.json` 원소 하나를 그대로 반영한 파싱 전용 DTO. */
 data class CrawledKindergarten(
     val id: Long,
     val name: String,
@@ -8,8 +7,7 @@ data class CrawledKindergarten(
     val tel: String? = null,
     val thumbnailS3Key: String? = null,
     val menuImageS3Keys: List<String> = emptyList(),
-    val address: String,
-    val roadAddress: String? = null,
+    val roadAddress: String,
     val lat: Double? = null,
     val lng: Double? = null,
     val links: List<CrawledLink> = emptyList(),
@@ -43,7 +41,6 @@ data class CrawledReviewCount(
     val visitReviewCount: Int = 0,
 )
 
-/** `kindergarten/price_and_product.json` 행 하나. */
 data class CrawledMenu(
     val kindergartenId: Long,
     val productType: String,

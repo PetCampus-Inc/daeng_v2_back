@@ -12,8 +12,6 @@ import com.petcampus.knockdog.domain.kindergarten.domain.KindergartenPriceImage
 import com.petcampus.knockdog.domain.kindergarten.domain.KindergartenSource
 import com.petcampus.knockdog.domain.kindergarten.domain.KindergartenStatus
 
-/** 정석형: 순수 도메인 ↔ JPA 엔티티 변환. JPA는 이 어댑터 안에만 존재한다. */
-
 fun KindergartenJpaEntity.toDomain(
     categories: List<KindergartenCategoryJpaEntity>,
     businessHours: List<KindergartenBusinessHourJpaEntity>,
@@ -28,7 +26,7 @@ fun KindergartenJpaEntity.toDomain(
         name = name,
         phoneNumber = phoneNumber,
         address = address,
-        roadAddress = roadAddress,
+        addressDetail = addressDetail,
         latitude = latitude,
         longitude = longitude,
         thumbnailS3Key = thumbnailS3Key,
@@ -51,7 +49,7 @@ fun Kindergarten.toJpaEntity(): KindergartenJpaEntity =
         name = name,
         phoneNumber = phoneNumber,
         address = address,
-        roadAddress = roadAddress,
+        addressDetail = addressDetail,
         latitude = latitude,
         longitude = longitude,
         thumbnailS3Key = thumbnailS3Key,

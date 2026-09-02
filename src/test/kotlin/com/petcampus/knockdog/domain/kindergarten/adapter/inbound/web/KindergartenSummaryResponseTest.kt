@@ -19,8 +19,8 @@ class KindergartenSummaryResponseTest {
             naverPlaceId = "12345",
             name = "테스트 유치원",
             phoneNumber = null,
-            address = "서울시 중구 신당동",
-            roadAddress = "서울시 중구 동호로12길",
+            address = "서울시 중구 동호로12길",
+            addressDetail = "2층",
             latitude = 37.5,
             longitude = 127.0,
             thumbnailS3Key = null,
@@ -37,11 +37,11 @@ class KindergartenSummaryResponseTest {
         )
 
     @Test
-    fun `address와 roadAddress를 각자 실제 값으로 분리해서 담는다`() {
+    fun `address와 addressDetail을 각자 담는다`() {
         val response = KindergartenSummaryResponse.from(sample(), userLat = 37.5, userLng = 127.0)
 
-        assertEquals("서울시 중구 신당동", response.address)
-        assertEquals("서울시 중구 동호로12길", response.roadAddress)
+        assertEquals("서울시 중구 동호로12길", response.address)
+        assertEquals("2층", response.addressDetail)
     }
 
     @Test
