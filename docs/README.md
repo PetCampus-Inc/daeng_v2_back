@@ -1,4 +1,4 @@
-> 생성: 2026-07-28 11:43 · 최종 수정: 2026-08-31 01:05
+> 생성: 2026-07-28 11:43 · 최종 수정: 2026-09-02 12:35
 
 # docs 폴더 개요
 
@@ -61,7 +61,7 @@ docs/
 | `domains/` | 후속 작업에도 유지할 도메인 사실과 제약 |
 | `inventory/` | API·데이터·연동·운영 대상의 현재 구성, 누락 방지와 판정 |
 | `architecture/` | 시스템 전체의 구조와 책임 경계. 처음 한 번 지도로 읽는 문서 |
-| `adr/` | 되돌리기 어려운 결정의 이유 |
+| `adr/` | 되돌리기 어려운 결정의 배경과 이력 |
 
 `conventions/`와 `architecture/`는 **읽는 시점**으로 나눈다. `architecture/`는 프로젝트 구조를 파악할 때 한 번 읽고, `conventions/`는 코드를 작성·리뷰할 때마다 연다. 개별 코드의 옳고 그름을 판단하는 기준은 항상 `conventions/`에 둔다.
 
@@ -71,7 +71,7 @@ docs/
 2. 문서의 배치와 갱신 기준은 [`rules/documentation.md`](rules/documentation.md)를 읽는다.
 3. 작업이면 [`workflows/000-common.md`](workflows/000-common.md)와 해당 유형 workflow를 읽는다.
 4. 코드를 작성·리뷰하면 [`conventions/`](conventions/)를 읽는다.
-5. 그 뒤 관련 `domains/`, `architecture/`, `inventory/`, `adr/`를 작업 범위에 맞춰 읽는다.
+5. 그 뒤 관련 `domains/`, `architecture/`, `inventory/`를 작업 범위에 맞춰 읽고, 해당 현재 문서의 결정 배경을 확인해야 할 때만 `adr/`를 읽는다. ADR은 당시의 결정 이력이며, 현재 작업의 판단은 코드와 최신 상태 문서를 대조해 내린다.
 
 문서의 용도, 단일 기준, 작성·갱신 위치는 `README.md`가 아니라 [`rules/documentation.md`](rules/documentation.md)가 유일한 기준이다.
 

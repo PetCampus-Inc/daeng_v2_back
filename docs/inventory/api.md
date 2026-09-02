@@ -1,4 +1,4 @@
-> 생성: 2026-08-02 13:45 · 최종 수정: 2026-09-01 11:40
+> 생성: 2026-08-02 13:45 · 최종 수정: 2026-09-02 12:35
 
 # API 인벤토리
 
@@ -40,7 +40,7 @@
 |---|---|---|
 | 레거시 서버 endpoint 추출 | `PetCampus-Inc/daeng_v1_back` `dev@2479b02c` (2026-08-30)의 `src/main/java/**/**Controller.java` method-level mapping annotation | live endpoint 259개. `KindergartenController`의 주석 처리된 `review-count`는 제외 |
 | 프론트 호출 추출 | `PetCampus-Inc/daeng_v2_front` `develop@b702973` (2026-08-31)의 `apps/knockdog`에서 `api.get/post/put/patch/delete`(문자열 리터럴·경로 상수 인자 포함)와 `fetch('/api/v0/**')` | unique 호출 120개, 레거시 endpoint와 120개 모두 매칭(정확 매칭 116개, fetch/path-only 4개). `apps/mobile`은 WebView 셸이라 백엔드 직접 호출 없음 |
-| 기존 결정 대조 | `docs/adr/0001`, `0004`, `0005`, `docs/domains/auth.md` | 삭제/재설계/보류 근거가 있는 항목은 해당 판정을 우선 반영 |
+| 기존 결정 이력 대조 | `docs/adr/0001`, `0004`, `0005`, `docs/domains/auth.md` | 당시 삭제/재설계/보류의 배경을 확인. 현재 판정은 레거시·프론트 추출 결과와 이 인벤토리의 최신 행을 기준으로 확인 |
 
 ## 5. 요약
 
