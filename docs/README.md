@@ -1,4 +1,4 @@
-> 생성: 2026-07-28 11:43 · 최종 수정: 2026-09-02 18:05
+> 생성: 2026-07-28 11:43 · 최종 수정: 2026-09-02 19:00
 
 # docs 폴더 개요
 
@@ -24,6 +24,7 @@ docs/
 ├── conventions/
 │   ├── api-contract.md
 │   ├── error-handling.md
+│   ├── jpa-entity.md
 │   └── code-style.md
 ├── workflows/
 │   ├── 000-common.md
