@@ -5,7 +5,6 @@ import jakarta.persistence.AttributeConverter
 import jakarta.persistence.Converter
 import java.time.DayOfWeek
 
-/** `kindergarten_business_hours.offdays`(JSON 컬럼, 예: ["THURSDAY"]) <-> `List<DayOfWeek>` 변환. */
 @Converter
 class DayOfWeekListConverter : AttributeConverter<List<DayOfWeek>, String> {
     override fun convertToDatabaseColumn(attribute: List<DayOfWeek>?): String =

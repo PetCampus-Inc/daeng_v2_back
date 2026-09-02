@@ -8,7 +8,6 @@ import java.time.LocalTime
 import kotlin.test.assertEquals
 
 class KindergartenOperatingStatusCalculatorTest {
-    // 2026-09-07은 월요일(평일)이다.
     private val monday = LocalDate.of(2026, 9, 7)
 
     private fun defaultProfile(

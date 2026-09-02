@@ -14,7 +14,6 @@ class KindergartenDistanceCalculatorTest {
 
     @Test
     fun `서울시청과 강남역 거리는 대략 8km대다`() {
-        // 서울시청(37.5663, 126.9779) ~ 강남역(37.4979, 127.0276) 실측 직선거리 약 8.4km
         val distance = KindergartenDistanceCalculator.calculateKm(37.5663, 126.9779, 37.4979, 127.0276)
 
         assertTrue(abs(distance - 8.4) < 1.0, "계산된 거리: $distance")

@@ -6,10 +6,6 @@ import com.petcampus.knockdog.domain.kindergarten.domain.Kindergarten
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
 
-/**
- * 쓰기 유스케이스가 없어(조회 전용) 루트에 `@OneToMany` cascade를 두지 않고, 리포지토리 7개를 직접 호출해
- * 조합한다 — N+1/orphanRemoval을 관리할 이유가 없다.
- */
 @Component
 class KindergartenPersistenceAdapter(
     private val kindergartenJpaRepository: KindergartenJpaRepository,

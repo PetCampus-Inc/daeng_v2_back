@@ -2,14 +2,6 @@ package com.petcampus.knockdog.domain.kindergarten.adapter.inbound.web
 
 import com.petcampus.knockdog.domain.kindergarten.domain.Kindergarten
 
-/**
- * `GET /api/v1/kindergartens/{id}/pricing` 응답 — 레거시(`daeng_v1_back`) `KindergartenPricingInfoResponse`와
- * 응답 모양을 맞췄다(발견된 버그가 없어 그대로 유지, 경로만 `v1`).
- *
- * 알려진 근사치: `count`는 레거시가 `Menu`(내부 파싱 객체)의 `totalTime`/`count` 필드를 조합해 만드는데
- * 정확한 필드 대응을 확인하지 못해, 크롤링 원본의 `unit_str`(예: "5시간")을 그대로 쓴다. 로컬 응답 대조
- * 시 실제 값이 다르면 이 부분을 재확인한다(docs/work/KD3-413-kindergarten-static-lookup.md).
- */
 data class KindergartenPricingResponse(
     val id: String,
     val productType: List<String>,

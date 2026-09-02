@@ -8,12 +8,6 @@ import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
 
-/**
- * 유치원 정적 조회(요약/상세/요금표). 레거시(`daeng_v1_back`) `main`/`basic`/`pricing`을 재설계했다 —
- * 이 서버는 `v0` 경로를 만들지 않는다(2026-09-02 결정). 기존 `v0` 클라이언트는 계속 레거시 서버가
- * 응답한다(라우팅/LB 레벨, 이 서버 코드와 무관). 레거시에서 발견한 버그 2개를 고쳤다
- * (`roadAddress` 오염, `operationStatus` HOLIDAY 미구분) — docs/domains/kindergarten.md §2.
- */
 @RestController
 @RequestMapping("/api/v1/kindergartens")
 class KindergartenController(
