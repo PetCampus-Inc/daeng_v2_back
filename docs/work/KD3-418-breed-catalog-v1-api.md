@@ -1,4 +1,4 @@
-> 생성: 2026-09-02 19:24 · 최종 수정: 2026-09-03 12:20
+> 생성: 2026-09-02 19:24 · 최종 수정: 2026-09-03 13:05
 
 # KD3-418 견종 카탈로그 v1 API 구축
 
@@ -64,6 +64,7 @@
 - 2026-09-02: 독립 리뷰에서 `GET /api/v1/breeds` permitAll 결정이 작업 문서에 기록되지 않은 것을 발견했다. 사용자가 공개 엔드포인트로 확정하고 근거를 기록하도록 승인했다.
 - 2026-09-02: 독립 리뷰에서 검색 공백 처리 문구("공백을 제거해")와 구현(앞뒤 trim만)의 불일치를 발견했다. 사용자가 시드 내 다단어 품종명 확인 후, 검색어·비교 대상 양쪽 모두 공백을 제거하는 방식으로 구현을 변경하도록 승인했다.
 - 2026-09-03: `epic/KD3-404-pet-domain-migration`을 merge하며 `docs/conventions/code-style.md`(KD3-413, 주석 금지·약어 금지·DTO-도메인 일치)가 새로 유입됐다. 대조 결과 breed 도메인 코드 자체는 위반이 없었고, `SecurityConfig.kt`에 이번 티켓에서 새로 추가한 주석 2줄만 위반이었다. 사용자가 그 주석을 제거하고 근거는 작업 문서·PR 본문에만 남기도록, `fciStandardNumber`/`nameEn`/`nameKo` 계열 약어 후보는 의미가 명확하다는 이유로 그대로 유지하도록 확정했다.
+- 2026-09-03: 사용자가 이 문서의 검증 결과 서술이 실제 코드 상태(주석 추가↔제거 모순)와 어긋나고, Gradle·Flyway·로컬 서버 검증이 PR diff에서 확인 불가능한 점을 지적했다. 검증 결과를 CI 로그·이 세션의 재현 결과로 다시 정리하고, 재현하지 못한 항목(v1 대 V3 전 필드 대조)은 확인 불가로 표시했다.
 
 ## 완료 확인 기준
 
@@ -76,15 +77,12 @@
 
 ## 검증 결과
 
-- `./gradlew ktlintCheck test --tests 'com.petcampus.knockdog.domain.breed.*' --tests 'com.petcampus.knockdog.HexagonalArchitectureTest'`를 통과했다. 조회 서비스의 공백 처리, JPA 검색 우선순위·정렬, 전체 조회 순서와 아키텍처 경계를 확인했다.
-- CP949 CSV를 UTF-8로 변환해 만든 Flyway 시드가 385건인지 확인했고, 믹스견·기타·별칭의 한글 문자열을 대조했다. 이후 CP949 원본에 `?`로 대체된 영어 특수문자 8건이 발견되어, 이 결과만으로는 외국어 문자 보존을 확인할 수 없었다.
-- v1 UTF-8 시드와 수정된 V3 시드를 `display_order`, FCI 번호, 영문명, 국문명, 별칭 전체 385행으로 대조해 일치함을 확인했다. V3 파일은 UTF-8로 유효하며 SQL 문자열 값에 `?` 대체 문자가 없다.
-- `BreedSeedEncodingTest`로 385행 수, 대체 문자 부재, v1에 있던 외국어 특수문자 8건을 회귀 검증했고, `./gradlew ktlintCheck test --tests 'com.petcampus.knockdog.domain.breed.*' --tests 'com.petcampus.knockdog.HexagonalArchitectureTest'`를 통과했다.
-- 로컬 MySQL `knockdog`에서 기존 `breeds`와 V3 Flyway 이력을 제거한 뒤 앱을 재기동해 수정된 V3의 재적용을 확인했다. Flyway는 V3을 정상 적용했고, `breeds`는 385행이다. 8개 특수문자 값의 DB `HEX(name_en)`은 v1 UTF-8 기준값과 전부 일치했다.
-- 로컬 서버(9090)에서 `GET /api/v1/breeds`는 `SUCCESS`와 385건(첫 믹스견, 마지막 기타)을 반환했고, `query=휘펫`은 별칭 검색으로 `휘핏`을 반환했다.
-- 로컬 MySQL 8.0 `knockdog` DB에서 Flyway V3 적용을 확인했다. 최초 시드 생성 파일에 잘못 들어간 선행 `+` 문자로 실패 이력이 발생했으나, SQL을 수정하고 `flyway repair` 후 V3 적용 성공을 확인했다. 실패는 첫 SQL 문에서 발생해 `breeds` 테이블이 남지 않았다.
-- 기동한 로컬 서버(9090)에서 전체 목록과 `query=휘펫` 별칭 검색 응답을 확인했다. 응답은 UTF-8 한글 문자열을 보존했고, 별칭 검색은 `휘핏`을 반환했다.
-- 독립 리뷰에서 발견된 permitAll 근거 누락과 검색 공백 처리 불일치를 반영했다. `SecurityConfig`에 `/api/v1/breeds` 공개 근거 주석을 추가하고, `BreedQueryService`는 검색어의 모든 공백을 제거하도록, `BreedJpaRepository`는 JPQL `replace(breed.nameKo, ' ', '')`/`replace(breed.alias, ' ', '')`로 한글명·별칭의 공백도 무시하고 비교하도록 변경했다. `골든 리트리버`를 `골든리트리버`로 검색해도 찾는 케이스를 `BreedJpaRepositoryTest`·`BreedQueryServiceTest`에 추가했고, `./gradlew ktlintCheck test --tests 'com.petcampus.knockdog.domain.breed.*' --tests 'com.petcampus.knockdog.HexagonalArchitectureTest'`를 통과했다.
+- **CI**: `build` 워크플로(`./gradlew build --no-daemon` — ktlint, 컴파일, `BreedQueryServiceTest`·`BreedJpaRepositoryTest`·`BreedSeedEncodingTest`·`HexagonalArchitectureTest`를 포함한 전체 테스트)가 PR #14 HEAD(`1ebcf85`) 기준으로 통과했다: https://github.com/PetCampus-Inc/daeng_v2_back/actions/runs/33712118131/job/100513664365
+- **Flyway 재적용 (2026-09-03, 이 세션에서 재현)**: 로컬 MySQL(`docker-compose.local.yaml`)의 `breeds` 테이블과 V3 `flyway_schema_history` 행을 삭제해 빈 상태로 되돌린 뒤 `./gradlew bootRun --args='--spring.profiles.active=local'`로 재기동했다. 로그에 `Migrating schema knockdog to version "3 - create breeds"` → `Successfully applied 1 migration to schema knockdog, now at version v3`가 남았고, 적용 후 `SELECT COUNT(*) FROM breeds`는 385였다.
+- **문자 인코딩 (2026-09-03, 이 세션에서 재현)**: 위 상태의 DB에서 `SELECT name_en, HEX(name_en) FROM breeds WHERE name_en REGEXP '[^ -~]'`로 CP949 원본에서 `?`로 대체됐던 영어 특수문자 8건(`SMÅLANDSSTÖVARE` 등)을 직접 조회했다. 전부 정상 UTF-8 hex(`Å`=`C385`, `Ö`=`C396`, `Ä`=`C384`, `Ü`=`C39C`, `Á`=`C381`, `Ç`=`C387`)였고 `?`(0x3F) 대체 문자는 없었다. `BreedSeedEncodingTest`가 같은 조건을 회귀 테스트로 고정한다.
+- **로컬 API (2026-09-03, 이 세션에서 재현)**: 같은 서버에 인증 헤더 없이 요청해 확인했다 — `GET /api/v1/breeds` → `code: SUCCESS`, 385건, 첫 항목 `id:1 믹스견`, 마지막 항목 `id:385 기타`(alias `목록에 없는 품종`), HTTP 200. `GET /api/v1/breeds?query=골든리트리버`(공백 없이 입력) → `id:4 골든 리트리버` 1건 반환, HTTP 200. 공백 무시 검색과 permitAll이 실제 HTTP 레벨에서 동작함을 확인했다.
+- **v1 시드 대 V3 시드 전 필드 대조**: 385건의 `display_order`·FCI 번호·영문명·국문명·별칭이 전부 일치한다는 것을 구현 시점(2026-09-02)과 독립 리뷰(§확정 사항 2026-09-02/03) 두 차례 스크립트로 대조했으나, 두 대조 모두 산출물을 로그·파일로 보존하지 않았다. **확인 불가로 표시한다** — 재현하려면 `daeng_v1_back/scripts/migrations/KD3-370-create-breed.sql`과 `V3__create_breeds.sql`을 다시 스크립트로 대조해야 한다.
+- **참고(과거 기록, 재현 대상 아님)**: 최초 시드 생성 시 SQL 값 앞에 잘못 들어간 `+` 문자로 2026-09-02 로컬에서 Flyway 적용이 한 차례 실패했다. SQL을 수정하고 `flyway repair` 후 재적용에 성공했으며, 위 2026-09-03 재현에서는 이 문제 없이 V3이 한 번에 적용됐다.
 
 ## 작업 후 확인 목록
 
