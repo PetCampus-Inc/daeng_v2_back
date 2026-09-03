@@ -1,4 +1,4 @@
-> 생성: 2026-09-01 21:05 · 최종 수정: 2026-09-02 18:05
+> 생성: 2026-09-01 21:05 · 최종 수정: 2026-09-03 11:05
 
 # KD3-413 — 유치원 도메인 스키마 이관 및 정적 조회 기능
 
@@ -119,6 +119,7 @@ kindergartens                    루트: naver_place_id, name, address(도로명
 - `map-view`/`near`/`autocomplete`의 조회 아키텍처(DB 사전 계산 + Redis 캐시 여부, 줌 레벨 버킷 설계) — 해당 하위 작업에서 결정
 - `epic/KD3-272-kindergarten-schema` 브랜치가 향후 KD3-272의 다른 하위 작업(예: `comparison` 도메인의 "비교하기" 관련 작업)도 같이 태울지 — 지금 정하지 않고 그 작업이 실제로 생길 때 판단
 - ~~`v0`를 이 서버가 계속 host할지~~ — **해결됨.** 이 서버는 `v0`를 만들지 않기로 최종 결정(ADR 0012). `KindergartenController`(v0)와 v0 전용 응답 DTO를 삭제하고 v1 파일들에서 `V1` 접미사를 뗐다.
+- **유치원당 SNS 링크가 여러 개인 실데이터를 프론트가 아직 처리 못함** — 독립 리뷰 중 발견(19/435건이 같은 code의 링크를 2개씩 가짐). DB 제약은 `V7`로 완화했지만, `daeng_v2_front`가 `homepageUrl`/`instagramUrl`/`youtubeUrl`을 전부 단일 문자열로 다뤄서 API는 여전히 code당 첫 값만 반환한다. 장기 기억으로 [`docs/domains/kindergarten.md`](../domains/kindergarten.md) §4에 기록. 프론트 논의·UI 결정이 먼저 필요한 후속 작업.
 
 ### 사용자 승인 기록
 
