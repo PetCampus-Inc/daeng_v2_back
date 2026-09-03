@@ -80,6 +80,52 @@ class KindergartenSeedConverterTest {
     }
 
     @Test
+    fun `offdays의 한글 요일 약자를 DayOfWeek로 변환한다`() {
+        val businessHours =
+            listOf(
+                CrawledBusinessHour(name = "DEFAULT", offdays = listOf("월", "화", "수", "목", "금", "토", "일")),
+            )
+
+        val kindergarten = KindergartenSeedConverter.toDomain(sample(businessHours = businessHours), emptyList())
+
+        assertEquals(
+            listOf(
+                DayOfWeek.MONDAY,
+                DayOfWeek.TUESDAY,
+                DayOfWeek.WEDNESDAY,
+                DayOfWeek.THURSDAY,
+                DayOfWeek.FRIDAY,
+                DayOfWeek.SATURDAY,
+                DayOfWeek.SUNDAY,
+            ),
+            kindergarten.businessHours.single().offdays,
+        )
+    }
+
+    @Test
+    fun `offdays의 EVERYDAY는 7일 전부로 변환한다`() {
+        val businessHours = listOf(CrawledBusinessHour(name = "DEFAULT", offdays = listOf("EVERYDAY")))
+
+        val kindergarten = KindergartenSeedConverter.toDomain(sample(businessHours = businessHours), emptyList())
+
+        assertEquals(
+            DayOfWeek.entries.size,
+            kindergarten.businessHours
+                .single()
+                .offdays.size,
+        )
+    }
+
+    @Test
+    fun `offdays에 날짜가 덧붙은 한글 요일도 요일만 추출해 변환한다`() {
+        val businessHours = listOf(CrawledBusinessHour(name = "DEFAULT", offdays = listOf("월(6/1)")))
+
+        val kindergarten = KindergartenSeedConverter.toDomain(sample(businessHours = businessHours), emptyList())
+
+        assertEquals(listOf(DayOfWeek.MONDAY), kindergarten.businessHours.single().offdays)
+    }
+
+    @Test
     fun `메뉴는 원본 순서를 displayOrder로 보존한다`() {
         val menus =
             listOf(

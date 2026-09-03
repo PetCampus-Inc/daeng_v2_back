@@ -8,12 +8,24 @@ import com.petcampus.knockdog.domain.kindergarten.domain.KindergartenMenu
 import com.petcampus.knockdog.domain.kindergarten.domain.KindergartenOption
 import com.petcampus.knockdog.domain.kindergarten.domain.KindergartenOptionGroup
 import com.petcampus.knockdog.domain.kindergarten.domain.KindergartenPriceImage
+import org.slf4j.LoggerFactory
 import java.time.DayOfWeek
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 
 object KindergartenSeedConverter {
+    private val log = LoggerFactory.getLogger(KindergartenSeedConverter::class.java)
     private val TIME_FMT = DateTimeFormatter.ofPattern("HH:mm")
+    private val KOREAN_DAY_NAMES =
+        mapOf(
+            "월" to DayOfWeek.MONDAY,
+            "화" to DayOfWeek.TUESDAY,
+            "수" to DayOfWeek.WEDNESDAY,
+            "목" to DayOfWeek.THURSDAY,
+            "금" to DayOfWeek.FRIDAY,
+            "토" to DayOfWeek.SATURDAY,
+            "일" to DayOfWeek.SUNDAY,
+        )
 
     fun toDomain(
         crawled: CrawledKindergarten,
@@ -51,7 +63,7 @@ object KindergartenSeedConverter {
             weekdayClose = weekdays?.close?.toLocalTimeOrNull(),
             weekendOpen = weekends?.open?.toLocalTimeOrNull(),
             weekendClose = weekends?.close?.toLocalTimeOrNull(),
-            offdays = offdays.mapNotNull { it.toDayOfWeekOrNull() },
+            offdays = offdays.flatMap { it.toDaysOfWeek() },
         )
 
     private fun CrawledMenu.toDomain(displayOrder: Int): KindergartenMenu =
@@ -75,5 +87,11 @@ object KindergartenSeedConverter {
     private fun String.toLocalTimeOrNull(): LocalTime? =
         if (isBlank()) null else runCatching { LocalTime.parse(this, TIME_FMT) }.getOrNull()
 
-    private fun String.toDayOfWeekOrNull(): DayOfWeek? = runCatching { DayOfWeek.valueOf(this) }.getOrNull()
+    private fun String.toDaysOfWeek(): List<DayOfWeek> {
+        val normalized = substringBefore("(").trim()
+        if (normalized.equals("EVERYDAY", ignoreCase = true)) return DayOfWeek.entries.toList()
+        val parsed = runCatching { DayOfWeek.valueOf(normalized) }.getOrNull() ?: KOREAN_DAY_NAMES[normalized]
+        if (parsed == null) log.warn("인식할 수 없는 offday 값 — 무시됨: {}", this)
+        return listOfNotNull(parsed)
+    }
 }
