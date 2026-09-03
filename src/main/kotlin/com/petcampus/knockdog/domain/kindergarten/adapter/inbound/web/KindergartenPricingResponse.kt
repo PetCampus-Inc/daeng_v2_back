@@ -12,6 +12,7 @@ data class KindergartenPricingResponse(
 ) {
     data class ProductCategory(
         val productName: String,
+        val serviceType: String,
         val products: List<ProductItem>,
     )
 
@@ -29,10 +30,12 @@ data class KindergartenPricingResponse(
             val productCategories =
                 kindergarten.menus
                     .sortedBy { it.displayOrder }
-                    .groupBy { it.productName }
-                    .map { (productName, menus) ->
+                    .groupBy { it.productName to it.serviceType }
+                    .map { (key, menus) ->
+                        val (productName, serviceType) = key
                         ProductCategory(
                             productName = productName,
+                            serviceType = serviceType,
                             products =
                                 menus.map {
                                     ProductItem(
