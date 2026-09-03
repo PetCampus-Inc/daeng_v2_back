@@ -48,7 +48,7 @@ data class KindergartenPricingResponse(
                     }
 
             return KindergartenPricingResponse(
-                id = requireNotNull(kindergarten.naverPlaceId),
+                id = kindergarten.naverPlaceId,
                 productType = productType,
                 productCategories = productCategories,
                 phoneNumber = kindergarten.phoneNumber,

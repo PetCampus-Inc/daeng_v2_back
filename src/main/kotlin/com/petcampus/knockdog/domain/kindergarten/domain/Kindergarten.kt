@@ -2,7 +2,7 @@ package com.petcampus.knockdog.domain.kindergarten.domain
 
 class Kindergarten private constructor(
     val id: KindergartenId?,
-    val naverPlaceId: String?,
+    val naverPlaceId: String,
     val name: String,
     val phoneNumber: String?,
     val address: String,
@@ -76,7 +76,7 @@ class Kindergarten private constructor(
         @Suppress("LongParameterList")
         fun reconstitute(
             id: KindergartenId,
-            naverPlaceId: String?,
+            naverPlaceId: String,
             name: String,
             phoneNumber: String?,
             address: String,

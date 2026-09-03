@@ -49,7 +49,7 @@ data class KindergartenSummaryResponse(
                 }
 
             return KindergartenSummaryResponse(
-                id = requireNotNull(kindergarten.naverPlaceId),
+                id = kindergarten.naverPlaceId,
                 name = kindergarten.name,
                 categories = kindergarten.categories.map { it.value },
                 address = kindergarten.address,

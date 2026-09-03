@@ -16,8 +16,8 @@ class KindergartenJpaEntity(
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id")
     val id: Long? = null,
-    @Column(name = "naver_place_id", unique = true, length = 100)
-    val naverPlaceId: String?,
+    @Column(name = "naver_place_id", unique = true, length = 100, nullable = false)
+    val naverPlaceId: String,
     @Column(name = "name", nullable = false)
     val name: String,
     @Column(name = "phone_number")

@@ -37,7 +37,7 @@ data class KindergartenDetailResponse(
     companion object {
         fun from(kindergarten: Kindergarten): KindergartenDetailResponse =
             KindergartenDetailResponse(
-                id = requireNotNull(kindergarten.naverPlaceId),
+                id = kindergarten.naverPlaceId,
                 address = kindergarten.address,
                 addressDetail = kindergarten.addressDetail,
                 lat = kindergarten.lat,
