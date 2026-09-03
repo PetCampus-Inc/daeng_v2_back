@@ -10,8 +10,10 @@ class BreedPersistenceAdapter(
 ) : LoadBreedsPort {
     override fun findAllByDisplayOrder(): List<Breed> = breedJpaRepository.findAllByOrderByDisplayOrderAsc().map(BreedJpaEntity::toDomain)
 
-    override fun search(query: String): List<Breed> = breedJpaRepository.search(query).map(BreedJpaEntity::toDomain)
+    override fun search(query: String): List<Breed> = breedJpaRepository.search(query.escapeLikePattern()).map(BreedJpaEntity::toDomain)
 }
+
+private fun String.escapeLikePattern(): String = replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
 
 private fun BreedJpaEntity.toDomain(): Breed =
     Breed(

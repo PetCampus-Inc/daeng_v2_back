@@ -10,11 +10,11 @@ interface BreedJpaRepository : JpaRepository<BreedJpaEntity, Long> {
     @Query(
         value = """
         select breed from BreedJpaEntity breed
-        where replace(breed.nameKo, ' ', '') like concat('%', :query, '%')
-           or replace(breed.alias, ' ', '') like concat('%', :query, '%')
+        where replace(breed.nameKo, ' ', '') like concat('%', :query, '%') escape '\'
+           or replace(breed.alias, ' ', '') like concat('%', :query, '%') escape '\'
         order by case
-                     when replace(breed.nameKo, ' ', '') like concat(:query, '%')
-                       or replace(breed.alias, ' ', '') like concat(:query, '%') then 0
+                     when replace(breed.nameKo, ' ', '') like concat(:query, '%') escape '\'
+                       or replace(breed.alias, ' ', '') like concat(:query, '%') escape '\' then 0
                      else 1
                  end,
                  breed.nameKo asc
