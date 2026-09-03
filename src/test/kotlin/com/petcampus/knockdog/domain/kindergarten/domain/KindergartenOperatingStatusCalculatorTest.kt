@@ -54,7 +54,7 @@ class KindergartenOperatingStatusCalculatorTest {
     }
 
     @Test
-    fun `DEFAULT 프로필이 없으면 휴무가 아닌 다른 프로필을 쓴다`() {
+    fun `DEFAULT 프로필이 없으면 다른 서비스 프로필로 대체하지 않고 정보 없음을 반환한다`() {
         val now = LocalDateTime.of(monday, LocalTime.of(14, 0))
         val hotelProfile =
             KindergartenBusinessHour(
@@ -68,7 +68,38 @@ class KindergartenOperatingStatusCalculatorTest {
 
         val status = KindergartenOperatingStatusCalculator.calculate(listOf(hotelProfile), now)
 
+        assertEquals("오늘 휴무", status.title)
+        assertEquals("영업시간 정보 없음", status.description)
+    }
+
+    @Test
+    fun `프로필명이 기본이어도 DEFAULT와 동일하게 인식한다`() {
+        val now = LocalDateTime.of(monday, LocalTime.of(14, 0))
+        val profile = defaultProfile().copy(name = "기본")
+
+        val status = KindergartenOperatingStatusCalculator.calculate(listOf(profile), now)
+
         assertEquals("영업중", status.title)
+    }
+
+    @Test
+    fun `DEFAULT가 오늘 휴무면 다른 프로필의 영업시간을 빌려오지 않는다`() {
+        val now = LocalDateTime.of(monday, LocalTime.of(14, 0))
+        val closedDefault = defaultProfile(offdays = listOf(DayOfWeek.MONDAY))
+        val hotelProfile =
+            KindergartenBusinessHour(
+                name = "HOTEL",
+                weekdayOpen = LocalTime.parse("00:00"),
+                weekdayClose = LocalTime.parse("23:59"),
+                weekendOpen = LocalTime.parse("00:00"),
+                weekendClose = LocalTime.parse("23:59"),
+                offdays = emptyList(),
+            )
+
+        val status = KindergartenOperatingStatusCalculator.calculate(listOf(closedDefault, hotelProfile), now)
+
+        assertEquals("오늘 휴무", status.title)
+        assertEquals("내일 09:00 영업 시작", status.description)
     }
 
     @Test

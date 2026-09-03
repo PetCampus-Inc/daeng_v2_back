@@ -13,6 +13,7 @@ data class OperatingStatusDescription(
 object KindergartenOperatingStatusCalculator {
     private val TIME_FMT = DateTimeFormatter.ofPattern("HH:mm")
     private const val SEARCH_DAYS_AHEAD = 14
+    private val DEFAULT_PROFILE_ALIASES = setOf("default", "기본")
 
     fun todayRange(
         profiles: List<KindergartenBusinessHour>,
@@ -57,9 +58,8 @@ object KindergartenOperatingStatusCalculator {
         profiles: List<KindergartenBusinessHour>,
         dayOfWeek: java.time.DayOfWeek,
     ): KindergartenBusinessHour? {
-        val default = profiles.firstOrNull { it.name.equals("DEFAULT", ignoreCase = true) }
-        if (default != null && !default.isOffday(dayOfWeek)) return default
-        return profiles.firstOrNull { !it.isOffday(dayOfWeek) }
+        val default = profiles.firstOrNull { it.name.trim().lowercase() in DEFAULT_PROFILE_ALIASES } ?: return null
+        return default.takeIf { !it.isOffday(dayOfWeek) }
     }
 
     private fun isWithin(
