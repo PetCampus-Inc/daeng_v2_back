@@ -1,4 +1,4 @@
-> 생성: 2026-09-01 21:05 · 최종 수정: 2026-09-03 11:05
+> 생성: 2026-09-01 21:05 · 최종 수정: 2026-09-03 12:10
 
 # KD3-413 — 유치원 도메인 스키마 이관 및 정적 조회 기능
 
@@ -36,7 +36,7 @@
 - **`kindergarten_price_images`의 원본은 `product_pricing.json`이 아니라 `info_new.json`의 `menu_image_s3_keys` 배열**이다(레거시 매퍼에서 확인).
 - **`kindergarten_avg_prices` 스키마에서 제외 확정**: 미결이었던 항목을 실제 코드로 재확인한 결과 `main`/`basic`/`pricing` 응답 어디에도 안 쓰이는 게 맞아, 이번 스키마에서 뺀다. 필요해지면 map-view 등 후속 작업에서 추가한다.
 
-```
+```text
 kindergartens                    루트: naver_place_id, name, address(도로명 주소만), address_detail(상세 주소, nullable),
 │                                        lat/lng, phone_number, thumbnail_s3_key,
 │                                        source(CRAWLED/OWNER_REGISTERED), status(ACTIVE/CLOSED), visitor_review_count, blog_review_count
@@ -99,19 +99,22 @@ kindergartens                    루트: naver_place_id, name, address(도로명
 ### 확정 사항
 
 - **인프라 분리**: 신규 서버·DB·Redis는 레거시와 완전히 분리한다. 레거시와 인프라를 공유하는 무중단 마이그레이션(ADR 0008 원안)은 하지 않는다.
-- **API 버전 정책**: 기존 `v0`와 계약이 같은 API는 `v0`를 그대로 유지한다. 계약이 바뀌는 경우(RESTful 재설계, 응답 형식 변경 등) `v1`을 신규로 만들되, `v0`는 `v1` 위에 얹은 프록시(어댑터)로 유지해 프론트가 코드 변경 없이 계속 `v0`를 호출해도 동작하게 한다. 이번 티켓의 3개 엔드포인트(`main`/`basic`/`pricing`)는 계약 변경이 없어 전부 `v0` 단독으로 간다 — `main`의 향후 `v1` 재설계 여부는 별개 논의(아래 참고).
+- ~~**API 버전 정책(초기안, 폐기됨)**: 기존 `v0`와 계약이 같은 API는 `v0`를 그대로 유지하고, 계약이 바뀌면 `v1`을 신규로 만들되 `v0`는 `v1` 위에 얹은 프록시로 유지한다. 이번 티켓의 3개 엔드포인트(`main`/`basic`/`pricing`)는 계약 변경이 없어 전부 `v0` 단독으로 간다.~~ — **폐기.** 최종 결정은 아래 "신규 서버는 `v0`를 만들지 않는다" 항목을 따른다 — 계약 변경 여부와 무관하게 신규 서버는 `v1`만 제공하고 `v0`는 컷오버까지 레거시 서버가 담당한다.
 - **데이터 source of truth 전환**: 크롤링 JSON/Redis 대신 DB(MySQL)를 정답으로 삼는다. JSON을 파싱해 DB에 적재하고, 이후 DB가 source of truth다.
 - **식별자**: 네이버 지도 `placeId` 기준. 원장이 자체 등록(네이버 미등재)하는 유치원은 레거시 `manual_` 접두사 관례를 계승해 별도 발급 ID를 부여한다.
 - **폐업 상태값**: 레거시 DB 측엔 이미 `SchoolStatus`(`ACTIVE`/`CLOSED`) 개념이 있고, 이번 스키마의 `kindergartens.status` 컬럼이 그 대응이다. 다만 `info_new.json`(크롤링 원본)엔 폐업을 알려주는 필드가 없다 — 크롤링 시점에 존재가 확인된 유치원만 담기는 구조라, 시딩 시 전부 `ACTIVE`로 들어간다. `CLOSED`로 갱신하는 로직(재크롤링에서 사라짐 감지 등)은 후속 작업이다.
-- **롤백 안전성**: 이번 컷오버는 별도 롤백 설계를 하지 않는다. 롤백이 필요할 상황을 낮게 보고 리스크를 수용하기로 결정했다(근거 상세 미기록 — 필요 시 보완).
+- **롤백 안전성**: 이번 컷오버는 별도 롤백 설계를 하지 않는다(`003-migration.md` 2단계 요구 항목에 대한 답변). 근거: (1) 실제 사용자 트래픽은 여전히 레거시 `v0`가 받는다 — 이 PR이 추가하는 `v1` 3개는 아직 프론트가 호출하지 않는 신규 엔드포인트라 배포해도 기존 서비스에 영향이 없다. (2) 신규 DB는 운영 DB에서 데이터를 이관한 게 아니라 크롤링 JSON을 새로 시딩한 것이라, "되돌릴 기존 상태"가 없다 — 실행 조건·성공/중단 기준·복구 방법이 성립하는 대상 자체가 없다. (3) 문제가 생기면 신규 서버 배포를 되돌리거나 `v1` 엔드포인트를 비활성화하면 되고, 이는 일반적인 배포 롤백 절차(운영 책임자: 배포한 사람)로 충분하다 — 별도 데이터 롤백 절차가 필요 없다. 실제 프론트가 `v1`로 전환하는(컷오버) 시점엔 이 판단을 재검토해야 한다.
 - **KD3-335 흡수**: 컷오버 전략 결정은 원래 별도 티켓(KD3-335)이었으나, `003-migration.md` 2단계가 이 티켓 자체의 승인 조건으로 요구하는 내용과 동일해 KD3-413에 흡수했다. KD3-335는 삭제됨.
 - **Jira 구조**: KD3-272를 에픽에서 작업(Task)으로 낮추고, KD3-273(폐기)을 대체해 KD3-413을 그 하위 작업으로 생성했다. `docs/domains/`, `docs/adr/` 등은 append-only/최신화 원칙을 그대로 따르므로 이 구조 변경과 무관하다.
 - **`summary`(구 `main/{id}`) 재포함**: 위 "API" 참고 — `bookmarked`/`memoData`는 넣지 않고 나머지 필드는 구현한다.
 - **신규 서버는 `v0`를 만들지 않는다**: 유치원 도메인에서 시작된 논의가 일반 정책으로 굳어져 [`ADR 0012`](../adr/0012-신규-서버-v0-미제공-원칙.md)로 분리했다. `docs/rules/api-migration.md`도 이 정책에 맞춰 갱신했다(§1, §2 전면 개정 — "기본값은 v0 단독" → "v0는 만들지 않는다"). 이미 머지된 auth 도메인 v0(login/refresh/logout/약관 동의)는 소급 적용 대상이 아니다.
 - **주소는 도로명 주소만 저장**: 리뷰 중 지번 주소는 더 이상 저장하지 않고 도로명 주소만 저장하기로 결정. 상세 주소(`addressDetail`, nullable)를 신설. `V4__kindergartens_road_address_only.sql`로 반영(`kindergartens.address` 컬럼을 도로명 주소 값으로 교체, `address_detail` 컬럼 추가) — `info_new.json` 435건 전수 확인 결과 `road_address`가 전부 비어있지 않아 `address` NOT NULL을 유지했다.
 - **코드 내 설명 주석 금지**: TODO성 주석을 제외하고 코드 사이 설명 주석(KDoc 포함)을 작성하지 않기로 결정. 유치원 도메인 전체 파일에서 기존 주석을 제거했다. 앞으로 이 코드베이스에 적용되는 일반 컨벤션이다.
+- **예외: `V3__create_kindergarten_tables.sql`의 SQL 주석은 남겨둔다**: 독립 리뷰(CodeRabbit)가 이 규칙 위반으로 지적했지만, `V3`는 이미 커밋·푸시된 마이그레이션이라 `database-change.md` §2("이미 공유된 migration 파일은 수정하지 않는다")가 우선한다 — 주석 한 줄만 지워도 파일 바이트가 바뀌어 Flyway 체크섬이 깨지고, 이 브랜치를 먼저 받아 로컬에 `V3`를 이미 적용한 환경이 있다면 마이그레이션이 실패한다. 새로 만드는 `V4` 이후 마이그레이션은 전부 주석 없이 작성했다.
 - **컬럼명(필드명)에 약어 금지**: 리뷰 중 `KindergartenMenu.unitStr`/`totalDurationStr`의 `Str`이 무슨 뜻인지 알아보기 어렵다는 지적으로, `unitLabel`/`totalDurationLabel`로 개명(도메인/JPA 컬럼/응답 DTO 전부). 크롤링 원본 JSON의 실제 필드명(`unit_str`/`total_duration_str`)은 외부 계약이라 그대로 두고, `CrawledMenu`에서만 `@JsonProperty`로 명시 매핑해 내부 이름과 분리했다. DB 컬럼명은 `V5__kindergarten_menus_rename_label_columns.sql`로 리네임(V3/V4는 이미 커밋된 마이그레이션이라 직접 수정하지 않고 새로 추가 — `database-change.md`). 컨벤션 자체는 [`docs/conventions/code-style.md`](../conventions/code-style.md)(신규)와 `AGENTS.md`에 일반 규칙으로 기록했다.
 - **`lat`/`lng`는 도메인부터 DB 컬럼까지 전부 약어로 통일한다(DTO-도메인 이름 불일치 지양)**: 처음엔 `Kindergarten`/JPA/시딩 DTO를 `latitude`/`longitude`로 풀어 쓰고 API 응답에서만 `lat`/`lng`로 축약했으나, 리뷰 피드백으로 방향을 뒤집었다 — DTO와 도메인 컬럼명이 계층마다 다르면(`lat`(API) ↔ `latitude`(도메인) 같은 변환) 오히려 더 헷갈리고, `lat`/`lng`는 `id`/`url`처럼 업계에서 이미 표준 축약으로 굳어진 표현이라 `Str` 같은 모호함과는 성격이 다르다. auth 도메인(`UserAddress`, `UserAddressJpaEntity` 등)도 처음부터 전 계층에서 `lat`/`lng`를 그대로 쓰고 있어, 그 패턴을 그대로 따라 `Kindergarten`/`KindergartenJpaEntity`/`CrawledKindergarten`의 `latitude`/`longitude`를 전부 `lat`/`lng`로 되돌렸다(계층 간 변환 코드도 사라짐). DB 컬럼은 `V6__kindergartens_rename_lat_lng_columns.sql`로 리네임(2026-09-02).
+- **유치원당 같은 SNS 코드를 여러 개 허용, 단 URL 전체 기준으로 유일성 보장**: 독립 리뷰(CodeRabbit)가 `V7`의 `(kindergarten_id, code, url(255))` 유니크 키가 URL 앞 255자만 비교해 그 이후만 다른 두 URL이 충돌할 수 있다고 지적 — 맞는 지적이라 `V9`에서 `url_hash CHAR(64) AS (SHA2(url, 256)) STORED` 생성 컬럼을 추가하고 유니크 키를 `(kindergarten_id, code, url_hash)`로 교체했다. `V7`은 이미 푸시된 마이그레이션이라 직접 고치지 않고 `V9`로 대체.
+- **`naver_place_id`를 NOT NULL로 되돌린다**: 독립 리뷰가 지적 — 이 컬럼의 원래 의도(`V3` 컬럼 주석 자체에 "NULL 아님"이라고 적혀 있었음, `docs/domains/kindergarten.md` §0의 "원장 자체 등록 유치원은 manual_ 접두사 관례 계승"도 항상 값이 있다는 뜻)와 달리 실제 스키마·도메인 모델은 nullable로 구현돼 있어, `findByNaverPlaceId`/`v1` 경로 `{id}`로 조회할 수 없는 고아 행이 생길 수 있었다. `V8`로 컬럼을 `NOT NULL`로 고치고, `Kindergarten.naverPlaceId`/`KindergartenJpaEntity.naverPlaceId`도 `String?`→`String`으로 좁혀 응답 DTO 3곳의 `requireNotNull()` 방어 코드를 제거했다(널 가능성 자체를 컴파일 타임에 없앰).
 
 ### 미결 질문
 
@@ -128,9 +131,10 @@ kindergartens                    루트: naver_place_id, name, address(도로명
 
 ## 완료 확인 기준
 
+- 검증 근거: `./gradlew test ktlintCheck` 로컬 실행(CI 아님, 이 세션에서 직접 실행하고 콘솔 출력을 확인) — ArchUnit·ktlint·단위/통합 테스트가 모두 이 태스크에 포함돼 함께 통과 확인됨. 마지막 실행 기준 `build/test-results/test/*.xml` 집계: `tests=80 skipped=0 failures=0 errors=0`.
 - ArchUnit(`HexagonalArchitectureTest`, `main/{id}`의 pure-domain 규칙을 auth 전용에서 전체 도메인 공통으로 일반화) — **통과**
 - ktlint(`ktlintCheck`) — **통과**
-- 단위/통합 테스트(도메인 로직, 매퍼, 서비스) — **73개 전부 통과**, `KnockdogApplicationTests`(전체 Spring 컨텍스트 로드) 포함. 상세는 다음과 같다:
+- 단위/통합 테스트(도메인 로직, 매퍼, 서비스) — **80개 전부 통과**(리뷰 반영 라운드에서 7개 추가), `KnockdogApplicationTests`(전체 Spring 컨텍스트 로드) 포함. 상세는 다음과 같다:
   - `KindergartenDistanceCalculatorTest`, `KindergartenOperatingStatusCalculatorTest` — TDD(RED 확인 후 구현)로 작성
   - `GetKindergartenServiceTest` — TDD로 작성(naverPlaceId 기준 조회로 설계 변경 시 RED 재확인 포함)
   - `KindergartenSeedConverterTest`, `KindergartenSummaryResponseTest` — 구현 후 작성(회귀 안전망 목적, 순수 TDD는 아님), 주소 스키마 변경(도로명 주소만 저장)에 맞춰 갱신
@@ -152,7 +156,7 @@ kindergartens                    루트: naver_place_id, name, address(도로명
 | `docs/adr/0011-유치원-도메인-신규db-단발컷오버.md` | 되돌리기 어려운 결정(source of truth 전환, 컷오버 방식, v0/v1 정책) 확정 | **갱신함** — 신규 작성 |
 | `docs/domains/kindergarten.md` | 도메인 경계·식별자 정책·이관 상태·알려진 계약 차이 등 장기 기억 확정 | **갱신함** — 신규 작성 |
 | `docs/inventory/database.md` | `tb_school*` 4행에 신규 크롤링 기반 스키마(`kindergartens` 등)로의 별도 구축 사실을 후속 확인에 남김. 판정/진척 자체는 안 바꿈(원장 오버라이드 테이블은 여전히 미착수) | **갱신함** |
-| `docs/inventory/api.md` | `main/{id}`, `basic/{id}`, `{id}/pricing`의 이관 진척을 `완료`로 갱신, `v1` 3개 신규 행 추가, `work/` 링크·알려진 계약 차이 참조 추가. 5절 요약 카운트 갱신 | **갱신함** |
+| `docs/inventory/api.md` | `main/{id}`, `basic/{id}`, `{id}/pricing`의 이관 진척, `work/` 링크·알려진 계약 차이 참조 추가. 5절 요약 카운트 갱신 | **갱신함** — 독립 리뷰(CodeRabbit)로 발견: 로컬 응답 대조·시딩 검증이 미완료인데 진척을 `완료`로 잘못 적어뒀던 걸 `진행중`으로 정정, "전부 `v0` 유지"라는 폐기된 정책도 함께 정정 |
 | Notion API 명세 | `v1` 3개는 신규 API라 `notion-api-spec-sync.md` 대상(API 추가) | **미착수 — 사람 몫**(위 "완료 확인 기준" 참고, 이 세션의 Notion 연동 방식이 안 맞음) |
 | `docs/rules/api-migration.md` | "신규 서버는 v0를 만들지 않는다"가 이 문서의 기존 "기본값은 v0 단독" 원칙과 정면으로 충돌 | **갱신함** — §1(기본 원칙)·§2(전면 개정, "v1을 새로 만들 것인가"→"새 경로 이름")·§4(path 변경 기준 삭제)를 새 정책에 맞게 고쳤다 |
 | `docs/adr/0012-신규-서버-v0-미제공-원칙.md` | 여러 도메인에 영향을 주는 결정 확정 | **신규 작성** — append-only, 0004의 v0 기본 유지 원칙을 대체하는 결정이라 맥락 절에서 0004를 언급 |
