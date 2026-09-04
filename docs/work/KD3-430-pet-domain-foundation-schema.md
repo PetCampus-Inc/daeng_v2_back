@@ -1,4 +1,4 @@
-> 생성: 2026-09-02 19:24 · 최종 수정: 2026-09-04 17:05
+> 생성: 2026-09-02 19:24 · 최종 수정: 2026-09-04 17:45
 
 # KD3-430 pet 도메인 기반 및 스키마 구축
 
@@ -12,7 +12,7 @@
 
 - 활성 workflow: `003-migration`
 - 현재 공통 단계: `5`
-- 다음 결정 또는 전환 조건: 독립 리뷰 발견 사항 반영 완료. PR 생성.
+- 다음 결정 또는 전환 조건: 독립 리뷰 발견 사항 및 자체 재점검(cutover/rollback 기재, 대표견 교체 검증) 반영 완료. PR 생성.
 
 ## 작업 목표
 
@@ -74,6 +74,7 @@
 - **대표견 단일성은 `is_representative` 불리언 대신 `representative_user_id`(nullable, UNIQUE) 컬럼으로 구현한다** (구현 중 결정). 대표견이면 `user_id`와 같은 값을, 아니면 NULL을 저장한다 — 매핑은 어댑터(`PetMapper`)가 전담하고 도메인 모델은 여전히 `isRepresentative: Boolean`만 노출한다. MySQL 전용 문법(생성 컬럼 등) 없이 표준 UNIQUE 제약만으로 동작해 로컬 테스트(H2, `ddl-auto: create-drop`)와 운영(MySQL) 양쪽에서 동일하게 검증할 수 있다.
 - **최대 5마리는 애플리케이션 레벨 잠금으로 처리한다**: `PetJpaRepository.findAllActiveByUserIdForUpdate`가 `@Lock(PESSIMISTIC_WRITE)`로 해당 사용자의 활성 pet 행을 잠그고, `PetPersistenceAdapter.registerWithinLimit`가 같은 트랜잭션에서 개수를 확인한 뒤 저장한다. 이 락은 기존 행이 있을 때만 신뢰할 수 있다 — MySQL InnoDB의 갭 락(0건일 때의 신규 삽입 직렬화)까지는 검증하지 못했다(아래 완료 확인 기준 참고).
 - `Relationship`의 손윗형제 4종은 레거시 `ELDER_SISTER`/`ELDER_BROTHER`/`OLDER_SISTER`/`OLDER_BROTHER`를 쓰지 않고 `EONNI`/`NUNA`/`OPPA`/`HYUNG`(로마자 표기)로 바꿨다(구현 중 결정). 언니/누나/오빠/형은 "손윗형제의 성별 × 화자(보호자)의 성별" 조합이라 영어에 대응 단어가 없고, 레거시의 elder/older 구분은 실제로는 없는 의미 차이를 암시해 혼동을 준다. `@Enumerated(STRING)`이라 이 이름이 그대로 DB에 저장되고 향후 API 응답에도 노출될 값이라, 데이터·API가 없는 지금 정정하는 비용이 가장 낮다. `MOTHER`/`FATHER`/`GUARDIAN`/`ETC`는 정확한 영어 대응이 있어 그대로 유지한다.
+- **cutover·rollback은 불필요하다.** 이 티켓은 빈 `pets` 테이블을 신규로 만들 뿐 기존 운영 데이터를 옮기지 않는다(기존 pet 데이터 backfill은 작업 제외 범위). 되돌릴 필요가 생기면 `V4__create_pets.sql`을 Flyway `undo` 없이 테이블 자체를 드롭하는 것으로 충분하다 — 참조하는 운영 데이터나 트래픽이 아직 없기 때문이다.
 
 ### 미결 질문
 
@@ -84,6 +85,7 @@
 - 2026-09-02: 사용자가 pet 도메인을 유스케이스 단위로 분리하고 견종 ID 참조를 승인했다.
 - 2026-09-04: 레거시(`daeng_v1_back`) `Pet` 엔티티·`PetService` 대조로 프로필 필드 목록이 작업 범위에 없던 것을 발견했다. 사용자가 생년 필드(연도만 유지), `relationship`/`relationshipText` 포함(enum), 최초 등록 자동 대표견 유지, `breedId` NOT NULL, `profileImage` nullable을 확정했다. 이어서 `gender` NOT NULL, `weight` 1~99 범위 검증, 컬럼 길이(100/500/100), `user_id`/`breed_id`의 plain 컬럼 참조 방식을 확정했다.
 - 2026-09-04: `weight` 타입을 DOUBLE로 유지하되(확장성), 현재 기획(1~99 정수)에 맞춰 검증에 소수점 없음 조건을 추가하도록 사용자가 확정했다.
+- 2026-09-04: 사용자 요청으로 5단계 완료 여부를 `003-migration.md` 요구사항과 재대조해, cutover·rollback 결정 미기재와 "대표 변경" 시나리오 미검증 2건을 자체 발견했다. cutover·rollback 불필요 근거를 기록하고, 대표견 교체(해제 후 지정) 검증을 추가했다.
 
 ## 완료 확인 기준
 
@@ -95,11 +97,12 @@
 
 ## 검증 결과
 
-- **`./gradlew build`(2026-09-04, weight 정수 검증 추가 후 재실행)**: ktlint, 컴파일, 전체 테스트가 통과했다. `PetTest`(도메인 불변식) 13건, `PetPersistenceAdapterTest`(등록·대표견·최대 마릿수·유니크 제약·삭제 후 재등록) 6건, `HexagonalArchitectureTest` 4건(신규 `domain.pet.domain` 패키지 포함), `BreedQueryServiceTest`(신규 `existsById` 포함) 3건 전부 통과.
+- **`./gradlew build`(2026-09-04, 대표견 교체 테스트 추가 후 재실행)**: ktlint, 컴파일, 전체 테스트가 통과했다. `PetTest`(도메인 불변식) 13건, `PetPersistenceAdapterTest`(등록·대표견 지정/해제/교체·최대 마릿수·유니크 제약·삭제 후 재등록) 7건, `HexagonalArchitectureTest` 4건(신규 `domain.pet.domain` 패키지 포함), `BreedQueryServiceTest`(신규 `existsById` 포함) 3건 전부 통과.
 - **Flyway 로컬 MySQL 재적용 (2026-09-04, 이 세션에서 재현)**: `docker compose --env-file .env.local -f docker-compose.local.yaml up -d` 후 `./gradlew bootRun --args='--spring.profiles.active=local'`로 기동. 로그에 `Migrating schema knockdog to version "4 - create pets"` → `Successfully applied 1 migration ... now at version v4`가 남았다.
 - **최대 마릿수 동시성 — 실제 MySQL 교차 검증 (2026-09-04)**: H2(`ddl-auto: create-drop`) 기반 멀티스레드 테스트를 처음 작성했으나 `PESSIMISTIC_WRITE` 락이 H2에서 MySQL InnoDB처럼 블로킹하지 않아 `expected: <1> but was: <3>`로 실패했다(H2가 실제 잠금 동작을 재현하지 못하는 KD3-418의 LIKE 이스케이프 사례와 같은 한계). 이 H2 테스트는 신뢰할 수 없어 제거하고, 로컬 MySQL에 4건을 미리 저장한 뒤 동일한 `SELECT ... FOR UPDATE` 패턴을 쓰는 저장 프로시저를 만들어 3개 세션에서 동시 호출했다 — 정확히 1건만 성공(`race_inserted=1`)하고 나머지 2건은 `LIMIT_EXCEEDED`로 거부됐으며 최종 5건에서 멈췄다. 기존 행이 있는 경우(실사용 시나리오 대부분)의 직렬화는 실제 MySQL에서 확인했다.
 - **확인하지 못한 항목**: 활성 pet이 0건인 상태에서 동시에 여러 등록이 몰리는 "첫 pet 경쟁" 케이스는 MySQL InnoDB 갭 락에 의존하는데, 이번 검증에서는 재현하지 않았다. 다만 대표견 단일성은 `representative_user_id`의 DB UNIQUE 제약이 락 성공 여부와 무관하게 항상 보장하므로(두 번째 대표견 저장 시 `DataIntegrityViolationException`이 나는 것을 H2·MySQL 스키마 양쪽에서 확인), 이 잔여 케이스에서도 "대표견 2개"라는 결과는 나올 수 없다 — 다만 이론상 5마리 제한을 순간적으로 넘겨 등록될 가능성은 남아 있으며, 재현하려면 완전히 새 사용자에 대한 동시 등록을 로컬 MySQL에서 별도로 검증해야 한다.
 - **ArchUnit·ktlint**: `domain.pet.domain` 패키지를 `HexagonalArchitectureTest`의 4번 규칙 대상에 등록했고, `ktlintCheck`가 통과했다.
+- **대표견 교체 (2026-09-04)**: 완료 확인 기준의 "대표 변경" 항목이 등록 시나리오만 검증되고 실제 교체(A 해제 → B 지정) 시나리오는 빠져 있던 것을 자체 점검에서 발견했다. `clearRepresentative()`+`save()`로 기존 대표견을 먼저 해제하고 `markAsRepresentative()`+`save()`로 새 대표견을 지정하는 순서가 유니크 제약과 충돌 없이 성공함을 `PetPersistenceAdapterTest`에 추가로 검증했다. 이 순서(해제 후 지정)를 지키지 않으면 유니크 제약에 걸린다 — 대표견 교체 유스케이스(KD3-422)는 이 순서를 지켜야 한다.
 
 ## 독립 리뷰 (2026-09-04)
 
