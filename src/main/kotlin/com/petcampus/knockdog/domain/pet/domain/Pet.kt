@@ -119,7 +119,9 @@ class Pet private constructor(
         }
 
         private fun validateWeight(weight: Double?) {
-            require(weight == null || weight in WEIGHT_RANGE) { "weight는 ${WEIGHT_RANGE.start}~${WEIGHT_RANGE.endInclusive} 범위여야 합니다." }
+            if (weight == null) return
+            require(weight in WEIGHT_RANGE) { "weight는 ${WEIGHT_RANGE.start}~${WEIGHT_RANGE.endInclusive} 범위여야 합니다." }
+            require(weight % 1.0 == 0.0) { "weight는 소수점 없는 정수 값이어야 합니다." }
         }
     }
 }

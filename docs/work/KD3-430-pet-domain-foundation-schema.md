@@ -1,4 +1,4 @@
-> 생성: 2026-09-02 19:24 · 최종 수정: 2026-09-04 15:49
+> 생성: 2026-09-02 19:24 · 최종 수정: 2026-09-04 17:05
 
 # KD3-430 pet 도메인 기반 및 스키마 구축
 
@@ -38,7 +38,7 @@
 | `breed_id` | BIGINT | NOT NULL | `breeds.id` 참조. `user_id`와 동일한 `@ManyToOne`+`getReference()` 패턴(다른 도메인 애그리게잇 참조) |
 | `gender` | VARCHAR(20) | NOT NULL | enum |
 | `birth_year` | INT | NULL | 연도만 |
-| `weight` | DOUBLE | NULL | 도메인 레벨에서 1~99 범위 검증 |
+| `weight` | DOUBLE | NULL | 도메인 레벨에서 1~99 범위·소수점 없음(정수 값)을 검증 |
 | `is_neutered` | BOOLEAN | NULL | |
 | `representative_user_id` | BIGINT | NULL, UNIQUE | 대표견이면 `user_id`와 같은 값, 아니면 NULL. 사용자당 대표견 1개를 DB가 무조건 보장하는 안전장치(구현 중 결정, 아래 참고) |
 | `created_at`/`updated_at`/`deleted_at` | DATETIME(6) | 규칙대로 | `BaseEntity` 상속 |
@@ -66,7 +66,7 @@
 - `breedId`는 NOT NULL로 강제한다. `breeds` 카탈로그에 믹스견(1번)·기타(385번)가 있어 견종을 특정할 수 없는 경우도 표현 가능하다.
 - `profileImage`는 nullable로 설계한다. 레거시 엔티티 컬럼은 NOT NULL이지만 등록 요청 DTO의 `@NotBlank`가 주석 처리돼 있어 실제 운영에서 필수로 강제되지 않았다(레거시 자체 불일치) — 그 실질 동작을 따른다.
 - `gender`는 레거시(등록 요청 DTO `@NotNull`)와 동일하게 NOT NULL로 강제한다. 레거시 엔티티 컬럼 자체는 nullable이지만, 실제 등록 경로는 항상 값을 요구했다.
-- `weight`는 도메인 레벨에서 1~99 범위를 검증한다. 레거시는 API 요청 DTO에서만 검증했는데, 이번엔 도메인 모델(`Pet.create`/`update`)이 검증을 담당해 진입점과 무관하게 불변식을 지킨다.
+- `weight` 타입은 DOUBLE로 유지한다(구현 중 재확인). 현재 기획은 1~99 정수지만, 레거시도 이미 저장 컬럼은 `Double`이었고(등록 API만 `Integer`로 받아 변환) 반려동물 체중은 소수점 단위(예: 소형견 2.3kg)가 실제로 의미 있는 데이터라 향후 확장 가능성이 높다. `INT → DOUBLE` 확장과 달리 이미 DOUBLE인 컬럼을 좁히는 쪽이 되돌리기 어려워, 지금 기획에 맞춰 **타입은 DOUBLE, 검증은 정수 값만 허용**(1~99 범위 + 소수점 없음)으로 구현한다. 도메인 모델(`Pet.create`)이 검증을 담당해 진입점과 무관하게 불변식을 지킨다.
 - `name`(VARCHAR 100)·`profile_image`(VARCHAR 500)·`relationship_text`(VARCHAR 100)는 이 프로젝트의 기존 컬럼(`User.nickname` length 100, `profile_image` length 500)보다 좁지 않게 여유를 두고 정했다. 프론트 화면의 실제 입력 제한은 별도이며 이 값보다 항상 좁게 잡는다.
 - `user_id`·`breed_id`는 `SocialUser.userId`와 동일한 패턴을 쓴다: `@ManyToOne` + `ConstraintMode.NO_CONSTRAINT` + `EntityManager.getReference()`로 다른 도메인(auth·breed) 애그리게잇을 전체 로딩 없이 프록시로만 참조한다([`jpa-entity.md`](../conventions/jpa-entity.md) §3). (구현 착수 시점에 "plain Long 컬럼"으로 잘못 안내했다가 `SocialUser` 코드를 다시 대조해 정정했다.)
 - 견종 이름(`nameKo` 등)은 pet 도메인에 중복 저장하지 않는다. 표시용 이름이 필요한 조회 API(KD3-421)가 `breedId`로 breed 도메인의 조회 포트를 호출해 응답 시점에 조합한다.
@@ -83,6 +83,7 @@
 
 - 2026-09-02: 사용자가 pet 도메인을 유스케이스 단위로 분리하고 견종 ID 참조를 승인했다.
 - 2026-09-04: 레거시(`daeng_v1_back`) `Pet` 엔티티·`PetService` 대조로 프로필 필드 목록이 작업 범위에 없던 것을 발견했다. 사용자가 생년 필드(연도만 유지), `relationship`/`relationshipText` 포함(enum), 최초 등록 자동 대표견 유지, `breedId` NOT NULL, `profileImage` nullable을 확정했다. 이어서 `gender` NOT NULL, `weight` 1~99 범위 검증, 컬럼 길이(100/500/100), `user_id`/`breed_id`의 plain 컬럼 참조 방식을 확정했다.
+- 2026-09-04: `weight` 타입을 DOUBLE로 유지하되(확장성), 현재 기획(1~99 정수)에 맞춰 검증에 소수점 없음 조건을 추가하도록 사용자가 확정했다.
 
 ## 완료 확인 기준
 
@@ -94,7 +95,7 @@
 
 ## 검증 결과
 
-- **`./gradlew build`(2026-09-04, 독립 리뷰 반영 후 재실행)**: ktlint, 컴파일, 전체 테스트가 통과했다. `PetTest`(도메인 불변식) 12건, `PetPersistenceAdapterTest`(등록·대표견·최대 마릿수·유니크 제약·삭제 후 재등록) 6건, `HexagonalArchitectureTest` 4건(신규 `domain.pet.domain` 패키지 포함), `BreedQueryServiceTest`(신규 `existsById` 포함) 3건 전부 통과.
+- **`./gradlew build`(2026-09-04, weight 정수 검증 추가 후 재실행)**: ktlint, 컴파일, 전체 테스트가 통과했다. `PetTest`(도메인 불변식) 13건, `PetPersistenceAdapterTest`(등록·대표견·최대 마릿수·유니크 제약·삭제 후 재등록) 6건, `HexagonalArchitectureTest` 4건(신규 `domain.pet.domain` 패키지 포함), `BreedQueryServiceTest`(신규 `existsById` 포함) 3건 전부 통과.
 - **Flyway 로컬 MySQL 재적용 (2026-09-04, 이 세션에서 재현)**: `docker compose --env-file .env.local -f docker-compose.local.yaml up -d` 후 `./gradlew bootRun --args='--spring.profiles.active=local'`로 기동. 로그에 `Migrating schema knockdog to version "4 - create pets"` → `Successfully applied 1 migration ... now at version v4`가 남았다.
 - **최대 마릿수 동시성 — 실제 MySQL 교차 검증 (2026-09-04)**: H2(`ddl-auto: create-drop`) 기반 멀티스레드 테스트를 처음 작성했으나 `PESSIMISTIC_WRITE` 락이 H2에서 MySQL InnoDB처럼 블로킹하지 않아 `expected: <1> but was: <3>`로 실패했다(H2가 실제 잠금 동작을 재현하지 못하는 KD3-418의 LIKE 이스케이프 사례와 같은 한계). 이 H2 테스트는 신뢰할 수 없어 제거하고, 로컬 MySQL에 4건을 미리 저장한 뒤 동일한 `SELECT ... FOR UPDATE` 패턴을 쓰는 저장 프로시저를 만들어 3개 세션에서 동시 호출했다 — 정확히 1건만 성공(`race_inserted=1`)하고 나머지 2건은 `LIMIT_EXCEEDED`로 거부됐으며 최종 5건에서 멈췄다. 기존 행이 있는 경우(실사용 시나리오 대부분)의 직렬화는 실제 MySQL에서 확인했다.
 - **확인하지 못한 항목**: 활성 pet이 0건인 상태에서 동시에 여러 등록이 몰리는 "첫 pet 경쟁" 케이스는 MySQL InnoDB 갭 락에 의존하는데, 이번 검증에서는 재현하지 않았다. 다만 대표견 단일성은 `representative_user_id`의 DB UNIQUE 제약이 락 성공 여부와 무관하게 항상 보장하므로(두 번째 대표견 저장 시 `DataIntegrityViolationException`이 나는 것을 H2·MySQL 스키마 양쪽에서 확인), 이 잔여 케이스에서도 "대표견 2개"라는 결과는 나올 수 없다 — 다만 이론상 5마리 제한을 순간적으로 넘겨 등록될 가능성은 남아 있으며, 재현하려면 완전히 새 사용자에 대한 동시 등록을 로컬 MySQL에서 별도로 검증해야 한다.
