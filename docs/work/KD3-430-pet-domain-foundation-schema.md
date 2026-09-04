@@ -1,4 +1,4 @@
-> 생성: 2026-09-02 19:24 · 최종 수정: 2026-09-04 17:45
+> 생성: 2026-09-02 19:24 · 최종 수정: 2026-09-04 17:50
 
 # KD3-430 pet 도메인 기반 및 스키마 구축
 
@@ -12,7 +12,8 @@
 
 - 활성 workflow: `003-migration`
 - 현재 공통 단계: `5`
-- 다음 결정 또는 전환 조건: 독립 리뷰 발견 사항 및 자체 재점검(cutover/rollback 기재, 대표견 교체 검증) 반영 완료. PR 생성.
+- PR: [#15](https://github.com/PetCampus-Inc/daeng_v2_back/pull/15) (`feat/KD3-430-pet-domain-foundation-schema` → `feat/KD3-418-breed-catalog-v1-api`)
+- 다음 결정 또는 전환 조건: 리뷰·CI 통과 후 머지. KD3-418이 `dev`에 머지되면 PR base를 `dev`로 재조정.
 
 ## 작업 목표
 
