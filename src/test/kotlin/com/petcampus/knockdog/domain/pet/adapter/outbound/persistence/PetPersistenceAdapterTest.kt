@@ -58,6 +58,17 @@ class PetPersistenceAdapterTest(
         }
     }
 
+    @Test
+    fun `대표견을 삭제한 뒤 새 pet을 등록해도 유니크 제약에 걸리지 않는다`() {
+        val representative = petPersistenceAdapter.registerWithinLimit(pet(userId = 1L))
+        representative.delete()
+        petPersistenceAdapter.save(representative)
+
+        val result = petPersistenceAdapter.registerWithinLimit(pet(userId = 1L))
+
+        assertTrue(result.isRepresentative)
+    }
+
     private fun pet(
         userId: Long,
         isRepresentative: Boolean = false,
