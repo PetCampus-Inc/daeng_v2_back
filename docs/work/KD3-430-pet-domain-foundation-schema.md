@@ -1,4 +1,4 @@
-> 생성: 2026-09-02 19:24 · 최종 수정: 2026-09-04 17:50
+> 생성: 2026-09-02 19:24 · 최종 수정: 2026-09-04 19:28
 
 # KD3-430 pet 도메인 기반 및 스키마 구축
 
@@ -51,7 +51,7 @@
 - HTTP API와 유스케이스 구현
 - 기존 pet 데이터 backfill
 - `school_pet_membership` 조회·갱신 및 `schoolConnectionBadge`
-- **user-pet 다대다(공동 소유·가족 공유) 모델**: 하나의 pet을 여러 사용자가 등록해 동일 정보를 공유하는 설계를 검토했으나, 문서·레거시 어디에도 확정된 요구사항이 없고(레거시 `Pet`도 `user_id` 단일 FK), 초대·권한·연결해제 플로우 같은 UX·정책이 전혀 정의돼 있지 않아 지금 스키마에 반영할 근거가 없다. 이 티켓에 후속 4개 티켓(KD3-420~423)이 대기 중이라 미확정 기능으로 범위를 넓히는 비용도 크다. 기획이 확정되면 별도 티켓으로 설계·조사(007 workflow)부터 시작한다. 관련 제약은 `docs/domains/pet.md`에 남긴다.
+- **user-pet 다대다(공동 소유·가족 공유) 모델**: 하나의 pet을 여러 사용자가 등록해 동일 정보를 공유하는 설계를 검토했으나, 문서·레거시 어디에도 확정된 요구사항이 없고(레거시 `Pet`도 `user_id` 단일 FK), 초대·권한·연결해제 플로우 같은 UX·정책이 전혀 정의돼 있지 않아 지금 스키마에 반영할 근거가 없다. 이 티켓에 후속 4개 티켓(KD3-431~434)이 대기 중이라 미확정 기능으로 범위를 넓히는 비용도 크다. 기획이 확정되면 별도 티켓으로 설계·조사(007 workflow)부터 시작한다. 관련 제약은 `docs/domains/pet.md`에 남긴다.
 
 ## 방향 논의 및 결정 사항
 
@@ -70,7 +70,7 @@
 - `weight` 타입은 DOUBLE로 유지한다(구현 중 재확인). 현재 기획은 1~99 정수지만, 레거시도 이미 저장 컬럼은 `Double`이었고(등록 API만 `Integer`로 받아 변환) 반려동물 체중은 소수점 단위(예: 소형견 2.3kg)가 실제로 의미 있는 데이터라 향후 확장 가능성이 높다. `INT → DOUBLE` 확장과 달리 이미 DOUBLE인 컬럼을 좁히는 쪽이 되돌리기 어려워, 지금 기획에 맞춰 **타입은 DOUBLE, 검증은 정수 값만 허용**(1~99 범위 + 소수점 없음)으로 구현한다. 도메인 모델(`Pet.create`)이 검증을 담당해 진입점과 무관하게 불변식을 지킨다.
 - `name`(VARCHAR 100)·`profile_image`(VARCHAR 500)·`relationship_text`(VARCHAR 100)는 이 프로젝트의 기존 컬럼(`User.nickname` length 100, `profile_image` length 500)보다 좁지 않게 여유를 두고 정했다. 프론트 화면의 실제 입력 제한은 별도이며 이 값보다 항상 좁게 잡는다.
 - `user_id`·`breed_id`는 `SocialUser.userId`와 동일한 패턴을 쓴다: `@ManyToOne` + `ConstraintMode.NO_CONSTRAINT` + `EntityManager.getReference()`로 다른 도메인(auth·breed) 애그리게잇을 전체 로딩 없이 프록시로만 참조한다([`jpa-entity.md`](../conventions/jpa-entity.md) §3). (구현 착수 시점에 "plain Long 컬럼"으로 잘못 안내했다가 `SocialUser` 코드를 다시 대조해 정정했다.)
-- 견종 이름(`nameKo` 등)은 pet 도메인에 중복 저장하지 않는다. 표시용 이름이 필요한 조회 API(KD3-421)가 `breedId`로 breed 도메인의 조회 포트를 호출해 응답 시점에 조합한다.
+- 견종 이름(`nameKo` 등)은 pet 도메인에 중복 저장하지 않는다. 표시용 이름이 필요한 조회 API(KD3-432)가 `breedId`로 breed 도메인의 조회 포트를 호출해 응답 시점에 조합한다.
 - 견종 존재 확인은 breed 도메인의 `LoadBreedsPort`에 `existsById(id: Long): Boolean`을 추가(KD3-418 산출물 확장, `BreedPersistenceAdapter`가 `breedJpaRepository.existsById`로 구현)하고, pet 도메인은 자신의 `ExistsBreedPort`를 정의해 그 위에 위임하는 어댑터(`BreedExistenceAdapter`)로 연결한다. pet의 application 계층은 `LoadBreedsPort`를 직접 알지 못한다.
 - **대표견 단일성은 `is_representative` 불리언 대신 `representative_user_id`(nullable, UNIQUE) 컬럼으로 구현한다** (구현 중 결정). 대표견이면 `user_id`와 같은 값을, 아니면 NULL을 저장한다 — 매핑은 어댑터(`PetMapper`)가 전담하고 도메인 모델은 여전히 `isRepresentative: Boolean`만 노출한다. MySQL 전용 문법(생성 컬럼 등) 없이 표준 UNIQUE 제약만으로 동작해 로컬 테스트(H2, `ddl-auto: create-drop`)와 운영(MySQL) 양쪽에서 동일하게 검증할 수 있다.
 - **최대 5마리는 애플리케이션 레벨 잠금으로 처리한다**: `PetJpaRepository.findAllActiveByUserIdForUpdate`가 `@Lock(PESSIMISTIC_WRITE)`로 해당 사용자의 활성 pet 행을 잠그고, `PetPersistenceAdapter.registerWithinLimit`가 같은 트랜잭션에서 개수를 확인한 뒤 저장한다. 이 락은 기존 행이 있을 때만 신뢰할 수 있다 — MySQL InnoDB의 갭 락(0건일 때의 신규 삽입 직렬화)까지는 검증하지 못했다(아래 완료 확인 기준 참고).
@@ -103,13 +103,13 @@
 - **최대 마릿수 동시성 — 실제 MySQL 교차 검증 (2026-09-04)**: H2(`ddl-auto: create-drop`) 기반 멀티스레드 테스트를 처음 작성했으나 `PESSIMISTIC_WRITE` 락이 H2에서 MySQL InnoDB처럼 블로킹하지 않아 `expected: <1> but was: <3>`로 실패했다(H2가 실제 잠금 동작을 재현하지 못하는 KD3-418의 LIKE 이스케이프 사례와 같은 한계). 이 H2 테스트는 신뢰할 수 없어 제거하고, 로컬 MySQL에 4건을 미리 저장한 뒤 동일한 `SELECT ... FOR UPDATE` 패턴을 쓰는 저장 프로시저를 만들어 3개 세션에서 동시 호출했다 — 정확히 1건만 성공(`race_inserted=1`)하고 나머지 2건은 `LIMIT_EXCEEDED`로 거부됐으며 최종 5건에서 멈췄다. 기존 행이 있는 경우(실사용 시나리오 대부분)의 직렬화는 실제 MySQL에서 확인했다.
 - **확인하지 못한 항목**: 활성 pet이 0건인 상태에서 동시에 여러 등록이 몰리는 "첫 pet 경쟁" 케이스는 MySQL InnoDB 갭 락에 의존하는데, 이번 검증에서는 재현하지 않았다. 다만 대표견 단일성은 `representative_user_id`의 DB UNIQUE 제약이 락 성공 여부와 무관하게 항상 보장하므로(두 번째 대표견 저장 시 `DataIntegrityViolationException`이 나는 것을 H2·MySQL 스키마 양쪽에서 확인), 이 잔여 케이스에서도 "대표견 2개"라는 결과는 나올 수 없다 — 다만 이론상 5마리 제한을 순간적으로 넘겨 등록될 가능성은 남아 있으며, 재현하려면 완전히 새 사용자에 대한 동시 등록을 로컬 MySQL에서 별도로 검증해야 한다.
 - **ArchUnit·ktlint**: `domain.pet.domain` 패키지를 `HexagonalArchitectureTest`의 4번 규칙 대상에 등록했고, `ktlintCheck`가 통과했다.
-- **대표견 교체 (2026-09-04)**: 완료 확인 기준의 "대표 변경" 항목이 등록 시나리오만 검증되고 실제 교체(A 해제 → B 지정) 시나리오는 빠져 있던 것을 자체 점검에서 발견했다. `clearRepresentative()`+`save()`로 기존 대표견을 먼저 해제하고 `markAsRepresentative()`+`save()`로 새 대표견을 지정하는 순서가 유니크 제약과 충돌 없이 성공함을 `PetPersistenceAdapterTest`에 추가로 검증했다. 이 순서(해제 후 지정)를 지키지 않으면 유니크 제약에 걸린다 — 대표견 교체 유스케이스(KD3-422)는 이 순서를 지켜야 한다.
+- **대표견 교체 (2026-09-04)**: 완료 확인 기준의 "대표 변경" 항목이 등록 시나리오만 검증되고 실제 교체(A 해제 → B 지정) 시나리오는 빠져 있던 것을 자체 점검에서 발견했다. `clearRepresentative()`+`save()`로 기존 대표견을 먼저 해제하고 `markAsRepresentative()`+`save()`로 새 대표견을 지정하는 순서가 유니크 제약과 충돌 없이 성공함을 `PetPersistenceAdapterTest`에 추가로 검증했다. 이 순서(해제 후 지정)를 지키지 않으면 유니크 제약에 걸린다 — 대표견 교체 유스케이스(KD3-433)는 이 순서를 지켜야 한다.
 
 ## 독립 리뷰 (2026-09-04)
 
 컨텍스트를 공유하지 않는 리뷰어에게 이 문서와 `feat/KD3-418-breed-catalog-v1-api..feat/KD3-430-pet-domain-foundation-schema` 커밋 범위를 전달해 대조했다.
 
-- **(중간, 수정 완료) 대표견 soft delete 시 `representative_user_id` 미정리**: `Pet.delete()`가 `isRepresentative`를 해제하지 않아, 대표견을 soft delete한 뒤 활성 pet 0건 상태에서 새로 등록하면 `representative_user_id` UNIQUE 제약에 걸려 실패하는 결함을 발견했다. `Pet.delete()`가 `isRepresentative = false`도 함께 설정하도록 수정했고, `PetTest`(대표견 삭제 시 상태 해제)·`PetPersistenceAdapterTest`(대표견 삭제 후 재등록 성공)에 회귀 테스트를 추가했다. 삭제 유스케이스 자체는 KD3-423 범위이지만, 이 스키마·도메인 기반 위에서 재현되는 결함이라 이번 티켓에서 수정했다.
+- **(중간, 수정 완료) 대표견 soft delete 시 `representative_user_id` 미정리**: `Pet.delete()`가 `isRepresentative`를 해제하지 않아, 대표견을 soft delete한 뒤 활성 pet 0건 상태에서 새로 등록하면 `representative_user_id` UNIQUE 제약에 걸려 실패하는 결함을 발견했다. `Pet.delete()`가 `isRepresentative = false`도 함께 설정하도록 수정했고, `PetTest`(대표견 삭제 시 상태 해제)·`PetPersistenceAdapterTest`(대표견 삭제 후 재등록 성공)에 회귀 테스트를 추가했다. 삭제 유스케이스 자체는 KD3-434 범위이지만, 이 스키마·도메인 기반 위에서 재현되는 결함이라 이번 티켓에서 수정했다.
 - **(경미, 수정 완료) `Pet.reconstitute`의 code-style.md 위반 주석**: `code-style.md`(2026-09-02, 주석 금지)를 위반하는 KDoc이 있었고 같은 패턴의 `User.reconstitute`/`SocialUser.reconstitute`에는 없던 것이라 제거했다.
 - 그 외 항목(컬럼 설계, `SocialUser` 참조 패턴, 견종 존재 확인 위임 구조, ArchUnit 등록, 작업 제외 범위 준수, 검증 결과의 정직성)은 작업 문서와 실제 diff가 일치함을 확인받았다.
 
