@@ -94,7 +94,7 @@ class PetPersistenceAdapterTest(
         breedId = 1L,
         gender = Gender.MALE,
         birthYear = 2020,
-        weight = null,
+        weight = 10.0,
         isNeutered = null,
         isRepresentative = isRepresentative,
     )

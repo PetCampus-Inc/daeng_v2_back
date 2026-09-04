@@ -54,7 +54,7 @@ class Pet private constructor(
             breedId: Long,
             gender: Gender,
             birthYear: Int?,
-            weight: Double?,
+            weight: Double,
             isNeutered: Boolean?,
             isRepresentative: Boolean,
         ): Pet {
@@ -113,8 +113,10 @@ class Pet private constructor(
             relationship: Relationship,
             relationshipText: String?,
         ) {
-            require(relationship != Relationship.ETC || !relationshipText.isNullOrBlank()) {
-                "relationship이 ETC이면 relationshipText가 필요합니다."
+            if (relationship == Relationship.ETC) {
+                require(!relationshipText.isNullOrBlank()) { "relationship이 ETC이면 relationshipText가 필요합니다." }
+            } else {
+                require(relationshipText == null) { "relationship이 ETC가 아니면 relationshipText는 비워야 합니다." }
             }
         }
 
