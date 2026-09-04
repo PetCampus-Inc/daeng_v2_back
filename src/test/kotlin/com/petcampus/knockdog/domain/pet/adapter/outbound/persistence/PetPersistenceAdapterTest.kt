@@ -69,6 +69,19 @@ class PetPersistenceAdapterTest(
         assertTrue(result.isRepresentative)
     }
 
+    @Test
+    fun `기존 대표견을 해제하고 다른 pet을 대표견으로 바꿀 수 있다`() {
+        val previousRepresentative = petPersistenceAdapter.registerWithinLimit(pet(userId = 1L))
+        val newRepresentative = petPersistenceAdapter.registerWithinLimit(pet(userId = 1L))
+
+        previousRepresentative.clearRepresentative()
+        petPersistenceAdapter.save(previousRepresentative)
+        newRepresentative.markAsRepresentative()
+        val result = petPersistenceAdapter.save(newRepresentative)
+
+        assertTrue(result.isRepresentative)
+    }
+
     private fun pet(
         userId: Long,
         isRepresentative: Boolean = false,
