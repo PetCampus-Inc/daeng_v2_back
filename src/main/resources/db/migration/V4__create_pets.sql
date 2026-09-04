@@ -1,0 +1,20 @@
+CREATE TABLE pets (
+  id                     BIGINT PRIMARY KEY AUTO_INCREMENT,
+  user_id                BIGINT       NOT NULL,
+  name                   VARCHAR(100) NOT NULL,
+  profile_image          VARCHAR(500),
+  relationship           VARCHAR(20)  NOT NULL,
+  relationship_text      VARCHAR(100),
+  breed_id               BIGINT       NOT NULL,
+  gender                 VARCHAR(20)  NOT NULL,
+  birth_year             INT,
+  weight                 DOUBLE,
+  is_neutered            BOOLEAN,
+  representative_user_id BIGINT,
+  created_at             DATETIME(6)  NOT NULL,
+  updated_at             DATETIME(6)  NOT NULL,
+  deleted_at             DATETIME(6),
+  UNIQUE (representative_user_id),
+  INDEX idx_pets_user_id (user_id),
+  INDEX idx_pets_breed_id (breed_id)
+);

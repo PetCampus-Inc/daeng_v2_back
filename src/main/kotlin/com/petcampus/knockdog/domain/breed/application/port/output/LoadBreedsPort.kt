@@ -6,4 +6,6 @@ interface LoadBreedsPort {
     fun findAllByDisplayOrder(): List<Breed>
 
     fun search(query: String): List<Breed>
+
+    fun existsById(id: Long): Boolean
 }

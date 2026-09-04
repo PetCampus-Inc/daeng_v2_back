@@ -11,6 +11,8 @@ class BreedPersistenceAdapter(
     override fun findAllByDisplayOrder(): List<Breed> = breedJpaRepository.findAllByOrderByDisplayOrderAsc().map(BreedJpaEntity::toDomain)
 
     override fun search(query: String): List<Breed> = breedJpaRepository.search(query.escapeLikePattern()).map(BreedJpaEntity::toDomain)
+
+    override fun existsById(id: Long): Boolean = breedJpaRepository.existsById(id)
 }
 
 private fun String.escapeLikePattern(): String = replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
