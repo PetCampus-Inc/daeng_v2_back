@@ -31,6 +31,13 @@ class PetTest {
     }
 
     @Test
+    fun `relationship이 ETC가 아닌데 relationshipText가 있으면 생성에 실패한다`() {
+        assertFailsWith<IllegalArgumentException> {
+            pet(relationship = Relationship.MOTHER, relationshipText = "이모")
+        }
+    }
+
+    @Test
     fun `weight가 1 미만이면 생성에 실패한다`() {
         assertFailsWith<IllegalArgumentException> { pet(weight = 0.9) }
     }
@@ -49,11 +56,6 @@ class PetTest {
     @Test
     fun `weight에 소수점이 있으면 생성에 실패한다`() {
         assertFailsWith<IllegalArgumentException> { pet(weight = 45.5) }
-    }
-
-    @Test
-    fun `weight가 없어도 생성된다`() {
-        pet(weight = null)
     }
 
     @Test
@@ -103,7 +105,7 @@ class PetTest {
     private fun pet(
         relationship: Relationship = Relationship.GUARDIAN,
         relationshipText: String? = null,
-        weight: Double? = null,
+        weight: Double = 10.0,
         isRepresentative: Boolean = false,
     ) = Pet.create(
         userId = 1L,
