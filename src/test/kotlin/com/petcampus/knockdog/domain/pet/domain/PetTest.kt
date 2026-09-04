@@ -47,6 +47,11 @@ class PetTest {
     }
 
     @Test
+    fun `weight에 소수점이 있으면 생성에 실패한다`() {
+        assertFailsWith<IllegalArgumentException> { pet(weight = 45.5) }
+    }
+
+    @Test
     fun `weight가 없어도 생성된다`() {
         pet(weight = null)
     }

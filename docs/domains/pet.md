@@ -1,4 +1,4 @@
-> 생성: 2026-09-02 22:02 · 최종 수정: 2026-09-04 15:36
+> 생성: 2026-09-02 22:02 · 최종 수정: 2026-09-04 17:05
 
 # pet 도메인
 
@@ -32,7 +32,7 @@
 |---|---|
 | 필드 | `name`·`profileImage`·`relationship`(+`relationshipText`)·`breedId`·`gender`·`birthYear`(연도만)·`weight`·`isNeutered`. 레거시(`daeng_v1_back`의 `pet/model/Pet.java`) 대조로 확정했다 |
 | `relationship` | 보호자와의 관계 8종 고정값 Kotlin enum: `MOTHER`(엄마)·`FATHER`(아빠)·`EONNI`(언니)·`NUNA`(누나)·`OPPA`(오빠)·`HYUNG`(형)·`GUARDIAN`(보호자)·`ETC`(기타). 손윗형제 4종(언니/누나/오빠/형)은 "손윗형제의 성별 × 화자(보호자)의 성별" 조합이라 영어로 정확히 대응되는 단어가 없어 로마자 표기를 그대로 쓴다(레거시는 `ELDER_SISTER`/`OLDER_SISTER`처럼 억지로 영어 대응시켜 의미가 왜곡돼 있었다). `breed`(FCI 참조 데이터, 385건, 자체 메타데이터 보유)와 달리 참조 테이블로 두지 않는다 — 값이 고정이고 늘리려면 코드 배포가 필요하기 때문. `ETC`일 때만 `relationshipText` 필수(도메인 검증) |
-| `weight` | 1~99 범위를 도메인 모델(`Pet.create`)이 검증한다. 레거시는 API 요청 DTO에서만 검증했다 |
+| `weight` | 컬럼 타입은 DOUBLE(반려동물 체중은 소수점 단위가 실제로 의미 있어 확장성을 열어둠). 다만 현재 기획(1~99 정수)에 맞춰 도메인 모델(`Pet.create`)이 범위와 "소수점 없음"을 함께 검증한다. 레거시는 API 요청 DTO에서만 검증했다 |
 | `breedId` | NOT NULL. `breeds`에 믹스견(1번)·기타(385번)가 있어 견종을 특정할 수 없는 경우도 표현 가능해 견종 미상 상태를 별도로 두지 않는다 |
 | 대표견 단일성 | `pets.representative_user_id`(nullable, UNIQUE — 대표견이면 `user_id`와 같은 값, 아니면 NULL)로 DB가 보장한다. 최초 등록하는 pet은 자동으로 대표견이 되는 레거시 규칙을 유지한다 |
 | 최대 마릿수 | 사용자당 5마리. `SELECT ... FOR UPDATE`로 활성 pet 행을 잠근 뒤 등록하는 애플리케이션 레벨 잠금으로 처리한다(기존 행이 있는 경우 실제 MySQL로 검증됨. 활성 pet 0건 상태의 동시 등록까지는 미검증 — [`KD3-430`](../work/KD3-430-pet-domain-foundation-schema.md) 검증 결과 참고) |
