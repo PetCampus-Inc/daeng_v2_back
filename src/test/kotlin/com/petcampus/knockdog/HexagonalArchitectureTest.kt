@@ -53,6 +53,7 @@ class HexagonalArchitectureTest {
             .that()
             .resideInAnyPackage(
                 "com.petcampus.knockdog.domain.auth.domain..",
+                "com.petcampus.knockdog.domain.breed.domain..",
             ).should()
             .dependOnClassesThat()
             .resideInAnyPackage("org.springframework..", "jakarta.persistence..")
