@@ -86,6 +86,15 @@ class PetTest {
         assertFailsWith<IllegalStateException> { result.delete() }
     }
 
+    @Test
+    fun `대표견을 삭제하면 대표견 상태도 함께 해제된다`() {
+        val result = pet(isRepresentative = true)
+
+        result.delete()
+
+        assertFalse(result.isRepresentative)
+    }
+
     private fun pet(
         relationship: Relationship = Relationship.GUARDIAN,
         relationshipText: String? = null,

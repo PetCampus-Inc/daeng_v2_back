@@ -1,4 +1,4 @@
-> 생성: 2026-09-02 19:24 · 최종 수정: 2026-09-04 15:36
+> 생성: 2026-09-02 19:24 · 최종 수정: 2026-09-04 15:49
 
 # KD3-430 pet 도메인 기반 및 스키마 구축
 
@@ -12,7 +12,7 @@
 
 - 활성 workflow: `003-migration`
 - 현재 공통 단계: `5`
-- 다음 결정 또는 전환 조건: 독립 리뷰(컨텍스트 공유하지 않는 리뷰어에게 이 문서와 커밋 범위 전달) 후 커밋·PR 여부를 사용자와 결정한다. 아직 커밋하지 않았다.
+- 다음 결정 또는 전환 조건: 독립 리뷰 발견 사항 반영 완료. PR 생성.
 
 ## 작업 목표
 
@@ -94,11 +94,19 @@
 
 ## 검증 결과
 
-- **`./gradlew build`(2026-09-04, 이 세션에서 재현)**: ktlint, 컴파일, 전체 테스트가 통과했다. `PetTest`(도메인 불변식) 11건, `PetPersistenceAdapterTest`(등록·대표견·최대 마릿수·유니크 제약) 5건, `HexagonalArchitectureTest` 4건(신규 `domain.pet.domain` 패키지 포함), `BreedQueryServiceTest`(신규 `existsById` 포함) 3건 전부 통과.
+- **`./gradlew build`(2026-09-04, 독립 리뷰 반영 후 재실행)**: ktlint, 컴파일, 전체 테스트가 통과했다. `PetTest`(도메인 불변식) 12건, `PetPersistenceAdapterTest`(등록·대표견·최대 마릿수·유니크 제약·삭제 후 재등록) 6건, `HexagonalArchitectureTest` 4건(신규 `domain.pet.domain` 패키지 포함), `BreedQueryServiceTest`(신규 `existsById` 포함) 3건 전부 통과.
 - **Flyway 로컬 MySQL 재적용 (2026-09-04, 이 세션에서 재현)**: `docker compose --env-file .env.local -f docker-compose.local.yaml up -d` 후 `./gradlew bootRun --args='--spring.profiles.active=local'`로 기동. 로그에 `Migrating schema knockdog to version "4 - create pets"` → `Successfully applied 1 migration ... now at version v4`가 남았다.
 - **최대 마릿수 동시성 — 실제 MySQL 교차 검증 (2026-09-04)**: H2(`ddl-auto: create-drop`) 기반 멀티스레드 테스트를 처음 작성했으나 `PESSIMISTIC_WRITE` 락이 H2에서 MySQL InnoDB처럼 블로킹하지 않아 `expected: <1> but was: <3>`로 실패했다(H2가 실제 잠금 동작을 재현하지 못하는 KD3-418의 LIKE 이스케이프 사례와 같은 한계). 이 H2 테스트는 신뢰할 수 없어 제거하고, 로컬 MySQL에 4건을 미리 저장한 뒤 동일한 `SELECT ... FOR UPDATE` 패턴을 쓰는 저장 프로시저를 만들어 3개 세션에서 동시 호출했다 — 정확히 1건만 성공(`race_inserted=1`)하고 나머지 2건은 `LIMIT_EXCEEDED`로 거부됐으며 최종 5건에서 멈췄다. 기존 행이 있는 경우(실사용 시나리오 대부분)의 직렬화는 실제 MySQL에서 확인했다.
 - **확인하지 못한 항목**: 활성 pet이 0건인 상태에서 동시에 여러 등록이 몰리는 "첫 pet 경쟁" 케이스는 MySQL InnoDB 갭 락에 의존하는데, 이번 검증에서는 재현하지 않았다. 다만 대표견 단일성은 `representative_user_id`의 DB UNIQUE 제약이 락 성공 여부와 무관하게 항상 보장하므로(두 번째 대표견 저장 시 `DataIntegrityViolationException`이 나는 것을 H2·MySQL 스키마 양쪽에서 확인), 이 잔여 케이스에서도 "대표견 2개"라는 결과는 나올 수 없다 — 다만 이론상 5마리 제한을 순간적으로 넘겨 등록될 가능성은 남아 있으며, 재현하려면 완전히 새 사용자에 대한 동시 등록을 로컬 MySQL에서 별도로 검증해야 한다.
 - **ArchUnit·ktlint**: `domain.pet.domain` 패키지를 `HexagonalArchitectureTest`의 4번 규칙 대상에 등록했고, `ktlintCheck`가 통과했다.
+
+## 독립 리뷰 (2026-09-04)
+
+컨텍스트를 공유하지 않는 리뷰어에게 이 문서와 `feat/KD3-418-breed-catalog-v1-api..feat/KD3-430-pet-domain-foundation-schema` 커밋 범위를 전달해 대조했다.
+
+- **(중간, 수정 완료) 대표견 soft delete 시 `representative_user_id` 미정리**: `Pet.delete()`가 `isRepresentative`를 해제하지 않아, 대표견을 soft delete한 뒤 활성 pet 0건 상태에서 새로 등록하면 `representative_user_id` UNIQUE 제약에 걸려 실패하는 결함을 발견했다. `Pet.delete()`가 `isRepresentative = false`도 함께 설정하도록 수정했고, `PetTest`(대표견 삭제 시 상태 해제)·`PetPersistenceAdapterTest`(대표견 삭제 후 재등록 성공)에 회귀 테스트를 추가했다. 삭제 유스케이스 자체는 KD3-423 범위이지만, 이 스키마·도메인 기반 위에서 재현되는 결함이라 이번 티켓에서 수정했다.
+- **(경미, 수정 완료) `Pet.reconstitute`의 code-style.md 위반 주석**: `code-style.md`(2026-09-02, 주석 금지)를 위반하는 KDoc이 있었고 같은 패턴의 `User.reconstitute`/`SocialUser.reconstitute`에는 없던 것이라 제거했다.
+- 그 외 항목(컬럼 설계, `SocialUser` 참조 패턴, 견종 존재 확인 위임 구조, ArchUnit 등록, 작업 제외 범위 준수, 검증 결과의 정직성)은 작업 문서와 실제 diff가 일치함을 확인받았다.
 
 ## 작업 후 확인 목록
 

@@ -36,6 +36,7 @@ class Pet private constructor(
 
     fun delete() {
         check(!isDeleted) { "이미 삭제된 pet입니다." }
+        isRepresentative = false
         deletedAt = LocalDateTime.now()
     }
 
@@ -77,7 +78,6 @@ class Pet private constructor(
             )
         }
 
-        /** 영속성에서 복원할 때 사용(매퍼 전용). */
         fun reconstitute(
             id: PetId,
             userId: Long,
