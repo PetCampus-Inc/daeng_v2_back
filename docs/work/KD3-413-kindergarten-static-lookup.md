@@ -1,4 +1,4 @@
-> 생성: 2026-09-01 21:05 · 최종 수정: 2026-09-03 12:10
+> 생성: 2026-09-01 21:05 · 최종 수정: 2026-09-05 15:30
 
 # KD3-413 — 유치원 도메인 스키마 이관 및 정적 조회 기능
 
@@ -11,8 +11,10 @@
 ## 현재 제어점
 
 - 활성 workflow: `003-migration`
-- 현재 공통 단계: `5`(독립 리뷰·PR·문서 동기화) — [PR #12](https://github.com/PetCampus-Inc/daeng_v2_back/pull/12) 생성 완료(`epic/KD3-272-kindergarten-schema` 대상). 리뷰 코멘트 반영 라운드 진행 중(주소 스키마 변경 V4 추가, 시딩 ObjectMapper 버그 수정, 코드 내 설명 주석 전면 제거). 로컬 응답 대조·시딩 데이터 검증(4단계 항목)은 여전히 환경 문제로 미완료 — PR Test plan에 미체크로 남겨뒀다.
-- 다음 결정 또는 전환 조건: 리뷰 반영 + 사람이 로컬 응답 대조·시딩 검증을 완료해야 머지 가능(`000-common.md` §5 "문서 갱신과 필수 검증이 끝난 뒤에만 머지를 준비한다").
+- 현재 공통 단계: `5`(독립 리뷰·PR·문서 동기화) — [PR #12](https://github.com/PetCampus-Inc/daeng_v2_back/pull/12) **머지 완료**(2026-09-05, `epic/KD3-272-kindergarten-schema`에 squash merge, `3d6548a`). Jira는 `완료`가 아니라 `진행 중`으로 전환 — 아래 미완료 항목이 남아있어서다. `feat/KD3-413-kindergarten-static-lookup`/`docs/KD3-413-code-style-convention` 원격 브랜치는 삭제함.
+- **남은 것(사람 몫)**: `KEEP` API 로컬 응답 대조, 시딩 데이터 검증, Notion API 명세 등록(전부 "완료 확인 기준" 참고) — 완료되면 Jira를 `완료`로 전환한다.
+- **`epic/KD3-272-kindergarten-schema`는 아직 dev로 합치지 않는다** — KD3-272의 다른 하위 작업(KD3-459 지도 조회, KD3-465 메모, KD3-466 원장 인증, KD3-469 비교하기, KD3-470 북마크)이 전부 미착수라, 그 작업들도 이 epic 브랜치 위에서 계속 진행한다(`git.md` "에픽 소속 티켓이 모두 merge되고 에픽 자체가 끝나면 dev로 합치고 삭제한다").
+- 다음 결정 또는 전환 조건: 로컬 응답 대조·시딩 검증·Notion 명세 등록이 끝나면 Jira `완료`로 전환. `docs/domains/kindergarten.md` §4에 남긴 SNS 링크 다중 계정(프론트 협의 필요)은 별도 후속 논의 대상.
 
 ## 작업 목표
 
