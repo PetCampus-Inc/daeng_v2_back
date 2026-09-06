@@ -1,5 +1,6 @@
 package com.petcampus.knockdog.domain.pet.adapter.outbound.persistence
 
+import com.petcampus.knockdog.domain.auth.adapter.outbound.persistence.UserPersistenceAdapter
 import com.petcampus.knockdog.domain.pet.domain.Gender
 import com.petcampus.knockdog.domain.pet.domain.Pet
 import com.petcampus.knockdog.domain.pet.domain.Relationship
@@ -13,7 +14,7 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 
 @DataJpaTest
-@Import(PetPersistenceAdapter::class)
+@Import(PetPersistenceAdapter::class, UserPersistenceAdapter::class)
 class PetPersistenceAdapterTest(
     @Autowired private val petPersistenceAdapter: PetPersistenceAdapter,
 ) {
