@@ -1,6 +1,7 @@
 package com.petcampus.knockdog.domain.pet.adapter.outbound.persistence
 
 import com.petcampus.knockdog.domain.auth.adapter.outbound.persistence.UserJpaEntity
+import com.petcampus.knockdog.domain.auth.adapter.outbound.persistence.UserJpaRepository
 import com.petcampus.knockdog.domain.breed.adapter.outbound.persistence.BreedJpaEntity
 import com.petcampus.knockdog.domain.pet.application.port.output.LoadPetPort
 import com.petcampus.knockdog.domain.pet.application.port.output.SavePetPort
@@ -14,6 +15,7 @@ import org.springframework.transaction.annotation.Transactional
 @Component
 class PetPersistenceAdapter(
     private val petJpaRepository: PetJpaRepository,
+    private val userJpaRepository: UserJpaRepository,
     private val entityManager: EntityManager,
 ) : LoadPetPort,
     SavePetPort {
@@ -23,6 +25,7 @@ class PetPersistenceAdapter(
 
     @Transactional
     override fun registerWithinLimit(pet: Pet): Pet {
+        userJpaRepository.findByIdForUpdate(pet.userId)
         val activePets = petJpaRepository.findAllActiveByUserIdForUpdate(pet.userId)
         check(activePets.size < Pet.MAX_ACTIVE_COUNT) { "최대 마릿수를 초과했습니다." }
 
