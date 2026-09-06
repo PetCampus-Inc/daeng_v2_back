@@ -5,18 +5,45 @@ import java.time.LocalDateTime
 class Pet private constructor(
     val id: PetId?,
     val userId: Long,
-    val name: String,
-    val profileImage: String?,
-    val relationship: Relationship,
-    val relationshipText: String?,
-    val breedId: Long,
-    val gender: Gender,
-    val birthYear: Int?,
-    val weight: Double,
-    val isNeutered: Boolean?,
+    name: String,
+    profileImage: String?,
+    relationship: Relationship,
+    relationshipText: String?,
+    breedId: Long,
+    gender: Gender,
+    birthYear: Int?,
+    weight: Double,
+    isNeutered: Boolean?,
     isRepresentative: Boolean,
     deletedAt: LocalDateTime?,
 ) {
+    var name: String = name
+        private set
+
+    var profileImage: String? = profileImage
+        private set
+
+    var relationship: Relationship = relationship
+        private set
+
+    var relationshipText: String? = relationshipText
+        private set
+
+    var breedId: Long = breedId
+        private set
+
+    var gender: Gender = gender
+        private set
+
+    var birthYear: Int? = birthYear
+        private set
+
+    var weight: Double = weight
+        private set
+
+    var isNeutered: Boolean? = isNeutered
+        private set
+
     var isRepresentative: Boolean = isRepresentative
         private set
 
@@ -25,6 +52,31 @@ class Pet private constructor(
 
     val isDeleted: Boolean
         get() = deletedAt != null
+
+    fun update(
+        name: String,
+        profileImage: String?,
+        relationship: Relationship,
+        relationshipText: String?,
+        breedId: Long,
+        gender: Gender,
+        birthYear: Int?,
+        weight: Double,
+        isNeutered: Boolean?,
+    ) {
+        validateRelationshipText(relationship, relationshipText)
+        validateWeight(weight)
+
+        this.name = name
+        this.profileImage = profileImage
+        this.relationship = relationship
+        this.relationshipText = relationshipText
+        this.breedId = breedId
+        this.gender = gender
+        this.birthYear = birthYear
+        this.weight = weight
+        this.isNeutered = isNeutered
+    }
 
     fun markAsRepresentative() {
         check(!isDeleted) { "삭제된 pet은 대표견으로 지정할 수 없습니다." }
