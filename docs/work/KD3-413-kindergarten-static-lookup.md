@@ -1,4 +1,4 @@
-> 생성: 2026-09-01 21:05 · 최종 수정: 2026-09-05 15:30
+> 생성: 2026-09-01 21:05 · 최종 수정: 2026-09-06 10:00
 
 # KD3-413 — 유치원 도메인 스키마 이관 및 정적 조회 기능
 
@@ -12,7 +12,7 @@
 
 - 활성 workflow: `003-migration`
 - 현재 공통 단계: `5`(독립 리뷰·PR·문서 동기화) — [PR #12](https://github.com/PetCampus-Inc/daeng_v2_back/pull/12) **머지 완료**(2026-09-05, `epic/KD3-272-kindergarten-schema`에 squash merge, `3d6548a`). Jira는 `완료`가 아니라 `진행 중`으로 전환 — 아래 미완료 항목이 남아있어서다. `feat/KD3-413-kindergarten-static-lookup`/`docs/KD3-413-code-style-convention` 원격 브랜치는 삭제함.
-- **남은 것(사람 몫)**: `KEEP` API 로컬 응답 대조, 시딩 데이터 검증, Notion API 명세 등록(전부 "완료 확인 기준" 참고) — 완료되면 Jira를 `완료`로 전환한다.
+- **남은 것(사람 몫)**: `KEEP` API 로컬 응답 대조, 시딩 데이터 검증(전부 "완료 확인 기준" 참고) — 완료되면 Jira를 `완료`로 전환한다. Notion API 명세 등록은 2026-09-06에 완료함(메인 체크아웃 `.env`의 `API_NOTION_KEY`로 직접 REST 호출).
 - **`epic/KD3-272-kindergarten-schema`는 아직 dev로 합치지 않는다** — KD3-272의 다른 하위 작업(KD3-459 지도 조회, KD3-465 메모, KD3-466 원장 인증, KD3-469 비교하기, KD3-470 북마크)이 전부 미착수라, 그 작업들도 이 epic 브랜치 위에서 계속 진행한다(`git.md` "에픽 소속 티켓이 모두 merge되고 에픽 자체가 끝나면 dev로 합치고 삭제한다").
 - 다음 결정 또는 전환 조건: 로컬 응답 대조·시딩 검증·Notion 명세 등록이 끝나면 Jira `완료`로 전환. `docs/domains/kindergarten.md` §4에 남긴 SNS 링크 다중 계정(프론트 협의 필요)은 별도 후속 논의 대상.
 
@@ -147,7 +147,7 @@ kindergartens                    루트: naver_place_id, name, address(도로명
   2. 그 문제를 피해 필요한 값만 export해도, 이 워크트리들이 공유하는 로컬 MySQL 컨테이너(`knockdog-mysql-local`)의 Flyway 이력이 다른 워크트리/브랜치가 남긴 상태와 어긋나 `V1` 체크섬 불일치로 마이그레이션이 실패한다(공용 컨테이너를 임의로 초기화하면 다른 세션에 영향을 줄 수 있어 시도하지 않았다).
   - 그 결과 실제 서버를 띄워 레거시와 응답을 대조하지 못했다. **사람이 별도로 수행해야 한다** — 전용 로컬 DB 인스턴스를 쓰거나 공용 컨테이너의 Flyway 이력을 정리한 뒤, `docs/domains/kindergarten.md` §2의 "알려진 계약 차이" 목록을 실제 응답과 대조한다.
 - **시딩 데이터 검증**(`database-change.md` §4) — **미완료**, 위와 같은 이유로 실제 시딩 실행 자체를 못 했다. `KindergartenJsonSeeder`는 `kindergarten.seed.enabled=true`(로컬 프로필 기본값)일 때 기동 시 자동 실행되도록 구현은 돼 있다.
-- Notion API 명세 갱신 — `v0` 3개는 계약을 바꾸지 않는 구현 이관이라 새 페이지가 필요 없다. `v1` 3개(`summary`/`detail`/`pricing`)는 신규 API라 `notion-api-spec-sync.md` 절차대로 페이지를 새로 만들어야 한다. 이 세션이 가진 Notion 연동(OAuth 기반 MCP)이 그 절차가 요구하는 `API_NOTION_KEY` 토큰 방식과 달라 시도하지 않았다 — **사람이 해야 한다**.
+- Notion API 명세 갱신 — **완료(2026-09-06)**. `v0` 3개는 계약을 바꾸지 않는 구현 이관이라 새 페이지가 필요 없었고, `v1` 3개(`summary`/`detail`/`pricing`)는 `notion-api-spec-sync.md` 절차대로 페이지를 새로 만들었다. 이 세션의 기본 Notion 연동(OAuth 기반 MCP)은 다른(개인) 워크스페이스에 연결돼 있어 대상 데이터베이스에 접근이 안 됐고, 메인 체크아웃의 `.env`/`.env.local`에 있던 `API_NOTION_KEY`를 사용자 승인하에 직접 읽어 REST API(`POST /v1/pages`)로 등록했다(이 워크트리엔 `.env*`가 git에 안 잡혀 있어 없었음). "도메인" select에 `kindergarten` 옵션이 새로 생겼다.
 
 ## 작업 후 확인 목록
 
@@ -159,7 +159,7 @@ kindergartens                    루트: naver_place_id, name, address(도로명
 | `docs/domains/kindergarten.md` | 도메인 경계·식별자 정책·이관 상태·알려진 계약 차이 등 장기 기억 확정 | **갱신함** — 신규 작성 |
 | `docs/inventory/database.md` | `tb_school*` 4행에 신규 크롤링 기반 스키마(`kindergartens` 등)로의 별도 구축 사실을 후속 확인에 남김. 판정/진척 자체는 안 바꿈(원장 오버라이드 테이블은 여전히 미착수) | **갱신함** |
 | `docs/inventory/api.md` | `main/{id}`, `basic/{id}`, `{id}/pricing`의 이관 진척, `work/` 링크·알려진 계약 차이 참조 추가. 5절 요약 카운트 갱신 | **갱신함** — 독립 리뷰(CodeRabbit)로 발견: 로컬 응답 대조·시딩 검증이 미완료인데 진척을 `완료`로 잘못 적어뒀던 걸 `진행중`으로 정정, "전부 `v0` 유지"라는 폐기된 정책도 함께 정정 |
-| Notion API 명세 | `v1` 3개는 신규 API라 `notion-api-spec-sync.md` 대상(API 추가) | **미착수 — 사람 몫**(위 "완료 확인 기준" 참고, 이 세션의 Notion 연동 방식이 안 맞음) |
+| Notion API 명세 | `v1` 3개는 신규 API라 `notion-api-spec-sync.md` 대상(API 추가) | **완료** — 2026-09-06, 페이지 3개 신규 생성(위 "완료 확인 기준" 참고) |
 | `docs/rules/api-migration.md` | "신규 서버는 v0를 만들지 않는다"가 이 문서의 기존 "기본값은 v0 단독" 원칙과 정면으로 충돌 | **갱신함** — §1(기본 원칙)·§2(전면 개정, "v1을 새로 만들 것인가"→"새 경로 이름")·§4(path 변경 기준 삭제)를 새 정책에 맞게 고쳤다 |
 | `docs/adr/0012-신규-서버-v0-미제공-원칙.md` | 여러 도메인에 영향을 주는 결정 확정 | **신규 작성** — append-only, 0004의 v0 기본 유지 원칙을 대체하는 결정이라 맥락 절에서 0004를 언급 |
 | `docs/workflows/003-migration.md` | "KEEP API 로컬 응답 대조" 절이 `api-migration.md` §2를 인용하던 게 개정 후 어긋남, "경로 대조"도 더 이상 의미 없어짐 | **갱신함** — 인용 절 번호 수정(§2→§1), 이 대조가 경로가 아니라 응답 내용만 본다는 점 명시 |
