@@ -94,6 +94,14 @@ class PetTest {
     }
 
     @Test
+    fun `삭제된 pet을 대표견으로 지정하면 실패한다`() {
+        val result = pet()
+        result.delete()
+
+        assertFailsWith<IllegalStateException> { result.markAsRepresentative() }
+    }
+
+    @Test
     fun `대표견을 삭제하면 대표견 상태도 함께 해제된다`() {
         val result = pet(isRepresentative = true)
 

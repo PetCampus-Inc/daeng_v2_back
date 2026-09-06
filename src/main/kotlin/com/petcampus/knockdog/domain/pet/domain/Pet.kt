@@ -27,6 +27,7 @@ class Pet private constructor(
         get() = deletedAt != null
 
     fun markAsRepresentative() {
+        check(!isDeleted) { "삭제된 pet은 대표견으로 지정할 수 없습니다." }
         isRepresentative = true
     }
 
