@@ -1,4 +1,4 @@
-> 생성: 2026-08-02 13:45 · 최종 수정: 2026-09-01 00:20
+> 생성: 2026-08-02 13:45 · 최종 수정: 2026-09-02 22:02
 
 # 데이터 인벤토리
 
@@ -88,7 +88,7 @@
 | MySQL | `album_photo_favorite` | (초안 없음) | album | album/media | `REDESIGN` | `미착수` | 보호자 사진 즐겨찾기 후보. 사진·사용자 unique | album 슬라이스 | 연결 해제된 보호자의 즐겨찾기 보존 여부 |
 | MySQL | `attendance_checkinout` | (초안 없음) | attendance | attendance | `REDESIGN` | `미착수` | 등·하원 체크 상태 후보. pet/school/`school_pet_membership` FK, `attendance_date` 기준 unique | attendance 슬라이스 | `attendance_record`(알림장)와의 책임 분리, 취소 허용 범위 |
 | MySQL | `attendance_checkinout_event` | (초안 없음) | attendance | attendance | `REDESIGN` | `미착수` | 등·하원 이벤트 이력 후보. event_type과 occurred_at | attendance 슬라이스 | 이벤트 소싱 수준으로 유지할지, 보존 기간 |
-| MySQL | `breed_catalog` | (초안 없음) | pet/reference | pet | `REDESIGN` | `미착수` | 견종 기준 데이터 후보. CSV(385행) 시드, `display_order`는 제품이 정한 표시 순서 | pet 슬라이스 | 시드 갱신 주체와 주기. `tb_breed`를 대체하므로 둘을 함께 두지 않는다 |
+| MySQL | `breeds` | (초안 없음) | pet/reference | pet | `REDESIGN` | `진행중` | 신규 기준 테이블. v1 UTF-8 시드 385행을 Flyway로 적용하며, `display_order`는 제품이 정한 표시 순서 | pet 슬라이스 ([`KD3-418`](../work/KD3-418-breed-catalog-v1-api.md)) | 시드 갱신 주체와 주기. 레거시 `tb_breed`와 `breed_catalog`를 대체하며, 빈 MySQL DB 적용 검증 필요 |
 | MySQL | `idempotency_key` | (초안 없음) | global | global/infra | `DEFER` | `미착수` | 멱등 요청 응답 저장 후보. `(user_id, operation, idempotency_key)` unique, `expires_at` 만료 | 알림장 발송 등 재시도 위험 슬라이스 | 신규 서버에서 DB 기반으로 갈지 Redis로 갈지, 만료 청소 주체 |
 | MySQL | `kg_change_report` | (초안 없음) | kindergarten | kindergarten | `DEFER` | `미착수` | 유치원 정보 변경 제보 후보 | kindergarten 슬라이스 | 기능 유지 여부, 승인 운영 주체 |
 | MySQL | `kg_change_evidence` | (초안 없음) | kindergarten/media | kindergarten | `DEFER` | `미착수` | 변경 제보 증빙 이미지 후보. S3 key와 `sha256` unique로 중복 차단 | kindergarten 슬라이스 | 기능 유지 여부, S3 보존 정책 |

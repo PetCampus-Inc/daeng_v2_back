@@ -1,4 +1,4 @@
-> 생성: 2026-08-02 13:45 · 최종 수정: 2026-09-02 12:35
+> 생성: 2026-08-02 13:45 · 최종 수정: 2026-09-02 22:02
 
 # API 인벤토리
 
@@ -174,7 +174,7 @@
 | DELETE | `/api/v0/bookmark/{id}` | 있음: src/entities/bookmark/api/bookmark.ts | `KEEP` | `미착수` | v0 | bookmark | P1 | 프론트 호출 확인<br>src/main/java/com/petcampus/knockdog/bookmark/controller/BookMarkController.java#BookMarkController.deleteBookmark | v0 계약 보존/parity 대상 |
 | POST | `/api/v0/bookmark/{id}` | 있음: src/entities/bookmark/api/bookmark.ts | `KEEP` | `미착수` | v0 | bookmark | P1 | 프론트 호출 확인<br>src/main/java/com/petcampus/knockdog/bookmark/controller/BookMarkController.java#BookMarkController.postBookmark | v0 계약 보존/parity 대상 |
 | GET | `/api/v0/breed` | 없음 | `DEFER` | `미착수` | TBD | pet | P2 | 프론트가 `GET /api/v0/breed-catalog`로 이전(KD3-370), 현재 호출 없음<br>src/main/java/com/petcampus/knockdog/controller/breed/BreedController.java#BreedController.getBreeds | `breed-catalog`로 완전 대체 가능한지, 앱/운영 잔존 호출 확인 후 DROP 확정 |
-| GET | `/api/v0/breed-catalog` | 있음: src/features/dog-profile/model/useBreedQuery.ts | `KEEP` | `미착수` | v0 | pet | P1 | 프론트 호출 확인<br>src/main/java/com/petcampus/knockdog/breedcatalog/controller/BreedCatalogController.java#BreedCatalogController.getBreeds | v0 계약 보존/parity 대상 |
+| GET | `/api/v0/breed-catalog` | 있음: src/features/dog-profile/model/useBreedQuery.ts | `REDESIGN` | `진행중` | v0+v1 | pet | P1 | 프론트 호출 확인<br>src/main/java/com/petcampus/knockdog/breedcatalog/controller/BreedCatalogController.java#BreedCatalogController.getBreeds | v1 `GET /api/v1/breeds?query=` 구현 중([`KD3-418`](../work/KD3-418-breed-catalog-v1-api.md)). 신규 서버는 v0를 구현하지 않으며 프론트 전환 전까지 v0는 레거시가 제공 |
 | GET | `/api/v0/guardian/applications` | 있음: src/entities/guardian-application/api/guardianApplications.ts | `KEEP` | `미착수` | v0 | guardian | P1 | 프론트 호출 확인<br>src/main/java/com/petcampus/knockdog/guardian/applications/controller/GuardianApplicationController.java#GuardianApplicationController.list | v0 계약 보존/parity 대상 |
 | POST | `/api/v0/guardian/applications` | 있음: src/entities/guardian-application/api/guardianApplications.ts | `KEEP` | `미착수` | v0 | guardian | P1 | 프론트 호출 확인<br>src/main/java/com/petcampus/knockdog/guardian/applications/controller/GuardianApplicationController.java#GuardianApplicationController.create | v0 계약 보존/parity 대상 |
 | POST | `/api/v0/guardian/applications/{membershipId}/cancel` | 있음: src/entities/guardian-application/api/guardianApplications.ts | `KEEP` | `미착수` | v0 | guardian | P1 | 프론트 호출 확인<br>src/main/java/com/petcampus/knockdog/guardian/applications/controller/GuardianApplicationController.java#GuardianApplicationController.cancel | v0 계약 보존/parity 대상 |
