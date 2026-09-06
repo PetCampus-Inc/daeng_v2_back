@@ -14,7 +14,7 @@ CREATE TABLE pets (
   created_at             DATETIME(6)  NOT NULL,
   updated_at             DATETIME(6)  NOT NULL,
   deleted_at             DATETIME(6),
-  UNIQUE (representative_user_id),
+  CONSTRAINT uk_pets_representative_user UNIQUE (representative_user_id),
   INDEX idx_pets_user_id (user_id),
   INDEX idx_pets_breed_id (breed_id)
 );
