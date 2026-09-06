@@ -12,7 +12,7 @@ class Pet private constructor(
     val breedId: Long,
     val gender: Gender,
     val birthYear: Int?,
-    val weight: Double?,
+    val weight: Double,
     val isNeutered: Boolean?,
     isRepresentative: Boolean,
     deletedAt: LocalDateTime?,
@@ -88,7 +88,7 @@ class Pet private constructor(
             breedId: Long,
             gender: Gender,
             birthYear: Int?,
-            weight: Double?,
+            weight: Double,
             isNeutered: Boolean?,
             isRepresentative: Boolean,
             deletedAt: LocalDateTime?,
@@ -120,8 +120,7 @@ class Pet private constructor(
             }
         }
 
-        private fun validateWeight(weight: Double?) {
-            if (weight == null) return
+        private fun validateWeight(weight: Double) {
             require(weight in WEIGHT_RANGE) { "weight는 ${WEIGHT_RANGE.start}~${WEIGHT_RANGE.endInclusive} 범위여야 합니다." }
             require(weight % 1.0 == 0.0) { "weight는 소수점 없는 정수 값이어야 합니다." }
         }
