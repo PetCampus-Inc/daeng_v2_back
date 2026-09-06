@@ -1,4 +1,4 @@
-> 생성: 2026-09-02 19:24 · 최종 수정: 2026-09-04 19:48
+> 생성: 2026-09-02 19:24 · 최종 수정: 2026-09-06
 
 # KD3-430 pet 도메인 기반 및 스키마 구축
 
@@ -12,8 +12,8 @@
 
 - 활성 workflow: `003-migration`
 - 현재 공통 단계: `5`
-- PR: [#15](https://github.com/PetCampus-Inc/daeng_v2_back/pull/15) (`feat/KD3-430-pet-domain-foundation-schema` → `feat/KD3-418-breed-catalog-v1-api`)
-- 다음 결정 또는 전환 조건: 리뷰·CI 통과 후 머지. KD3-418이 `dev`에 머지되면 PR base를 `dev`로 재조정.
+- PR: [#15](https://github.com/PetCampus-Inc/daeng_v2_back/pull/15) (`feat/KD3-430-pet-domain-foundation-schema` → `epic/KD3-404-pet-domain-migration`)
+- 다음 결정 또는 전환 조건: 리뷰·CI 통과 후 머지. `KD3-418`이 `epic/KD3-404-pet-domain-migration`으로 머지되면서 base가 자동으로 재조정됐고, 이 브랜치도 그 위로 rebase 완료(2026-09-06) — 추가 재조정 불필요, 이제 리뷰·머지만 남음.
 
 ## 작업 목표
 
@@ -39,7 +39,7 @@
 | `breed_id` | BIGINT | NOT NULL | `breeds.id` 참조. `user_id`와 동일한 `@ManyToOne`+`getReference()` 패턴(다른 도메인 애그리게잇 참조) |
 | `gender` | VARCHAR(20) | NOT NULL | enum |
 | `birth_year` | INT | NULL | 연도만 |
-| `weight` | DOUBLE | NULL(컬럼) | 컬럼은 nullable(등록 후 PATCH로 지울 수 있어야 함, KD3-431). **`Pet.create`는 non-null `Double`을 요구**해 생성 시점엔 항상 값이 있어야 한다(KD3-431 계획 중 보강). 값이 있으면 1~99 범위·소수점 없음(정수 값)을 검증 |
+| `weight` | DOUBLE | NOT NULL | 생성 시 필수이며 이후로도 항상 값이 있어야 한다(등록 후에도 지울 수 없음 — KD3-431 PATCH 설계 중 재확인). 1~99 범위·소수점 없음(정수 값)을 검증 |
 | `is_neutered` | BOOLEAN | NULL | |
 | `representative_user_id` | BIGINT | NULL, UNIQUE | 대표견이면 `user_id`와 같은 값, 아니면 NULL. 사용자당 대표견 1개를 DB가 무조건 보장하는 안전장치(구현 중 결정, 아래 참고) |
 | `created_at`/`updated_at`/`deleted_at` | DATETIME(6) | 규칙대로 | `BaseEntity` 상속 |
@@ -76,7 +76,7 @@
 - **최대 5마리는 애플리케이션 레벨 잠금으로 처리한다**: `PetJpaRepository.findAllActiveByUserIdForUpdate`가 `@Lock(PESSIMISTIC_WRITE)`로 해당 사용자의 활성 pet 행을 잠그고, `PetPersistenceAdapter.registerWithinLimit`가 같은 트랜잭션에서 개수를 확인한 뒤 저장한다. 이 락은 기존 행이 있을 때만 신뢰할 수 있다 — MySQL InnoDB의 갭 락(0건일 때의 신규 삽입 직렬화)까지는 검증하지 못했다(아래 완료 확인 기준 참고).
 - `Relationship`의 손윗형제 4종은 레거시 `ELDER_SISTER`/`ELDER_BROTHER`/`OLDER_SISTER`/`OLDER_BROTHER`를 쓰지 않고 `EONNI`/`NUNA`/`OPPA`/`HYUNG`(로마자 표기)로 바꿨다(구현 중 결정). 언니/누나/오빠/형은 "손윗형제의 성별 × 화자(보호자)의 성별" 조합이라 영어에 대응 단어가 없고, 레거시의 elder/older 구분은 실제로는 없는 의미 차이를 암시해 혼동을 준다. `@Enumerated(STRING)`이라 이 이름이 그대로 DB에 저장되고 향후 API 응답에도 노출될 값이라, 데이터·API가 없는 지금 정정하는 비용이 가장 낮다. `MOTHER`/`FATHER`/`GUARDIAN`/`ETC`는 정확한 영어 대응이 있어 그대로 유지한다.
 - **cutover·rollback은 불필요하다.** 이 티켓은 빈 `pets` 테이블을 신규로 만들 뿐 기존 운영 데이터를 옮기지 않는다(기존 pet 데이터 backfill은 작업 제외 범위). 되돌릴 필요가 생기면 `V4__create_pets.sql`을 Flyway `undo` 없이 테이블 자체를 드롭하는 것으로 충분하다 — 참조하는 운영 데이터나 트래픽이 아직 없기 때문이다.
-- **`Pet.create`는 `weight`를 non-null `Double`로 요구한다** (KD3-431 계획 중 발견해 보강). 레거시 등록 API(`RegisterPetRequest`)도 `@NotNull`로 몸무게를 필수로 받았다 — DB 컬럼은 nullable(생성 후 PATCH로 지울 수 있어야 하는 KD3-431의 요구 때문)이지만, 생성 시점엔 항상 값이 있어야 한다는 불변식은 도메인(`Pet.create`)이 타입 시스템 수준에서 보장한다. `reconstitute`는 기존처럼 `Double?`을 받는다(저장된 값이 이후 PATCH로 null이 될 수 있어서).
+- **`weight`는 `Pet` 도메인 모델·DB 컬럼 전체에서 항상 non-null이다** (KD3-431 계획 중 두 차례에 걸쳐 보강). 처음엔 "생성 시점만 필수, DB 컬럼은 PATCH로 지울 수 있게 nullable"로 설계했으나, 사용자가 "수정 때도 NOT NULL이어야 한다"고 정정해 최종적으로 `weight`는 등록 후에도 절대 지울 수 없는 값으로 확정했다. 레거시 등록 API(`RegisterPetRequest`)도 `@NotNull`로 몸무게를 필수로 받았다 — 이번 결정은 그 필수성을 생성 시점뿐 아니라 생애주기 전체로 확장한 것이다. `Pet.create`/`reconstitute`/(추후 KD3-431의) `update` 전부 `weight: Double`(non-null)을 받고, DB 컬럼도 `NOT NULL`이다.
 - **`relationshipText` 검증을 양방향으로 강화했다** (KD3-431 계획 중 발견해 보강). 기존엔 "ETC면 텍스트 필수"만 검증했는데, "ETC가 아니면 텍스트는 반드시 NULL"도 함께 강제한다. 레거시 `PetService.update`는 필드가 `null`로 들어오면 무시하고 기존 값을 유지하는 방식이라 관계를 바꿔도 예전 `relationshipText`가 영구히 남는 결함이 있었다 — 도메인이 이 불변식을 직접 보장해 그 결함을 재현하지 않는다.
 
 ### 미결 질문
@@ -90,6 +90,7 @@
 - 2026-09-04: `weight` 타입을 DOUBLE로 유지하되(확장성), 현재 기획(1~99 정수)에 맞춰 검증에 소수점 없음 조건을 추가하도록 사용자가 확정했다.
 - 2026-09-04: 사용자 요청으로 5단계 완료 여부를 `003-migration.md` 요구사항과 재대조해, cutover·rollback 결정 미기재와 "대표 변경" 시나리오 미검증 2건을 자체 발견했다. cutover·rollback 불필요 근거를 기록하고, 대표견 교체(해제 후 지정) 검증을 추가했다.
 - 2026-09-04: KD3-431(생성·수정 API) 계획 중 발견한 2가지를 사용자가 KD3-430에서 먼저 반영하도록 확정했다 — `weight`를 `Pet.create`에서 non-null로 요구(생성 시 필수, 레거시 등록 API와 동일), `relationshipText`를 "ETC가 아니면 반드시 NULL"까지 양방향으로 검증.
+- 2026-09-04: KD3-431의 PATCH 설계 중 사용자가 `weight`는 생성 시점뿐 아니라 수정 후에도 항상 NOT NULL이어야 한다고 정정했다 — 처음 결정(DB 컬럼은 nullable, PATCH로 지울 수 있음)을 철회하고 `weight`를 도메인 모델·DB 컬럼 전체에서 non-null로 최종 확정했다.
 
 ## 완료 확인 기준
 
@@ -106,6 +107,7 @@
 - **최대 마릿수 동시성 — 실제 MySQL 교차 검증 (2026-09-04)**: H2(`ddl-auto: create-drop`) 기반 멀티스레드 테스트를 처음 작성했으나 `PESSIMISTIC_WRITE` 락이 H2에서 MySQL InnoDB처럼 블로킹하지 않아 `expected: <1> but was: <3>`로 실패했다(H2가 실제 잠금 동작을 재현하지 못하는 KD3-418의 LIKE 이스케이프 사례와 같은 한계). 이 H2 테스트는 신뢰할 수 없어 제거하고, 로컬 MySQL에 4건을 미리 저장한 뒤 동일한 `SELECT ... FOR UPDATE` 패턴을 쓰는 저장 프로시저를 만들어 3개 세션에서 동시 호출했다 — 정확히 1건만 성공(`race_inserted=1`)하고 나머지 2건은 `LIMIT_EXCEEDED`로 거부됐으며 최종 5건에서 멈췄다. 기존 행이 있는 경우(실사용 시나리오 대부분)의 직렬화는 실제 MySQL에서 확인했다.
 - **확인하지 못한 항목**: 활성 pet이 0건인 상태에서 동시에 여러 등록이 몰리는 "첫 pet 경쟁" 케이스는 MySQL InnoDB 갭 락에 의존하는데, 이번 검증에서는 재현하지 않았다. 다만 대표견 단일성은 `representative_user_id`의 DB UNIQUE 제약이 락 성공 여부와 무관하게 항상 보장하므로(두 번째 대표견 저장 시 `DataIntegrityViolationException`이 나는 것을 H2·MySQL 스키마 양쪽에서 확인), 이 잔여 케이스에서도 "대표견 2개"라는 결과는 나올 수 없다 — 다만 이론상 5마리 제한을 순간적으로 넘겨 등록될 가능성은 남아 있으며, 재현하려면 완전히 새 사용자에 대한 동시 등록을 로컬 MySQL에서 별도로 검증해야 한다.
 - **ArchUnit·ktlint**: `domain.pet.domain` 패키지를 `HexagonalArchitectureTest`의 4번 규칙 대상에 등록했고, `ktlintCheck`가 통과했다.
+- **`weight` NOT NULL을 persistence 계층까지 확장 (2026-09-06)**: 위 79번째 결정 시점엔 도메인 모델(`Pet.create`/`reconstitute`)만 non-null이었고 `PetJpaEntity`·`V4__create_pets.sql`은 여전히 nullable로 남아 있었다 — 도메인 검증만으로는 막지 못하는 경로(예: 다른 어댑터가 직접 엔티티를 구성하는 경우)가 이론상 남는 gap이었다. `PetJpaEntity.weight`를 `Double?` → `Double`(`nullable = false`)로, `V4__create_pets.sql`의 `weight` 컬럼을 `DOUBLE` → `DOUBLE NOT NULL`로 바꿔 이 gap을 닫았다. 로컬 MySQL에서 `pets` 테이블과 Flyway 이력을 지우고 마이그레이션을 처음부터 재적용해 실제 스키마가 `NOT NULL`로 생성됨을 확인했다(상세 재현 절차는 [`KD3-431`](KD3-431-pet-profile-create-update-api.md) 검증 결과 참고). `./gradlew build` 재실행 — ktlint·컴파일·전체 테스트·ArchUnit 통과, 회귀 없음.
 - **대표견 교체 (2026-09-04)**: 완료 확인 기준의 "대표 변경" 항목이 등록 시나리오만 검증되고 실제 교체(A 해제 → B 지정) 시나리오는 빠져 있던 것을 자체 점검에서 발견했다. `clearRepresentative()`+`save()`로 기존 대표견을 먼저 해제하고 `markAsRepresentative()`+`save()`로 새 대표견을 지정하는 순서가 유니크 제약과 충돌 없이 성공함을 `PetPersistenceAdapterTest`에 추가로 검증했다. 이 순서(해제 후 지정)를 지키지 않으면 유니크 제약에 걸린다 — 대표견 교체 유스케이스(KD3-433)는 이 순서를 지켜야 한다.
 
 ## 독립 리뷰 (2026-09-04)

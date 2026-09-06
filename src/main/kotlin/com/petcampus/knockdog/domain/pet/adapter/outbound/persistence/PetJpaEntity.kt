@@ -51,8 +51,8 @@ class PetJpaEntity(
     val gender: Gender,
     @Column(name = "birth_year")
     val birthYear: Int? = null,
-    @Column(name = "weight")
-    val weight: Double? = null,
+    @Column(name = "weight", nullable = false)
+    val weight: Double,
     @Column(name = "is_neutered")
     val isNeutered: Boolean? = null,
     @Column(name = "representative_user_id")

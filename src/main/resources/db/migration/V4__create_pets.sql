@@ -8,7 +8,7 @@ CREATE TABLE pets (
   breed_id               BIGINT       NOT NULL,
   gender                 VARCHAR(20)  NOT NULL,
   birth_year             INT,
-  weight                 DOUBLE,
+  weight                 DOUBLE       NOT NULL,
   is_neutered            BOOLEAN,
   representative_user_id BIGINT,
   created_at             DATETIME(6)  NOT NULL,
