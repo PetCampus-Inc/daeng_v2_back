@@ -1,4 +1,4 @@
-> 생성: 2026-09-02 22:02 · 최종 수정: 2026-09-07 15:05
+> 생성: 2026-09-02 22:02 · 최종 수정: 2026-09-07 15:16
 
 # pet 도메인
 
@@ -37,9 +37,21 @@
 | 대표견 단일성 | `pets.representative_user_id`(nullable, UNIQUE — 대표견이면 `user_id`와 같은 값, 아니면 NULL)로 DB가 보장한다. 최초 등록하는 pet은 자동으로 대표견이 되는 레거시 규칙을 유지한다. **대표견을 교체할 때는 반드시 기존 대표견을 먼저 해제(`clearRepresentative`+저장)한 뒤 새 대표견을 지정(`markAsRepresentative`+저장)해야 한다** — 순서를 바꾸면 UNIQUE 제약 위반으로 실패한다 |
 | 최대 마릿수 | 사용자당 5마리. `SELECT ... FOR UPDATE`로 활성 pet 행을 잠근 뒤 등록하는 애플리케이션 레벨 잠금으로 처리한다. 활성 pet이 0건이라 잠글 행이 없는 상태의 동시 등록도, 항상 존재하는 `users` 행을 먼저 잠그는 `LockUserPort`로 직렬화한다(Testcontainers 기반 자동화 테스트로 검증 — [`KD3-430`](../work/KD3-430-pet-domain-foundation-schema.md) 검증 결과 참고) |
 | 삭제 | soft delete(`deleted_at`). 삭제 유스케이스는 후속 티켓(KD3-434) |
-| 견종 표시 이름 | pet 테이블에 중복 저장하지 않는다. 조회 API가 `breedId`로 breed 도메인의 조회 포트를 호출해 응답 시점에 조합한다 |
+| 견종 표시 이름 | pet 테이블에 중복 저장하지 않는다. `LoadBreedPort.findById`(breed 도메인의 `LoadBreedsPort.findById`에 위임)로 응답 시점에 `nameKo`/`alias`를 조합한다(KD3-431) |
 
 상세 구현과 검증 상태는 [`KD3-430`](../work/KD3-430-pet-domain-foundation-schema.md)을 참고한다.
+
+## pet 생성·수정 API
+
+| 항목 | 현재 결정 |
+|---|---|
+| 엔드포인트 | `POST /api/v1/pets`(생성), `PATCH /api/v1/pets/{petId}`(부분 수정). 레거시 `POST /api/v0/pet/register`는 인벤토리에서 원래 `KEEP`으로 판정돼 있었으나, RESTful URL로 재설계하기로 확정하며 `REDESIGN`으로 정정했다(KD3-431) |
+| PATCH의 null 처리 | "필드 생략"(유지)과 "명시적 null"(지우기)을 구분해야 하는 nullable 필드(`profileImage`/`birthYear`/`isNeutered`)는 `JsonNullable<T>`(`org.openapitools:jackson-databind-nullable`)로 받는다. 레거시는 이 구분 자체가 없어 필드를 지우는 경로가 없었다. `weight`는 이 그룹에 포함되지 않는다 — 항상 non-null이라 PATCH도 값 변경만 허용하고 명시적 `null`은 400으로 거부한다(위 "pet 프로필과 불변식"의 `weight` 행 참고) |
+| 소유권·상태 검증 | `petId`가 없거나 soft delete된 pet이면 404(`PET-404-1`), 본인 소유가 아니면 403(`PET-403-1`) |
+| 에러 코드 | `PetErrorCode`(`domain/pet/application/PetErrorCode.kt`) — 레거시(`daeng_v1_back`의 `ErrorCode.java`) 값을 그대로 재사용(`PET-404-1`/`PET-403-1`/`PET-400-1`/`PET-400-2`). `breedId` 참조 방식으로 생긴 신규 검증(`NOT_FOUND_BREED`, `PET-400-3`)만 새로 추가했다. 단순 필드 형식 오류(예: `weight` 범위, PATCH의 `weight` 명시적 null)는 전용 코드 없이 도메인·서비스 검증 실패 → 공통 `INVALID_INPUT_VALUE`(400)로 처리한다 |
+| 응답 | pet 전체 필드 + `breedNameKo`/`breedAlias`(견종 표시 정보, 위 "견종 표시 이름" 참고). 레거시 `PetResponse`와 달리 `createdAt`/`updatedAt`은 포함하지 않는다 — `Pet` 도메인 모델이 `User`/`SocialUser`처럼 audit 타임스탬프를 도메인에 담지 않는 이 프로젝트 관례를 따른다 |
+
+상세 구현과 검증 상태는 [`KD3-431`](../work/KD3-431-pet-profile-create-update-api.md)을 참고한다.
 
 ## 참조
 

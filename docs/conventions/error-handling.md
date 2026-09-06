@@ -1,4 +1,4 @@
-> 생성: 2026-08-31 01:05 · 최종 수정: 2026-08-31 17:20
+> 생성: 2026-08-31 01:05 · 최종 수정: 2026-09-04 21:09
 
 # 예외·에러 코드 처리
 
@@ -21,7 +21,7 @@ interface ErrorCode {
 - **도메인 무관 공통 에러**는 `global/exception/CommonErrorCode.kt`(enum)에 둔다.
 - **도메인 전용 에러**는 그 도메인 패키지 안에 `<Domain>ErrorCode.kt`(enum)를 만들어 `ErrorCode`를 구현한다. 도메인 착수 시 함께 추가한다.
 
-첫 도입 사례는 auth 도메인의 `domain/auth/application/AuthErrorCode.kt`(KD3-258)다.
+첫 도입 사례는 auth 도메인의 `domain/auth/application/AuthErrorCode.kt`(KD3-258)다. 구조화 포맷(아래 참고)의 첫 실제 구현 사례는 pet 도메인의 `domain/pet/application/PetErrorCode.kt`(KD3-431)다.
 
 ```kotlin
 enum class AuthErrorCode(
@@ -35,13 +35,31 @@ enum class AuthErrorCode(
 }
 ```
 
+```kotlin
+enum class PetErrorCode(
+    override val status: HttpStatus,
+    override val code: String,
+    override val message: String,
+) : ErrorCode {
+    NOT_FOUND(HttpStatus.NOT_FOUND, "PET-404-1", "해당 강아지가 존재하지 않습니다."),
+    NOT_AUTHORIZED(HttpStatus.FORBIDDEN, "PET-403-1", "해당 강아지에 접근할 권한이 없습니다."),
+    LIMIT_EXCEEDED(HttpStatus.BAD_REQUEST, "PET-400-1", "강아지는 최대 5마리까지 등록할 수 있어요."),
+    RELATIONSHIP_TEXT_REQUIRED(HttpStatus.BAD_REQUEST, "PET-400-2", "관계를 직접 입력해 주세요."),
+    NOT_FOUND_BREED(HttpStatus.BAD_REQUEST, "PET-400-3", "존재하지 않는 견종입니다."),
+}
+```
+
+`enum` 상수 이름 자체(`NOT_FOUND` 등)는 `AuthErrorCode`처럼 도메인 접두어 없이 짧게 쓴다 — 프론트와의 계약은 `code` 문자열 값(`"PET-404-1"` 등)이지 Kotlin 상수 이름이 아니다.
+
 던질 때는 `throw BusinessException(AuthErrorCode.NOT_FOUND_USER)`처럼 쓰고, 맥락을 덧붙일 게 있으면 두 번째 인자로 메시지를 넘긴다. 위치는 `application` 패키지 바로 아래다 — 에러 코드는 유스케이스가 결정하는 것이지 순수 도메인 모델이나 어댑터의 관심사가 아니다.
 
 ### code 문자열 값은 프론트와의 계약이다
 
-레거시 자바 서버를 확인한 결과, `code` 문자열은 프론트가 `switch`/`Set` 등으로 직접 비교해 분기하는 데 쓰인다(예: `interceptor`의 토큰 갱신 분기, 로그인 실패 시 탈퇴/재가입제한 분기, 원장 인증 에러 처리). 포맷은 도메인마다 다르다 — auth는 시맨틱 문자열(`EXPIRED_TOKEN`, `WITHDRAWN_USER`), 그 외는 `<도메인>-<HTTP status>-<순번>` 구조화 문자열(`OWNER_VERIFICATION-401-1`). 어느 쪽이든 **프론트 상수와 값이 정확히 일치해야** 프론트 분기 로직이 깨지지 않는다.
+레거시 자바 서버를 확인한 결과, `code` 문자열은 프론트가 `switch`/`Set` 등으로 직접 비교해 분기하는 데 쓰인다(예: `interceptor`의 토큰 갱신 분기, 로그인 실패 시 탈퇴/재가입제한 분기, 원장 인증 에러 처리). 포맷은 도메인마다 다르다 — auth는 시맨틱 문자열(`EXPIRED_TOKEN`, `WITHDRAWN_USER`), 그 외는 `<도메인>-<HTTP status>-<순번>` 구조화 문자열(`PET-404-1`, `OWNER_VERIFICATION-401-1`). 어느 쪽이든 **프론트 상수와 값이 정확히 일치해야** 프론트 분기 로직이 깨지지 않는다.
 
 새 서버로 도메인을 마이그레이션할 때(v0→v1 전환 기간 포함) `ErrorCode.code` 값은 프론트가 이미 참조 중인 문자열을 그대로 가져다 쓴다. 포맷을 새로 통일하고 싶다면, 반드시 프론트 코드(`daeng_v2_front`)를 함께 수정하는 작업으로 스코프를 잡아야 한다 — 백엔드만 바꾸면 안 된다.
+
+**프론트가 실제로 분기하지 않는 경우에도 레거시 값을 재사용한다.** `PetErrorCode`(KD3-431) 도입 시 `daeng_v2_front`를 확인한 결과 pet 관련 에러는 `code` 값으로 분기하지 않고 전부 일시적 오류 토스트로 처리하고 있었다 — 그래도 레거시(`PET-404-1` 등)를 그대로 재사용했다. "프론트가 안 쓰면 자유롭게 바꿔도 된다"가 아니라 "재사용이 기본값이고, 바꾸려면 프론트도 같이 고치는 별도 스코프"라는 원칙은 분기 여부와 무관하게 적용한다.
 
 ## 2. `BusinessException`
 
