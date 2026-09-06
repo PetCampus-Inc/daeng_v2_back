@@ -91,6 +91,7 @@
 - 2026-09-04: 사용자 요청으로 5단계 완료 여부를 `003-migration.md` 요구사항과 재대조해, cutover·rollback 결정 미기재와 "대표 변경" 시나리오 미검증 2건을 자체 발견했다. cutover·rollback 불필요 근거를 기록하고, 대표견 교체(해제 후 지정) 검증을 추가했다.
 - 2026-09-04: KD3-431(생성·수정 API) 계획 중 발견한 2가지를 사용자가 KD3-430에서 먼저 반영하도록 확정했다 — `weight`를 `Pet.create`에서 non-null로 요구(생성 시 필수, 레거시 등록 API와 동일), `relationshipText`를 "ETC가 아니면 반드시 NULL"까지 양방향으로 검증.
 - 2026-09-04: KD3-431의 PATCH 설계 중 사용자가 `weight`는 생성 시점뿐 아니라 수정 후에도 항상 NOT NULL이어야 한다고 정정했다 — 처음 결정(DB 컬럼은 nullable, PATCH로 지울 수 있음)을 철회하고 `weight`를 도메인 모델·DB 컬럼 전체에서 non-null로 최종 확정했다.
+- 2026-09-06: 사용자가 `Relationship`의 손윗형제 4종(`EONNI`/`NUNA`/`OPPA`/`HYUNG`)을 한글 상수명(`언니`/`누나`/`오빠`/`형`)으로 바꾸는 대안을 재검토했다. 결론은 로마자 표기 유지 — 근거는 두 가지다: (1) 로마자든 한글이든 둘 다 "한국어 특정 개념을 가리키는 토큰"이라 의미 전달력 자체엔 우열이 없다(레거시 `ELDER_SISTER`/`OLDER_SISTER`처럼 존재하지 않는 "나이 차등" 개념을 암시해 틀린 인상을 주는 것과는 다른 문제다 — 로마자는 모호할 뿐 틀린 정보를 주지 않는다). (2) 이 프로젝트의 enum은 `CommonErrorCode`/`AuthErrorCode`/`SocialUserStatus`/`AddressType`/`Provider`/`AgreementTermType`/`Gender` 등 예외 없이 전부 영어 상수를 쓴다(직접 확인함) — `Relationship`만 한글로 바꾸면(전부 한글로 바꿔도 마찬가지) 프로젝트 전체 관례와 어긋나는 유일한 파일이 된다. 레거시 `Relationship.java`도 대조했다 — DB·API에 실제로 나가는 값은 영어 enum 이름이고, 한글(`getDescription()`)은 별도 필드로 붙어 있었으나 실제로는 어디서도 호출되지 않는 죽은 코드였다(레거시도 "코드는 영어, 표시용 한글은 별도"라는 같은 원칙을 이미 쓰고 있었다는 근거로 확인).
 
 ## 완료 확인 기준
 
