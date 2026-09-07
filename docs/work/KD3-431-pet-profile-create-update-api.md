@@ -1,4 +1,4 @@
-> 생성: 2026-09-02 19:24 · 최종 수정: 2026-09-07 17:00
+> 생성: 2026-09-02 19:24 · 최종 수정: 2026-09-07 17:10
 
 # KD3-431 pet 프로필 생성·수정 API 구축
 
@@ -12,7 +12,7 @@
 
 - 활성 workflow: `003-migration`
 - 현재 공통 단계: `5`
-- 다음 결정 또는 전환 조건: `KD3-430`은 이미 `epic/KD3-404-pet-domain-migration`에 머지됐고 PR #17도 그 위로 base가 맞춰진 상태로 이미 생성돼 있다(rebase 완료). 1차 독립 리뷰(2026-09-07, 이 세션이 직접 수행 — 엄밀히는 컨텍스트를 공유한 자기 재검토였다) 반영분은 이미 커밋 5개(`55398ef`~`daaa469`)로 푸시했고 PR #17 본문도 동기화 완료. 이어서 진짜 컨텍스트 공유 없는 fresh subagent에게 2차 독립 리뷰를 맡겨 `UpdatePetService`의 `breedId`/`relationship`/`gender`/`name` 명시적 null PATCH가 500을 유발하는 미방어 케이스(3단계 구현 갭)를 찾았다 — 수정 완료, 전체 133건(기존 129 + 신규 4) 통과 확인. 아직 커밋·푸시는 안 함 — 사용자 승인 후 커밋 → 푸시 → PR #17 본문 갱신 순서로 진행.
+- 다음 결정 또는 전환 조건: `KD3-430`은 이미 `epic/KD3-404-pet-domain-migration`에 머지됐고 PR #17도 그 위로 base가 맞춰진 상태로 이미 생성돼 있다(rebase 완료). 1차 독립 리뷰(이 세션이 직접 수행 — 엄밀히는 컨텍스트를 공유한 자기 재검토였다) 반영분과 2차 독립 리뷰(진짜 컨텍스트 공유 없는 fresh subagent, `UpdatePetService`의 `breedId`/`relationship`/`gender`/`name` 명시적 null 500 버그 발견) 반영분 모두 커밋·푸시하고 PR #17 본문도 동기화 완료(`55398ef`~`df6fe86`). 이어서 사용자가 직접 지적해 `name`/`relationshipText`/`profileImage`의 blank·길이 검증 공백(DB 컬럼 길이 초과 시 500)을 발견 — `Pet.kt`에 `validateName`/`validateProfileImage` 추가, `validateRelationshipText`에 길이 검증 추가, 전체 140건(기존 133 + 신규 7) 통과 확인. 아직 커밋·푸시는 안 함 — 사용자 승인 후 커밋 → 푸시 → PR #17 본문 갱신 순서로 진행.
 
 ## 작업 목표
 
@@ -29,10 +29,10 @@
 
 | 필드 | POST(생성) | PATCH(수정) | 응답 |
 |---|---|---|---|
-| `name` | 필수 | 선택(값 변경만, null 불가) | 포함 |
-| `profileImage` | 선택 | 선택(`JsonNullable`, null로 지우기 가능) | 포함 |
+| `name` | 필수, blank 불가, 100자 이하(`pets.name` `VARCHAR(100)`) | 선택(값 변경만, null 불가), blank 불가, 100자 이하 | 포함 |
+| `profileImage` | 선택, 500자 이하(`pets.profile_image` `VARCHAR(500)`) | 선택(`JsonNullable`, null로 지우기 가능), 500자 이하 | 포함 |
 | `relationship` | 필수 | 선택(값 변경만, null 불가) | 포함 |
-| `relationshipText` | `relationship=ETC`일 때만 필수 | `relationship=ETC`일 때만 필수(값 변경만). `relationship`을 ETC 아닌 값으로 바꾸면 자동으로 `null`(위 확정 사항) | 포함 |
+| `relationshipText` | `relationship=ETC`일 때만 필수, 100자 이하(`pets.relationship_text` `VARCHAR(100)`) | `relationship=ETC`일 때만 필수(값 변경만), 100자 이하. `relationship`을 ETC 아닌 값으로 바꾸면 자동으로 `null`(위 확정 사항) | 포함 |
 | `breedId` | 필수(`LoadBreedPort.findById`로 존재 검증 겸 조회) | 선택(값 변경만, null 불가, 변경 시 동일하게 존재 검증) | 포함 |
 | `breedNameKo`/`breedAlias` | 해당 없음(요청에 없음) | 해당 없음 | 포함 — `breedId`로 breed 도메인을 조회해 조합. 화면 표시("한글명 (별칭)")는 breed 목록 API와 동일하게 프론트가 조합 |
 | `gender` | 필수 | 선택(값 변경만, null 불가) | 포함 |
@@ -76,10 +76,11 @@
 - **`UpdatePetService`가 `weight`에만 명시적 null 방어(`requireNotNull`)를 뒀고 계약상 동일하게 "PATCH 시 null 불가"인 `breedId`/`relationship`/`gender`/`name`에는 방어가 없었다 — 500을 유발하는 실제 버그였다.** 2차 독립 리뷰(진짜 컨텍스트 공유 없는 fresh subagent)가 `javap`로 바이트코드까지 확인해 발견했다: `breedId`에 명시적 `null`을 보내면 `LoadBreedPort.findById(breedId: Long)`가 원시타입 `long` 파라미터로 컴파일돼(`javap` 확인) 언박싱 시점에 `NullPointerException`이, `name`/`relationship`/`gender`에 명시적 `null`을 보내면 `Pet.update()`의 Kotlin non-null 파라미터 검사(`Intrinsics.checkNotNullParameter`)에서 역시 `NullPointerException`이 발생한다. `GlobalExceptionHandler`엔 `NullPointerException` 전용 핸들러가 없어 catch-all(500)로 떨어진다 — 작업 문서 계약표(400 거부)와 실제 동작이 어긋나 있었다. `weight`와 동일한 `requireNotNull` 패턴을 나머지 4개 필드에도 추가해 고쳤다(`UpdatePetService.kt`). `NullPointerException`을 전역에서 4xx로 매핑하는 방식은 채택하지 않았다 — NPE는 대부분 진짜 버그의 신호라 조용히 4xx로 감추면 안 되고, `IllegalStateException` 때와 같은 이유로 근본 원인(누락된 방어 코드)을 고치는 쪽을 택했다. `UpdatePetServiceTest`에 4개 필드 각각의 명시적 null 거부 테스트를 추가했다.
 - **`RELATIONSHIP_TEXT_REQUIRED`(PET-400-2)를 실제로는 던지지 않는다.** `relationship=ETC`인데 `relationshipText`가 없는 경우는 `Pet.create`/`Pet.update`의 `validateRelationshipText`가 이미 `IllegalArgumentException`으로 막고, `GlobalExceptionHandler`가 이를 400 `INVALID_INPUT_VALUE`로 처리한다. 레거시는 이 케이스에 전용 코드를 던졌지만, 서비스 레이어에서 도메인 검증보다 먼저 이 조건만 따로 체크해 전용 에러코드로 바꾸는 건 도메인 로직을 서비스에 중복시키는 것이라 하지 않았다 — enum 값 자체는 향후 필요해지면 쓸 수 있게 남겨둔다.
 - **`weight`를 처음엔 PATCH로 지울 수 있는 nullable 필드 4개(`profileImage`/`birthYear`/`weight`/`isNeutered`) 중 하나로 설계했다가 정정했다.** `weight`는 생성 시에만 필수이고 이후엔 지울 수 있다고 잘못 판단한 것으로, 사용자가 "수정할 때도 non-null이어야 한다"고 지적해 바로잡았다. KD3-430(도메인·스키마)과 KD3-431(API) 양쪽 모두 수정해, `Pet` 도메인 모델·DB 컬럼·`UpdatePetCommand`/`UpdatePetRequest`의 `weight` 타입(`JsonNullable<Double>`, 비-nullable 내부 타입)과 `UpdatePetService`의 명시적 null 거부 로직까지 전부 반영했다.
+- **`name`/`relationshipText`/`profileImage`의 blank·길이 검증이 도메인에 아예 없었다 — 빈 이름이 저장되거나 DB 컬럼 길이 초과 시 500이 나가는 실제 버그였다.** 사용자가 `Pet.kt`(당시 검증은 `relationshipText`·`weight`뿐)와 `PetJpaEntity.kt`의 컬럼 길이(`name` 100자, `profileImage` 500자, `relationshipText` 100자)를 직접 대조해 지적했다. 빈 `name`은 DB `NOT NULL` 제약을 통과해(빈 문자열은 NULL이 아니므로) 그대로 저장되고, 컬럼 길이를 넘는 값은 `DataIntegrityViolationException`이 `GlobalExceptionHandler`의 catch-all(500)로 떨어져 계약(400 거부)과 어긋났다 — `breedId`/`relationship`/`gender`/`name` 명시적 null 버그와 같은 패턴(방어 코드 부분 적용 누락)이 검증 로직에서도 반복된 것이다. `Pet.kt`에 `validateName`(blank 금지, 100자 이하)·`validateProfileImage`(500자 이하)를 추가하고 `validateRelationshipText`에 100자 이하 검증을 더해 `create`/`update` 양쪽에 적용했다. `profileImage`가 빈 문자열(`""`)일 때 이를 유효로 볼지는 결정하지 않았다 — 길이 상한만 적용하고 blank 여부는 그대로 둔다.
 
 ### 미결 질문
 
-- 없음.
+- `profileImage`가 빈 문자열(`""`)로 오면 유효한 값으로 저장할지, blank도 거부할지 결정하지 않았다. 지금은 길이 상한(500자)만 적용한다.
 
 ### 사용자 승인 기록
 
@@ -87,6 +88,7 @@
 - 2026-09-04: 사용자가 A~D를 하나씩 확정했다 — (A) `relationship`이 ETC에서 다른 값으로 바뀌면 `relationshipText` 자동 제거(레거시는 이 경로 자체가 없던 결함이었음을 확인 후 승인), (B) PATCH의 nullable 필드 명시적 null 지원(`JsonNullable`) 및 `weight` 생성 시 필수화, (C) 응답에 `breedNameKo`/`breedAlias` 포함(레거시 텍스트 저장 대신 `breedId` 참조 유지가 맞다는 근거 확인 후 승인) 및 요청·응답 필드 계약 표, (D) `PetErrorCode`를 레거시 값 그대로 재사용 + 신규 `NOT_FOUND_BREED` 추가, `error-handling.md`에 구조화 포맷 실제 사례로 반영.
 - 2026-09-04: 구현 완료 후 `docs/inventory/api.md`를 뒤늦게 대조하다 `POST /api/v0/pet/register`가 원래 `KEEP`(v0 계약 유지)으로 판정돼 있던 것을 발견했다 — 이 티켓의 전제(생성도 v1 RESTful로 재설계)와 인벤토리 판정이 어긋난 채로 구현을 시작한 것이었다. 사용자가 v1 RESTful 재설계가 맞다고 확정해, 인벤토리 판정을 `KEEP` → `REDESIGN`(v0+v1)으로 정정했다.
 - 2026-09-04: 사용자가 `weight`는 생성 시점뿐 아니라 수정 후에도 항상 non-null이어야 한다고 정정했다(B에서 "생성 시 필수, PATCH로 지울 수 있음"으로 잘못 확정했던 것을 철회) — `weight`를 nullable-후보 4개 필드 목록에서 제외하고, `UpdatePetCommand`/`UpdatePetRequest`의 `weight` 타입을 `JsonNullable<Double?>`에서 `JsonNullable<Double>`로 바꾸고 `UpdatePetService`에 명시적 null 거부 로직을 추가했다. KD3-430의 도메인·스키마도 같은 방향으로 함께 수정했다(KD3-430 문서 참고).
+- 2026-09-07: 사용자가 `Pet.kt`와 `PetJpaEntity.kt`를 직접 대조해 `name`/`relationshipText`/`profileImage`의 blank·길이 검증 공백을 지적했다 — DB 컬럼 길이(각 100/100/500자)를 상한으로 도메인 검증을 추가하는 방향으로 진행을 승인했다.
 
 ## 완료 확인 기준
 
@@ -94,6 +96,7 @@
 - PATCH의 필드 누락·명시적 null 처리와 응답 계약을 테스트한다.
 - PATCH에서 `relationship`을 ETC 아닌 값으로 바꾸며 `relationshipText`를 동시에 보내면 400으로 거부되는지 검증한다.
 - PATCH에서 `weight`에 명시적 `null`을 보내면 400으로 거부되는지 검증한다.
+- `name`이 blank이거나 `name`/`relationshipText`/`profileImage`가 DB 컬럼 길이(각 100/100/500자)를 초과하면 400으로 거부되는지 검증한다.
 - API 계약 문서와 인벤토리 영향을 판정·기록한다.
 
 ## 검증 결과
@@ -115,6 +118,7 @@
   - PATCH로 `weight: 15`(값 변경만) → 200, `weight`가 정상적으로 갱신됨 확인
 - **독립 리뷰 후 재검증(2026-09-07)**: §방향 논의 및 결정 사항의 정정 사항(`PetResponse.weight` non-null화, `ExistsBreedPort`/`BreedExistenceAdapter`·`LoadBreedsPort.existsById`/`BreedPersistenceAdapter.existsById` 삭제, `GlobalExceptionHandler`의 `IllegalStateException` 전역 핸들러 추가) 반영 후 `./gradlew build`(ktlint, 컴파일, 전체 테스트, ArchUnit 포함) 재실행해 통과 확인. `UpdatePetServiceTest`에 `relationship이 이미 ETC가 아닌 상태에서 relationshipText만 명시적으로 보내면 거부된다` 케이스를 추가해(기존엔 관계를 함께 바꾸는 경우만 테스트) `validateRelationshipText`가 관계 변경 여부와 무관하게 동일하게 동작함을 명시적으로 커버.
 - **2차 독립 리뷰(fresh subagent) 후 재검증(2026-09-07)**: `./gradlew test --rerun`으로 캐시를 배제하고 전체 재실행 — 프로젝트 전체 29개 테스트 클래스 129건, 실패·에러 0건을 JUnit XML로 직접 확인(이전까지의 "통과" 보고가 `--tests` 필터 반복 실행으로 인해 다른 클래스의 리포트가 실제로 재생성됐는지 불확실했던 점을 사용자 지적으로 바로잡음). 이 재검증 과정에서 `UpdatePetService`의 `breedId`/`relationship`/`gender`/`name` 명시적 null 미방어 버그(위 §방향 논의 및 결정 사항 참고)를 발견해 수정하고, `UpdatePetServiceTest`에 4개 필드 각각의 명시적 null 거부 테스트를 추가한 뒤 `./gradlew build --rerun-tasks`로 전체 재실행해 29개 클래스 133건(기존 129 + 신규 4), 실패·에러 0건 확인.
+- **`name`/`relationshipText`/`profileImage` blank·길이 검증 추가 후 재검증(2026-09-07)**: 사용자 지적으로 발견한 검증 공백(위 §방향 논의 및 결정 사항 참고)을 `Pet.kt`에 반영한 뒤 `./gradlew build --rerun-tasks`로 전체 재실행 — 29개 클래스 140건(기존 133 + `PetTest` 신규 7: blank name, name 100/101자, relationshipText 101자, profileImage 500/501자), 실패·에러 0건 확인.
 
 ## 작업 후 확인 목록
 
@@ -132,3 +136,6 @@
 | `docs/conventions/error-handling.md` | 갱신 | `IllegalStateException` 처리 우선순위·`check()` 사용 기준(상태 위반 전용, 내부 버그 어설션 금지) 추가 |
 | `UpdatePetService.kt` | 코드 수정 | `breedId`/`relationship`/`gender`/`name` 명시적 null 시 500(NPE)을 유발하던 버그 수정 — `weight`와 동일한 `requireNotNull` 방어 추가(2차 독립 리뷰에서 발견) |
 | `UpdatePetServiceTest.kt` | 테스트 추가 | 위 4개 필드 각각의 명시적 null 거부 케이스 추가 |
+| `Pet.kt` | 코드 수정 | `name`(blank 금지·100자 이하)·`profileImage`(500자 이하)·`relationshipText`(100자 이하) 검증 추가 — DB 컬럼 길이 초과 시 500이 나가던 버그, 빈 name이 저장되던 데이터 품질 문제 수정(사용자 발견) |
+| `PetTest.kt` | 테스트 추가 | blank name, name/relationshipText/profileImage 길이 상한·초과 케이스 추가 |
+| `docs/domains/pet.md` | 갱신 | "pet 프로필과 불변식"에 문자열 필드 길이·blank 검증 행 추가 |
