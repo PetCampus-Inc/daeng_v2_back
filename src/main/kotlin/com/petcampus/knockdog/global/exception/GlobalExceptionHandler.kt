@@ -22,6 +22,12 @@ class GlobalExceptionHandler {
             .status(HttpStatus.BAD_REQUEST)
             .body(Response.error(CommonErrorCode.INVALID_INPUT_VALUE, e.message))
 
+    @ExceptionHandler(IllegalStateException::class)
+    fun handleIllegalState(e: IllegalStateException): ResponseEntity<Response<Unit>> =
+        ResponseEntity
+            .status(HttpStatus.CONFLICT)
+            .body(Response.error(CommonErrorCode.CONFLICT, e.message))
+
     @ExceptionHandler(NoSuchElementException::class)
     fun handleNotFound(e: NoSuchElementException): ResponseEntity<Response<Unit>> =
         ResponseEntity

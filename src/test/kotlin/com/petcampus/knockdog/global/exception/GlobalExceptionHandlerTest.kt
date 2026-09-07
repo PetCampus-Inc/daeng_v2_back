@@ -49,6 +49,15 @@ class GlobalExceptionHandlerTest {
     }
 
     @Test
+    fun `IllegalStateException은 409와 함께 Response 포맷으로 응답한다`() {
+        val response = handler.handleIllegalState(IllegalStateException("이미 처리된 요청입니다."))
+
+        assertEquals(HttpStatus.CONFLICT, response.statusCode)
+        assertEquals(CommonErrorCode.CONFLICT.code, response.body?.code)
+        assertEquals("이미 처리된 요청입니다.", response.body?.message)
+    }
+
+    @Test
     fun `NoSuchElementException은 404와 함께 Response 포맷으로 응답한다`() {
         val response = handler.handleNotFound(NoSuchElementException("회원을 찾을 수 없습니다."))
 
