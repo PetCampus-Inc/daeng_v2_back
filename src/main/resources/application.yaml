@@ -24,3 +24,12 @@ oauth:
       web: ${OAUTH_GOOGLE_CLIENT_ID_WEB:}
       ios: ${OAUTH_GOOGLE_CLIENT_ID_IOS:}
       android: ${OAUTH_GOOGLE_CLIENT_ID_ANDROID:}
+
+aws:
+  s3:
+    region: ${AWS_S3_REGION:ap-northeast-2}
+    # 레거시 범용 이미지 버킷 재사용. 전용 버킷 전환 시 이 값만 교체 (docs/inventory/operations.md).
+    bucket: ${AWS_S3_BUCKET:kindergarten-image-bucket}
+    presign:
+      upload-ttl: ${AWS_S3_PRESIGN_UPLOAD_TTL:10m}
+      download-ttl: ${AWS_S3_PRESIGN_DOWNLOAD_TTL:5m}

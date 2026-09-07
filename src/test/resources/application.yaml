@@ -34,3 +34,11 @@ oauth:
       web: test-web-client-id
       ios: test-ios-client-id
       android: test-android-client-id
+
+aws:
+  s3:
+    region: ap-northeast-2
+    bucket: test-media-bucket
+    presign:
+      upload-ttl: 10m
+      download-ttl: 5m
