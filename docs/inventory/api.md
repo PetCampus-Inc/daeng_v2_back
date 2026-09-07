@@ -1,4 +1,4 @@
-> 생성: 2026-08-02 13:45 · 최종 수정: 2026-09-07 15:16
+> 생성: 2026-08-02 13:45 · 최종 수정: 2026-09-07 23:10
 
 # API 인벤토리
 
@@ -287,7 +287,7 @@
 | GET | `/api/v0/pet/list` | 있음: src/entities/pet/api/pet.ts | `REDESIGN` | `진행중` | v0+v1 | pet | P1 | 프론트 호출 확인<br>src/main/java/com/petcampus/knockdog/pet/controller/PetController.java#PetController.getPets. 기존 `KEEP` 판정을 재검토해 RESTful `GET /api/v1/pets`로 재설계하기로 확정(KD3-432) — 정렬 기준(대표견 우선 → 이름순)은 레거시 규칙 중 유치원 연결 무관 부분만 계승 | v1 `GET /api/v1/pets` 구현 완료(KD3-432). 신규 서버는 v0를 구현하지 않으며 프론트 전환 전까지 v0는 레거시가 제공 |
 | POST | `/api/v0/pet/register` | 있음: src/entities/pet/api/pet.ts | `REDESIGN` | `진행중` | v0+v1 | pet | P1 | 프론트 호출 확인<br>src/main/java/com/petcampus/knockdog/pet/controller/PetController.java#PetController.registerPet. 기존 `KEEP` 판정을 재검토해 RESTful `POST /api/v1/pets`로 재설계하기로 확정(KD3-431) | v1 `POST /api/v1/pets` 구현 완료(KD3-431). 신규 서버는 v0를 구현하지 않으며 프론트 전환 전까지 v0는 레거시가 제공 |
 | POST | `/api/v0/pet/remove/{petId}` | 있음: src/entities/pet/api/pet.ts | `REDESIGN` | `미착수` | v0+v1 | pet | P1 | 0004 v1 재설계 대표 사례: DELETE /v1/pets/{id}<br>src/main/java/com/petcampus/knockdog/pet/controller/PetController.java#PetController.removePet | 상세 v1 계약은 도메인/계획 문서에서 확정 |
-| POST | `/api/v0/pet/representative/{petId}` | 있음: src/entities/pet/api/pet.ts | `KEEP` | `미착수` | v0 | pet | P1 | 프론트 호출 확인<br>src/main/java/com/petcampus/knockdog/pet/controller/PetController.java#PetController.setRepresentative | v0 계약 보존/parity 대상 |
+| POST | `/api/v0/pet/representative/{petId}` | 있음: src/entities/pet/api/pet.ts | `REDESIGN` | `진행중` | v0+v1 | pet | P1 | 프론트 호출 확인<br>src/main/java/com/petcampus/knockdog/pet/controller/PetController.java#PetController.setRepresentative. 기존 `KEEP` 판정을 재검토해 RESTful `PUT /api/v1/pets/{petId}/representative`로 재설계하기로 확정(KD3-433) | v1 `PUT /api/v1/pets/{petId}/representative` 구현 완료(KD3-433). 신규 서버는 v0를 구현하지 않으며 프론트 전환 전까지 v0는 레거시가 제공 |
 | POST | `/api/v0/pet/update/{petId}` | 있음: src/entities/pet/api/pet.ts | `REDESIGN` | `진행중` | v0+v1 | pet | P1 | 0004 v1 재설계 대표 사례: PATCH /v1/pets/{id}, 소유자 검증 필요<br>src/main/java/com/petcampus/knockdog/pet/controller/PetController.java#PetController.updatePet | v1 `PATCH /api/v1/pets/{petId}` 구현 완료, 소유자 검증 포함(KD3-431). 신규 서버는 v0를 구현하지 않으며 프론트 전환 전까지 v0는 레거시가 제공 |
 | GET | `/api/v0/pet/{petId}` | 없음 | `REDESIGN` | `진행중` | v0+v1 | pet | P2 | 레거시 endpoint 존재, 프론트 호출 미확인<br>src/main/java/com/petcampus/knockdog/pet/controller/PetController.java#PetController.getPet. `DEFER` 판정을 재검토해 목록 조회와 함께 `GET /api/v1/pets/{petId}`로 재설계하기로 확정(KD3-432) | v1 `GET /api/v1/pets/{petId}` 구현 완료(KD3-432). 신규 서버는 v0를 구현하지 않으며 프론트 전환 전까지 v0는 레거시가 제공 |
 | PUT | `/api/v0/push-devices` | 있음: src/entities/user/api/pushDevice.ts | `KEEP` | `미착수` | v0 | notification | P1 | 프론트 호출 확인<br>src/main/java/com/petcampus/knockdog/notification/controller/PushDeviceController.java#PushDeviceController.upsert | v0 계약 보존/parity 대상 |
