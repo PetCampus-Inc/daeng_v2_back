@@ -12,7 +12,7 @@
 
 - 활성 workflow: `003-migration`
 - 현재 공통 단계: `5`
-- 다음 결정 또는 전환 조건: `KD3-430`은 이미 `epic/KD3-404-pet-domain-migration`에 머지됐고 PR #17도 그 위로 base가 맞춰진 상태로 이미 생성돼 있다(rebase 완료). 1차 독립 리뷰(이 세션이 직접 수행 — 엄밀히는 컨텍스트를 공유한 자기 재검토였다) 반영분과 2차 독립 리뷰(진짜 컨텍스트 공유 없는 fresh subagent, `UpdatePetService`의 `breedId`/`relationship`/`gender`/`name` 명시적 null 500 버그 발견) 반영분 모두 커밋·푸시하고 PR #17 본문도 동기화 완료(`55398ef`~`df6fe86`). 이어서 사용자가 직접 지적해 `name`/`relationshipText`/`profileImage`의 blank·길이 검증 공백(DB 컬럼 길이 초과 시 500)을 발견 — `Pet.kt`에 `validateName`/`validateProfileImage` 추가, `validateRelationshipText`에 길이 검증 추가, 전체 140건(기존 133 + 신규 7) 통과 확인. 아직 커밋·푸시는 안 함 — 사용자 승인 후 커밋 → 푸시 → PR #17 본문 갱신 순서로 진행.
+- 다음 결정 또는 전환 조건: `KD3-430`은 이미 `epic/KD3-404-pet-domain-migration`에 머지됐고 PR #17도 그 위로 base가 맞춰진 상태로 이미 생성돼 있다(rebase 완료). 1차 독립 리뷰(이 세션이 직접 수행), 2차 독립 리뷰(fresh subagent, `breedId`/`relationship`/`gender`/`name` 명시적 null NPE 버그 발견), 사용자가 직접 지적한 문자열 필드 blank·길이 검증 공백까지 전부 수정·커밋·푸시하고 PR #17 본문도 동기화 완료(`55398ef`~`b8e7863`, 전체 140건 통과). 남은 것은 실제 머지 승인뿐 — 추가로 더 검토할 부분이 있는지 사용자 확인 대기.
 
 ## 작업 목표
 
