@@ -11,7 +11,9 @@
 ## 현재 제어점
 
 - 활성 workflow: `003-migration`
-- 현재 공통 단계: `5`(독립 리뷰·PR·문서 동기화) — 구현·검증 완료, `./gradlew build` green(106 테스트), 문서 동기화 완료. 독립 리뷰(컨텍스트 미공유) 완료 — "no material findings", 작업 문서 대비 누락·범위 초과·계획 불일치 없음. [PR #19](https://github.com/PetCampus-Inc/daeng_v2_back/pull/19) (`feat/KD3-478-s3-infra-image-upload` → `epic/KD3-477-s3-migration`) 생성.
+- 현재 공통 단계: `5`(독립 리뷰·PR·문서 동기화) — 구현·검증 완료, `./gradlew build` green, 문서 동기화 완료. [PR #19](https://github.com/PetCampus-Inc/daeng_v2_back/pull/19) (`feat/KD3-478-s3-infra-image-upload` → `epic/KD3-477-s3-migration`) 생성.
+  - 독립 리뷰(컨텍스트 미공유 서브에이전트): "no material findings".
+  - CodeRabbit: Major 2건 반영 완료 — ① `S3ObjectStorageAdapter.exists()`가 `S3Exception(statusCode==404)`도 `false`로 변환(SDK v2가 `NoSuchKeyException` 대신 던질 수 있음), 403은 재던짐 ② operations.md의 IAM 정책 표기를 유효 action(`s3:GetObject`/`s3:PutObject`/`s3:DeleteObject` + `s3:ListBucket`)으로 정정. CodeRabbit "Docstring Coverage 0%" 경고는 AGENTS.md 주석 금지와 충돌 — `.coderabbit.yaml` 설정 조정으로 별건 처리 예정(무시).
 - 다음 결정 또는 전환 조건: 머지 전 남은 사람 몫: ① `S3ObjectStorageAdapter`의 copy/delete/exists 로컬 S3 스모크 대조 ② Notion API 명세 등록. ③ 프론트(`daeng_v2_front`) v1 전환은 별도 작업. ①②가 끝나면 머지 후 Jira `완료`로 전환.
 - `epic/KD3-477-s3-migration`은 dev로 합치지 않는다 — KD3-477(s3 마이그레이션)의 도메인별 후속이 남아 있으면 그 위에서 계속 진행. 후속이 없다고 확정되면 epic → dev 일반 merge.
 

@@ -13,6 +13,7 @@ import software.amazon.awssdk.services.s3.model.GetObjectRequest
 import software.amazon.awssdk.services.s3.model.HeadObjectRequest
 import software.amazon.awssdk.services.s3.model.NoSuchKeyException
 import software.amazon.awssdk.services.s3.model.PutObjectRequest
+import software.amazon.awssdk.services.s3.model.S3Exception
 import software.amazon.awssdk.services.s3.presigner.S3Presigner
 import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest
 import software.amazon.awssdk.services.s3.presigner.model.PutObjectPresignRequest
@@ -75,6 +76,8 @@ class S3ObjectStorageAdapter(
             true
         } catch (e: NoSuchKeyException) {
             false
+        } catch (e: S3Exception) {
+            if (e.statusCode() == HTTP_NOT_FOUND) false else throw e
         }
 
     override fun copy(
@@ -100,5 +103,9 @@ class S3ObjectStorageAdapter(
                 .key(key.value)
                 .build(),
         )
+    }
+
+    companion object {
+        private const val HTTP_NOT_FOUND = 404
     }
 }
