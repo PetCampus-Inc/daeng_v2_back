@@ -1,4 +1,4 @@
-> 생성: 2026-08-31 01:05 · 최종 수정: 2026-09-04 21:09
+> 생성: 2026-08-31 01:05 · 최종 수정: 2026-09-07
 
 # 예외·에러 코드 처리
 
@@ -77,15 +77,24 @@ open class BusinessException(val errorCode: ErrorCode, message: String? = null) 
 
 1. `BusinessException` → `errorCode.status` + `Response.error(errorCode, e.message)`
 2. `IllegalArgumentException` → 400 + `CommonErrorCode.INVALID_INPUT_VALUE`
-3. `NoSuchElementException` → 404 + `CommonErrorCode.RESOURCE_NOT_FOUND`
-4. `HttpMessageNotReadableException`(요청 본문 파싱 실패, 예: 필수 필드 누락) → 400 + `CommonErrorCode.INVALID_INPUT_VALUE` (메시지는 Jackson 내부 정보 노출 방지를 위해 고정 문구)
-5. `MissingServletRequestParameterException`(필수 `@RequestParam` 누락) → 400 + `CommonErrorCode.INVALID_INPUT_VALUE`
-6. `HttpRequestMethodNotSupportedException`(Spring이 던지는 405) → 405 + `CommonErrorCode.METHOD_NOT_ALLOWED`
-7. 그 외 `Exception` → 500 + `CommonErrorCode.INTERNAL_SERVER_ERROR`
+3. `IllegalStateException` → 409 + `CommonErrorCode.CONFLICT`
+4. `NoSuchElementException` → 404 + `CommonErrorCode.RESOURCE_NOT_FOUND`
+5. `HttpMessageNotReadableException`(요청 본문 파싱 실패, 예: 필수 필드 누락) → 400 + `CommonErrorCode.INVALID_INPUT_VALUE` (메시지는 Jackson 내부 정보 노출 방지를 위해 고정 문구)
+6. `MissingServletRequestParameterException`(필수 `@RequestParam` 누락) → 400 + `CommonErrorCode.INVALID_INPUT_VALUE`
+7. `HttpRequestMethodNotSupportedException`(Spring이 던지는 405) → 405 + `CommonErrorCode.METHOD_NOT_ALLOWED`
+8. 그 외 `Exception` → 500 + `CommonErrorCode.INTERNAL_SERVER_ERROR`
 
-2~3번은 하위 호환을 위해 남겨둔 것이다 — `BusinessException`을 쓰지 않는 기존 코드(예: `GetOwnerService`)가 아직 있다. **새로 작성하는 코드는 2~3번 대신 `BusinessException` + 도메인별 `ErrorCode`를 쓴다.**
+2~4번은 하위 호환을 위해 남겨둔 것이다 — `BusinessException`을 쓰지 않는 기존 코드(예: `GetOwnerService`)가 아직 있다. **새로 작성하는 코드는 2~4번 대신 `BusinessException` + 도메인별 `ErrorCode`를 쓴다.**
 
-catch-all(7번)이 프레임워크가 던지는 다른 예외(예: 존재하지 않는 라우트)까지 500으로 마스킹할 수 있다는 점은 여전히 알려진 한계다 — 4~6번은 실제로 겪은 케이스를 좁혀서 처리한 것이고, `@Valid` 기반 필드별 검증 실패 응답 포맷은 아직 다루지 않았다(티켓 KD3-257의 7번 항목에서 별도로 정리 예정).
+catch-all(8번)이 프레임워크가 던지는 다른 예외(예: 존재하지 않는 라우트)까지 500으로 마스킹할 수 있다는 점은 여전히 알려진 한계다 — 5~7번은 실제로 겪은 케이스를 좁혀서 처리한 것이고, `@Valid` 기반 필드별 검증 실패 응답 포맷은 아직 다루지 않았다(티켓 KD3-257의 7번 항목에서 별도로 정리 예정).
+
+### `IllegalStateException` → 409는 "이 값은 문제없지만 지금 상태에서는 안 됨"에만 쓴다
+
+Kotlin `check(조건) { 메시지 }`는 인자 값이 아니라 **객체의 현재 상태**가 요청을 받아들일 수 없을 때 쓴다(인자 값 검증은 `require`/`IllegalArgumentException`, 위 2번). 예: `Pet.delete()`가 이미 삭제된 pet에 다시 호출되는 경우(`PetTest`), `User.withdraw()`가 이미 탈퇴한 회원에 호출되는 경우. 이 경로는 클라이언트가 이미 처리된 리소스에 다시 요청한, 정상적인 4xx 상황이라 409로 응답한다.
+
+**`check()`를 "일어나면 안 되는 내부 버그" 어설션으로 쓰지 않는다.** 이 핸들러가 있는 한 `check()` 실패는 항상 조용히 409로 응답하고 끝난다 — 500/모니터링 알림으로 잡혀야 할 실제 버그를 이 방식으로 표현하면 안 보이게 된다. 도메인 상태 위반(클라이언트가 이미 처리된 리소스에 다시 요청하는 경우)에만 쓴다.
+
+도메인별로 더 구체적인 에러 코드가 필요하면(예: `PetErrorCode.LIMIT_EXCEEDED`처럼) 이 catch-all에 기대지 말고 서비스 레이어에서 명시적으로 잡아 `BusinessException`으로 변환한다(`CreatePetService.create()`의 `registerWithinLimit` 호출부 참고) — 이 핸들러는 그런 변환을 깜빡한 경우를 위한 안전망이지 대체재가 아니다.
 
 ## 4. 참고
 

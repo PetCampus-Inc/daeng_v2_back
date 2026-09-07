@@ -1,4 +1,4 @@
-> 생성: 2026-09-02 19:24 · 최종 수정: 2026-09-06
+> 생성: 2026-09-02 19:24 · 최종 수정: 2026-09-07
 
 # KD3-431 pet 프로필 생성·수정 API 구축
 
@@ -12,7 +12,7 @@
 
 - 활성 workflow: `003-migration`
 - 현재 공통 단계: `5`
-- 다음 결정 또는 전환 조건: 독립 리뷰 → PR 생성. `KD3-430`이 `epic/KD3-404-pet-domain-migration`으로 머지되면 이 브랜치도 그 위로 rebase.
+- 다음 결정 또는 전환 조건: `KD3-430`은 이미 `epic/KD3-404-pet-domain-migration`에 머지됐고 PR #17도 그 위로 base가 맞춰진 상태로 이미 생성돼 있다(rebase 완료). 독립 리뷰(2026-09-07, 헥사고날 구조·도메인 모델·동시성·에러 처리 전수 확인)에서 나온 수정 사항을 코드·문서에 반영 완료, 빌드·테스트 통과 확인. 아직 커밋·푸시는 안 했다 — 사용자 승인 후 커밋 → 푸시 → PR #17 본문에 이번 리뷰 반영분 동기화 → 머지 준비 순서로 진행.
 
 ## 작업 목표
 
@@ -69,7 +69,10 @@
 ### 구현 중 발견해 정정한 사항
 
 - **응답에 `createdAt`/`updatedAt`을 포함하지 않는다** (레거시 `PetResponse`와의 차이). KD3-430의 `Pet` 도메인 모델은 `User`/`SocialUser`처럼 이 프로젝트 관례대로 audit 타임스탬프를 도메인에 담지 않는다(`deletedAt`처럼 행동에 의미 있는 것만 도메인이 가짐) — 응답 필드 계약을 정할 때 레거시를 그대로 옮기며 놓쳤던 부분이라 구현 중 바로잡았다.
-- **`ExistsBreedPort`(KD3-430)는 이번 구현에서 실제로 쓰이지 않는다.** 응답에 `breedNameKo`/`breedAlias`가 필요해 어차피 `LoadBreedPort.findById`를 호출해야 하는데, 이 한 번의 호출이 존재 여부(null이면 미존재)와 표시 정보 조회를 동시에 해결한다 — `existsById`를 별도로 호출하면 같은 정보를 얻으려고 조회를 두 번 하는 셈이라 생략했다. `ExistsBreedPort`는 향후 표시 정보 없이 존재 여부만 필요한 유스케이스가 생기면 쓰면 된다.
+- **`ExistsBreedPort`(KD3-430)는 이번 구현에서 실제로 쓰이지 않아 삭제했다.** 응답에 `breedNameKo`/`breedAlias`가 필요해 어차피 `LoadBreedPort.findById`를 호출해야 하는데, 이 한 번의 호출이 존재 여부(null이면 미존재)와 표시 정보 조회를 동시에 해결한다 — `existsById`를 별도로 호출하면 같은 정보를 얻으려고 조회를 두 번 하는 셈이라 애초에 호출하지 않았다. 처음엔 "향후 필요해지면 쓰면 된다"며 미사용 상태로 남겨뒀으나(YAGNI 위반), 독립 리뷰(2026-09-07)에서 실제 호출부가 전혀 없음을 확인해 `ExistsBreedPort.kt`·`BreedExistenceAdapter.kt`를 삭제했다. breed 도메인(KD3-418)의 `LoadBreedsPort.existsById`/`BreedPersistenceAdapter.existsById`도 이 어댑터가 유일한 호출부였고 전용 테스트도 없어(호출부·테스트 부재를 grep으로 재확인) 함께 삭제했다(테스트 더블인 `BreedQueryServiceTest`의 fake 구현도 같이 제거). breed 도메인 소유 코드지만 삭제 근거가 이번 리뷰에서 나온 것이라 KD3-431 브랜치에서 함께 정리했다.
+- **`PetResponse.weight`가 `Double?`(nullable)로 선언돼 있던 것을 `Double`로 고쳤다.** `Pet.weight`는 도메인이 항상 non-null을 보장하고 이 문서·`docs/domains/pet.md`도 그렇게 명시하는데, 응답 DTO 타입만 nullable이라 자체 계약과 어긋났다(독립 리뷰에서 발견, 실제 런타임 오류는 없었음).
+- **`docs/architecture/hexagonal.md`의 ArchUnit 규칙4 설명이 코드와 어긋나 있던 것을 정정했다.** 문서는 "규칙4는 auth만 등록, 새 도메인은 수동 등록 필요"라고 적혀 있었으나 실제 `HexagonalArchitectureTest.kt`는 `domain.*.domain..` 와일드카드라 이미 전 도메인에 자동 적용된다(pet도 포함, 위반 없음 확인). 독립 리뷰에서 발견해 문서를 코드에 맞춰 정정했다.
+- **`GlobalExceptionHandler`에 `IllegalStateException` → 409(`CommonErrorCode.CONFLICT`) 전역 핸들러를 추가했다(pet 범위를 넘는 공통 변경).** `Pet.delete()`/`Pet.markAsRepresentative()`(KD3-433/434에서 쓰일 예정)의 `check()` 검증 실패가 지금까지 전용 핸들러 없이 catch-all(500)로 떨어지던 구멍을 독립 리뷰에서 발견했다. 추가 전 `check()` 호출부 3곳(`Pet.delete`/`Pet.markAsRepresentative`/`User.withdraw`)을 grep으로 전수 확인한 결과 프로덕션에서 실제로 도달하는 경로가 없어(전부 미구현 API) 기존 동작에 대한 영향은 없음을 검증했다. 상세 규칙·근거는 `docs/conventions/error-handling.md` §3에 기록.
 - **`RELATIONSHIP_TEXT_REQUIRED`(PET-400-2)를 실제로는 던지지 않는다.** `relationship=ETC`인데 `relationshipText`가 없는 경우는 `Pet.create`/`Pet.update`의 `validateRelationshipText`가 이미 `IllegalArgumentException`으로 막고, `GlobalExceptionHandler`가 이를 400 `INVALID_INPUT_VALUE`로 처리한다. 레거시는 이 케이스에 전용 코드를 던졌지만, 서비스 레이어에서 도메인 검증보다 먼저 이 조건만 따로 체크해 전용 에러코드로 바꾸는 건 도메인 로직을 서비스에 중복시키는 것이라 하지 않았다 — enum 값 자체는 향후 필요해지면 쓸 수 있게 남겨둔다.
 - **`weight`를 처음엔 PATCH로 지울 수 있는 nullable 필드 4개(`profileImage`/`birthYear`/`weight`/`isNeutered`) 중 하나로 설계했다가 정정했다.** `weight`는 생성 시에만 필수이고 이후엔 지울 수 있다고 잘못 판단한 것으로, 사용자가 "수정할 때도 non-null이어야 한다"고 지적해 바로잡았다. KD3-430(도메인·스키마)과 KD3-431(API) 양쪽 모두 수정해, `Pet` 도메인 모델·DB 컬럼·`UpdatePetCommand`/`UpdatePetRequest`의 `weight` 타입(`JsonNullable<Double>`, 비-nullable 내부 타입)과 `UpdatePetService`의 명시적 null 거부 로직까지 전부 반영했다.
 
@@ -109,6 +112,7 @@
   - 정상 생성(`weight: 10.0`) → 200, `weight` 정상 저장 확인
   - PATCH로 `weight: null`을 명시 → 400 `INVALID_INPUT_VALUE`("weight는 null일 수 없습니다.")로 거부됨 확인 — nullable 필드였을 때와 달리 더 이상 지워지지 않는다
   - PATCH로 `weight: 15`(값 변경만) → 200, `weight`가 정상적으로 갱신됨 확인
+- **독립 리뷰 후 재검증(2026-09-07)**: §방향 논의 및 결정 사항의 정정 사항(`PetResponse.weight` non-null화, `ExistsBreedPort`/`BreedExistenceAdapter`·`LoadBreedsPort.existsById`/`BreedPersistenceAdapter.existsById` 삭제, `GlobalExceptionHandler`의 `IllegalStateException` 전역 핸들러 추가) 반영 후 `./gradlew build`(ktlint, 컴파일, 전체 테스트, ArchUnit 포함) 재실행해 통과 확인. `UpdatePetServiceTest`에 `relationship이 이미 ETC가 아닌 상태에서 relationshipText만 명시적으로 보내면 거부된다` 케이스를 추가해(기존엔 관계를 함께 바꾸는 경우만 테스트) `validateRelationshipText`가 관계 변경 여부와 무관하게 동일하게 동작함을 명시적으로 커버.
 
 ## 작업 후 확인 목록
 
@@ -118,3 +122,9 @@
 | `docs/inventory/api.md` | 갱신 | `/api/v0/pet/register`·`/pet/update` 판정을 `REDESIGN`·`진행중`으로 갱신, v1 엔드포인트 링크 추가 |
 | `docs/domains/pet.md` | 갱신 | "pet 생성·수정 API" 절 신규 추가, 견종 표시 이름 조합 방식을 `LoadBreedPort` 구현 내용으로 갱신, `weight` non-null 정정 반영 |
 | `docs/conventions/error-handling.md` | 갱신 | `PetErrorCode`를 구조화 포맷의 실제 구현 사례로 추가 완료 |
+| `docs/architecture/hexagonal.md` | 갱신 | ArchUnit 규칙4가 이미 와일드카드로 전 도메인 자동 적용됨을 반영(독립 리뷰에서 발견한 문서-코드 불일치 정정) |
+| `PetResponse.kt` | 코드 수정 | `weight` 타입을 `Double?` → `Double`로 정정(도메인 불변식·문서 계약과 일치) |
+| `ExistsBreedPort.kt`/`BreedExistenceAdapter.kt` | 삭제 | 미사용 확인(grep 근거) 후 삭제 |
+| `LoadBreedsPort.existsById`/`BreedPersistenceAdapter.existsById` | 삭제 | 유일한 호출부(`BreedExistenceAdapter`) 삭제로 미사용 확인, 전용 테스트 없음 확인 후 삭제. `BreedQueryServiceTest`의 fake 구현도 함께 제거 |
+| `GlobalExceptionHandler.kt`/`CommonErrorCode.kt` | 코드 추가 | `IllegalStateException` → 409(`CONFLICT`) 전역 핸들러 추가(pet 범위를 넘는 공통 변경, 근거는 `docs/conventions/error-handling.md` §3) |
+| `docs/conventions/error-handling.md` | 갱신 | `IllegalStateException` 처리 우선순위·`check()` 사용 기준(상태 위반 전용, 내부 버그 어설션 금지) 추가 |
