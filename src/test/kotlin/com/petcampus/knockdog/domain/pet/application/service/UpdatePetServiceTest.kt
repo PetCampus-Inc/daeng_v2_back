@@ -55,6 +55,46 @@ class UpdatePetServiceTest {
     }
 
     @Test
+    fun `breedId에 명시적 null을 보내면 거부된다`() {
+        val pet = pet()
+        val service = service(pet = pet)
+
+        assertFailsWith<IllegalArgumentException> {
+            service.update(command(petId = pet.id!!, breedId = JsonNullable.of(null)))
+        }
+    }
+
+    @Test
+    fun `relationship에 명시적 null을 보내면 거부된다`() {
+        val pet = pet()
+        val service = service(pet = pet)
+
+        assertFailsWith<IllegalArgumentException> {
+            service.update(command(petId = pet.id!!, relationship = JsonNullable.of(null)))
+        }
+    }
+
+    @Test
+    fun `gender에 명시적 null을 보내면 거부된다`() {
+        val pet = pet()
+        val service = service(pet = pet)
+
+        assertFailsWith<IllegalArgumentException> {
+            service.update(command(petId = pet.id!!, gender = JsonNullable.of(null)))
+        }
+    }
+
+    @Test
+    fun `name에 명시적 null을 보내면 거부된다`() {
+        val pet = pet()
+        val service = service(pet = pet)
+
+        assertFailsWith<IllegalArgumentException> {
+            service.update(command(petId = pet.id!!, name = JsonNullable.of(null)))
+        }
+    }
+
+    @Test
     fun `존재하지 않는 pet이면 NOT_FOUND를 던진다`() {
         val service = service(pet = null)
 
@@ -159,18 +199,22 @@ class UpdatePetServiceTest {
 
     private fun command(
         petId: PetId,
+        name: JsonNullable<String> = JsonNullable.undefined(),
         profileImage: JsonNullable<String?> = JsonNullable.undefined(),
         relationship: JsonNullable<Relationship> = JsonNullable.undefined(),
         relationshipText: JsonNullable<String?> = JsonNullable.undefined(),
         breedId: JsonNullable<Long> = JsonNullable.undefined(),
+        gender: JsonNullable<Gender> = JsonNullable.undefined(),
         weight: JsonNullable<Double> = JsonNullable.undefined(),
     ) = UpdatePetCommand(
         userCode = UserCode("ABCD1234"),
         petId = petId,
+        name = name,
         profileImage = profileImage,
         relationship = relationship,
         relationshipText = relationshipText,
         breedId = breedId,
+        gender = gender,
         weight = weight,
     )
 

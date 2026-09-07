@@ -30,7 +30,12 @@ class UpdatePetService(
                 ?: throw BusinessException(PetErrorCode.NOT_FOUND)
         if (pet.userId != userId) throw BusinessException(PetErrorCode.NOT_AUTHORIZED)
 
+        val effectiveName = command.name.orElse(pet.name)
+        requireNotNull(effectiveName) { "name은 null일 수 없습니다." }
+
         val effectiveRelationship = command.relationship.orElse(pet.relationship)
+        requireNotNull(effectiveRelationship) { "relationship은 null일 수 없습니다." }
+
         val effectiveRelationshipText =
             if (command.relationshipText.isPresent) {
                 command.relationshipText.get()
@@ -39,18 +44,24 @@ class UpdatePetService(
             } else {
                 pet.relationshipText
             }
+
         val effectiveBreedId = command.breedId.orElse(pet.breedId)
+        requireNotNull(effectiveBreedId) { "breedId는 null일 수 없습니다." }
         val breed = loadBreedPort.findById(effectiveBreedId) ?: throw BusinessException(PetErrorCode.NOT_FOUND_BREED)
+
+        val effectiveGender = command.gender.orElse(pet.gender)
+        requireNotNull(effectiveGender) { "gender는 null일 수 없습니다." }
+
         val effectiveWeight = command.weight.orElse(pet.weight)
         requireNotNull(effectiveWeight) { "weight는 null일 수 없습니다." }
 
         pet.update(
-            name = command.name.orElse(pet.name),
+            name = effectiveName,
             profileImage = command.profileImage.orElse(pet.profileImage),
             relationship = effectiveRelationship,
             relationshipText = effectiveRelationshipText,
             breedId = effectiveBreedId,
-            gender = command.gender.orElse(pet.gender),
+            gender = effectiveGender,
             birthYear = command.birthYear.orElse(pet.birthYear),
             weight = effectiveWeight,
             isNeutered = command.isNeutered.orElse(pet.isNeutered),
