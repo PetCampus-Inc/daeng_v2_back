@@ -1,0 +1,12 @@
+spring:
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        dialect:
+  flyway:
+    enabled: true
+  datasource:
+    hikari:
+      maximum-pool-size: 10

@@ -1,4 +1,4 @@
-> 생성: 2026-09-02 22:02 · 최종 수정: 2026-09-04 21:09
+> 생성: 2026-09-02 22:02 · 최종 수정: 2026-09-07 13:21
 
 # pet 도메인
 
@@ -35,7 +35,7 @@
 | `weight` | 컬럼 타입은 DOUBLE(반려동물 체중은 소수점 단위가 실제로 의미 있어 확장성을 열어둠), 컬럼은 **NOT NULL**. 현재 기획(1~99 정수)에 맞춰 범위와 "소수점 없음"을 검증한다. 생성 시 필수이며(레거시 등록 API와 동일) **수정 후에도 절대 지울 수 없다** — `profileImage`/`birthYear`/`isNeutered`와 달리 PATCH로도 null을 허용하지 않는 유일한 nullable-후보 필드다 |
 | `breedId` | NOT NULL. `breeds`에 믹스견(1번)·기타(385번)가 있어 견종을 특정할 수 없는 경우도 표현 가능해 견종 미상 상태를 별도로 두지 않는다 |
 | 대표견 단일성 | `pets.representative_user_id`(nullable, UNIQUE — 대표견이면 `user_id`와 같은 값, 아니면 NULL)로 DB가 보장한다. 최초 등록하는 pet은 자동으로 대표견이 되는 레거시 규칙을 유지한다. **대표견을 교체할 때는 반드시 기존 대표견을 먼저 해제(`clearRepresentative`+저장)한 뒤 새 대표견을 지정(`markAsRepresentative`+저장)해야 한다** — 순서를 바꾸면 UNIQUE 제약 위반으로 실패한다 |
-| 최대 마릿수 | 사용자당 5마리. `SELECT ... FOR UPDATE`로 활성 pet 행을 잠근 뒤 등록하는 애플리케이션 레벨 잠금으로 처리한다(기존 행이 있는 경우 실제 MySQL로 검증됨. 활성 pet 0건 상태의 동시 등록까지는 미검증 — [`KD3-430`](../work/KD3-430-pet-domain-foundation-schema.md) 검증 결과 참고) |
+| 최대 마릿수 | 사용자당 5마리. `SELECT ... FOR UPDATE`로 활성 pet 행을 잠근 뒤 등록하는 애플리케이션 레벨 잠금으로 처리한다. 활성 pet이 0건이라 잠글 행이 없는 상태의 동시 등록도, 항상 존재하는 `users` 행을 먼저 잠그는 `LockUserPort`로 직렬화한다(Testcontainers 기반 자동화 테스트로 검증 — [`KD3-430`](../work/KD3-430-pet-domain-foundation-schema.md) 검증 결과 참고) |
 | 삭제 | soft delete(`deleted_at`). 삭제 유스케이스는 후속 티켓(KD3-434) |
 | 견종 표시 이름 | pet 테이블에 중복 저장하지 않는다. 조회 API가 `breedId`로 breed 도메인의 조회 포트를 호출해 응답 시점에 조합한다 |
 
