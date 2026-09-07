@@ -13,6 +13,7 @@ import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection
+import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.test.context.ActiveProfiles
 import org.testcontainers.containers.MySQLContainer
 import org.testcontainers.junit.jupiter.Container
@@ -22,6 +23,7 @@ import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 
 @Testcontainers
 @SpringBootTest
@@ -136,6 +138,15 @@ class PetRegistrationConcurrencyTest {
         val savedPets = petJpaRepository.findAllActiveByUserId(userId)
         assertEquals(5, savedPets.size)
         assertEquals(1, savedPets.count { it.representativeUserId != null })
+    }
+
+    @Test
+    fun `동일 사용자의 두 번째 대표견 저장은 유니크 제약 위반으로 실패한다`() {
+        petPersistenceAdapter.save(newPet("first-representative").also { it.markAsRepresentative() })
+
+        assertFailsWith<DataIntegrityViolationException> {
+            petPersistenceAdapter.save(newPet("second-representative").also { it.markAsRepresentative() })
+        }
     }
 
     private fun newPet(name: String): Pet =

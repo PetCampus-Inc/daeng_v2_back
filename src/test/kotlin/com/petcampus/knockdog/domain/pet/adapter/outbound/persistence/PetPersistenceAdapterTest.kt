@@ -7,7 +7,6 @@ import com.petcampus.knockdog.domain.pet.domain.Relationship
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest
 import org.springframework.context.annotation.Import
-import org.springframework.dao.DataIntegrityViolationException
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -48,15 +47,6 @@ class PetPersistenceAdapterTest(
         val result = petPersistenceAdapter.registerWithinLimit(pet(userId = 2L))
 
         assertTrue(result.isRepresentative)
-    }
-
-    @Test
-    fun `동일 사용자의 두 번째 대표견 저장은 유니크 제약 위반으로 실패한다`() {
-        petPersistenceAdapter.save(pet(userId = 1L, isRepresentative = true))
-
-        assertFailsWith<DataIntegrityViolationException> {
-            petPersistenceAdapter.save(pet(userId = 1L, isRepresentative = true))
-        }
     }
 
     @Test

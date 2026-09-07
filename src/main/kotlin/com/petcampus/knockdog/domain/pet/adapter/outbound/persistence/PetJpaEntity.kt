@@ -18,14 +18,10 @@ import jakarta.persistence.Id
 import jakarta.persistence.JoinColumn
 import jakarta.persistence.ManyToOne
 import jakarta.persistence.Table
-import jakarta.persistence.UniqueConstraint
 import java.time.LocalDateTime
 
 @Entity
-@Table(
-    name = "pets",
-    uniqueConstraints = [UniqueConstraint(name = "uk_pets_representative_user", columnNames = ["representative_user_id"])],
-)
+@Table(name = "pets")
 class PetJpaEntity(
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
