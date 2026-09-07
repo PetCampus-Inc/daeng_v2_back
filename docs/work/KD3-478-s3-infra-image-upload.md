@@ -124,7 +124,7 @@ domain/media/
 
 - v1 응답 필드명(`url` vs `preSignedUrl`, `expiresIn` 포함 여부) — 프론트 전환 작업에서 `daeng_v2_front` 소비 코드와 맞춰 최종 확정. 현재는 `{url, key, expiresIn}` 잠정.
 - presign TTL: 업로드/다운로드를 분리할지, 레거시처럼 단일 값(`local/dev` 1시간, `prod` 20분)으로 갈지 — 구현 시 확정.
-- `contentType` 허용 목록의 정확한 범위(image/*만? webp 포함?) — 구현 시 레거시 실사용 + 프론트 업로드 타입 확인해 확정.
+- `contentType` 허용 목록 — 확정: `image/jpeg`·`image/png`·`image/webp`·`image/heic`·`image/heif` (프론트 `useImagePicker.ts` picker 목록과 일치). 프론트가 방어적으로 두는 `image/jpg`(비표준 별칭)는 미대응 — 브라우저 `File.type`은 보통 `image/jpeg`라 실사용 시 문제 없을 전망이나 네이티브 브릿지 경로 확인은 프론트 전환 작업 몫.
 - commit의 `targetPath` 허용 prefix 규칙 — 도메인별 소비가 붙기 전까지는 검증 기준이 느슨할 수밖에 없음. 최소 규칙(예: `tmp/` 금지, 절대경로·`..` 금지)만 이번에 두고 도메인 확정은 후속.
 - 로컬 검증 수단 (LocalStack 컨테이너 vs 실 S3 + 개발자 자격증명).
 

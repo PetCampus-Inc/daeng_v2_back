@@ -7,6 +7,8 @@ enum class MediaContentType(
     JPEG("image/jpeg", "jpg"),
     PNG("image/png", "png"),
     WEBP("image/webp", "webp"),
+    HEIC("image/heic", "heic"),
+    HEIF("image/heif", "heif"),
     ;
 
     companion object {

@@ -1,4 +1,4 @@
-> 생성: 2026-09-07 13:10 · 최종 수정: 2026-09-07 13:10
+> 생성: 2026-09-07 13:10 · 최종 수정: 2026-09-07 14:40
 
 # media 도메인
 
@@ -14,7 +14,7 @@
 | 항목 | 규칙 |
 |---|---|
 | 임시 업로드 key | 서버가 생성한다 — `tmp/{userCode}/{uuid}.{ext}`. 클라이언트는 prefix/경로를 지정할 수 없다(레거시 `path` 파라미터 제거 — 0004 보안 이슈) |
-| 업로드 content-type | `MediaContentType` 허용 목록(`image/jpeg`, `image/png`, `image/webp`)만. 그 외 400 |
+| 업로드 content-type | `MediaContentType` 허용 목록(`image/jpeg`, `image/png`, `image/webp`, `image/heic`, `image/heif`)만. 그 외 400. 프론트 picker 허용 목록(`useImagePicker.ts`)과 맞춘다 — 단 프론트의 `image/jpg` 별칭은 아직 미대응 |
 | commit 소유권 | source key가 호출자의 `tmp/{userCode}/` 아래일 때만 허용. 아니면 403 |
 | commit 대상 경로 | `tmp/` 하위·절대경로·`..` 금지. object는 `{targetPath}/{원본 filename}`으로 이동(copy 후 원본 delete) |
 | 다운로드 presign | 인증만 요구한다. 임의 key에 대해 발급하며 **key 소유권은 검증하지 않는다** — 그 key를 리소스에 연결한 소비 도메인의 책임이다. 범용 API는 짧은 TTL만 보장 |

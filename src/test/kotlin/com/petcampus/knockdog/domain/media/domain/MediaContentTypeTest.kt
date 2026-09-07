@@ -19,4 +19,10 @@ class MediaContentTypeTest {
     fun `항목마다 key 확장자를 가진다`() {
         assertEquals("jpg", MediaContentType.JPEG.extension)
     }
+
+    @Test
+    fun `HEIC와 HEIF를 허용한다`() {
+        assertEquals(MediaContentType.HEIC, MediaContentType.forMimeType("image/heic"))
+        assertEquals(MediaContentType.HEIF, MediaContentType.forMimeType("image/heif"))
+    }
 }
