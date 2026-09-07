@@ -1,4 +1,4 @@
-> 생성: 2026-09-02 19:24 · 최종 수정: 2026-09-07 21:10
+> 생성: 2026-09-02 19:24 · 최종 수정: 2026-09-07 21:45
 
 # KD3-432 pet 목록·단건 조회 API 구축
 
@@ -47,7 +47,9 @@
 ### 구현 중 발견해 정정한 사항
 
 - **breed 조회 실패 시 `requireNotNull`(→400)로 짰다가 `checkNotNull`(→500)로 정정했다.** `GetPetsService`/`GetPetService`가 이미 저장된 pet의 `breedId`로 breed를 조회할 때, 그 breed가 없는 경우는 이번 요청이 잘못 보낸 게 아니라(요청은 인증 정보·`petId`만 주고 `breedId`는 아예 관여하지 않는다) 과거에 저장된 데이터 정합성이 깨진 서버 쪽 문제다 — `require`(값 문제, 400)가 아니라 `check`(상태/정합성 문제, 500) 계열을 써야 클라이언트에게 잘못된 책임을 지우지 않는다. `CreatePetService`/`UpdatePetService`의 `loadBreedPort.findById(command.breedId) ?: NOT_FOUND_BREED`(400)와는 다른 경우다 — 그쪽은 `breedId`가 이번 요청의 body에서 직접 온 값이라 진짜 클라이언트 입력 오류가 맞다.
-- **조회 서비스에 `@Transactional(readOnly = true)`가 빠져 있던 것을 추가했다.** breed 도메인의 `BreedQueryService`가 이미 이 컨벤션을 쓰고 있는데(조회 서비스는 `readOnly = true` 트랜잭션으로 감싼다) 놓쳤다가 자체 재검토로 발견해 `GetPetsService.getPets()`/`GetPetService.getPet()`에 추가했다. `GetPetsService`는 특히 pet 목록 조회 1번 + breed 조회 최대 5번을 하나의 읽기 트랜잭션으로 묶어야 일관된 스냅숏을 보장한다.
+- **조회 서비스에 `@Transactional(readOnly = true)`가 빠져 있던 것을 추가했다.** breed 도메인의 `BreedQueryService`가 이미 이 컨벤션을 쓰고 있는데(조회 서비스는 `readOnly = true` 트랜잭션으로 감싼다) 놓쳤다가 자체 재검토로 발견해 `GetPetsService.getPets()`/`GetPetService.getPet()`에 추가했다. `GetPetsService`는 pet 목록 조회 1번 + breed 조회 최대 5번을 하나의 읽기 전용 트랜잭션으로 묶는다.
+  - **정정(2026-09-07, 리뷰 지적 반영): "일관된 스냅숏을 보장한다"는 표현은 과장이었다.** `isolation`을 지정하지 않은 `@Transactional`은 `Isolation.DEFAULT` — 즉 실제 격리 수준은 이 코드가 정하는 게 아니라 연결된 DB의 기본값을 그대로 따른다. 이 저장소 어디에도 `transaction-isolation`을 명시한 곳이 없다. 로컬 MySQL 8.0(InnoDB)의 기본값은 REPEATABLE READ지만, `PetPersistenceAdapterTest` 등 `@DataJpaTest` 기반 테스트는 H2를 쓰는데 H2의 기본값은 READ COMMITTED로 서로 다르다(H2 공식 문서 확인) — 즉 "모든 환경에서 스냅숏 보장"은 사실이 아니다.
+  - **그럼에도 `isolation`을 명시적으로 못박지 않기로 했다.** REPEATABLE READ가 READ COMMITTED보다 추가로 주는 보장(같은 행을 트랜잭션 안에서 두 번 읽어도 항상 같은 값)을 이 기능이 실제로 쓰지 않는다 — `GetPetsService`는 같은 행을 두 번 읽지 않고(pet 목록 1번, breed는 서로 다른 행을 각 1번), breed는 이 앱에 수정·삭제 경로가 없는 385건 고정 시드 데이터라 조회 도중 값이 바뀔 수 없다. 즉 이 기능엔 격리 수준이 REPEATABLE READ든 READ COMMITTED든 결과 차이가 없어, 지금 없는 요구를 미리 코드로 못박는 대신(YAGNI) 문서 표현만 실제 보장 범위에 맞게 낮춘다: **"여러 쿼리를 하나의 읽기 전용 트랜잭션으로 묶어 실행한다"**(스냅숏·격리 수준 보장 주장 없음). 향후 같은 행을 트랜잭션 안에서 여러 번 읽거나 읽은 값을 바탕으로 쓰기를 하는 기능이 생기면, 그때 그 기능의 실제 요구에 맞춰 `isolation`을 명시하고 근거를 남긴다.
 - **`GlobalExceptionHandler`에 `MethodArgumentTypeMismatchException` → 400 핸들러를 추가했다(pet 범위를 넘는 공통 변경).** `GetPetController`의 `@PathVariable petId: Long`처럼 경로 변수 타입이 `Long`인데 숫자가 아닌 값(`/api/v1/pets/abc`)이 오면 Spring이 이 예외를 던지는데, 전용 핸들러가 없어 이 클래스의 catch-all(`Exception::class`)로 떨어져 500으로 응답하고 있었다. 이건 KD3-431의 `UpdatePetController`도 이미 갖고 있던 기존 한계였다. 앞서 철회한 `IllegalStateException` 전역 핸들러와는 성격이 다르다고 판단해 이번엔 전역으로 추가했다 — 그건 "클라이언트 충돌 vs 내부 버그"를 도메인마다 다르게 판단해야 해서 전역 처리가 위험했지만, 이건 "경로 변수 타입이 안 맞으면 400"이 어떤 리소스든 예외 없이 항상 맞는 기계적 규칙이라 도메인 판단이 필요 없다. 또한 이 프로젝트의 catch-all이 없었다면 Spring이 원래 자동으로 400 처리해줬을 것을 catch-all이 가로채 500으로 만들어버리고 있었던 것이라, 새 기능이 아니라 프레임워크 기본 동작을 되살리는 수정이다. 상세 근거는 `docs/conventions/error-handling.md` §3에 기록.
 
 ### 미결 질문
