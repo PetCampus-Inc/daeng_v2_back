@@ -1,4 +1,4 @@
-> 생성: 2026-09-07 12:22 · 최종 수정: 2026-09-07 13:15
+> 생성: 2026-09-07 12:22 · 최종 수정: 2026-09-07 18:30
 
 # KD3-478 — S3 인프라 기본 설정 및 범용 이미지 업로드 기능 이관
 
@@ -161,4 +161,5 @@ domain/media/
 | `docs/conventions/*` | 해당 없음 | 새 판단 기준 없음. content-type 허용 목록·key 규칙은 `media` 도메인 한정이라 `domains/media.md`에 둠 |
 | `docs/adr/` | 해당 없음 | 되돌리기 어렵거나 여러 도메인에 걸친 신규 결정 없음 — SDK v2 선택, `media` 명명 등은 이 문서에 기록 |
 | `build.gradle.kts` | 갱신 | AWS SDK v2 BOM `2.30.0` + `s3` + `url-connection-client`. 문서 아님, PR 포함 |
+| `.env.example` | 갱신 | `AWS_ACCESS_KEY_ID`/`AWS_SECRET_ACCESS_KEY`/`AWS_S3_REGION`/`AWS_S3_BUCKET`/`AWS_S3_PRESIGN_{UPLOAD,DOWNLOAD}_TTL` 항목 추가 |
 | `docs/service.md` §6 용어집 | 확인, 변경 없음 | `media`는 사용자 대면 개념이 아니라 인프라성 도메인이라 용어집 추가 안 함 |
