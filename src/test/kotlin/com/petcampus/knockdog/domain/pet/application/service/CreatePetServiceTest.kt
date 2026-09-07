@@ -122,5 +122,7 @@ class CreatePetServiceTest {
         }
 
         override fun save(pet: Pet): Pet = pet
+
+        override fun setRepresentativeWithinLock(pet: Pet): Pet = pet
     }
 }
