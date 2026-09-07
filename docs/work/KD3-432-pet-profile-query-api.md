@@ -1,4 +1,4 @@
-> 생성: 2026-09-02 19:24 · 최종 수정: 2026-09-07 20:35
+> 생성: 2026-09-02 19:24 · 최종 수정: 2026-09-07 21:10
 
 # KD3-432 pet 목록·단건 조회 API 구축
 
@@ -11,8 +11,8 @@
 ## 현재 제어점
 
 - 활성 workflow: `003-migration`
-- 현재 공통 단계: `4`
-- 다음 결정 또는 전환 조건: 작업 브랜치는 `dev`/`epic`이 아니라 `feat/KD3-431-pet-profile-create-update-api`에서 분기한 stacked 브랜치다(KD3-431이 epic에 머지되면 base 재조정·rebase 예정). 구현·단위 테스트·전체 빌드·자체 재검토(2건 정정) 및 `MethodArgumentTypeMismatchException` 공통 핸들러 추가까지 완료(148건 통과)하고 커밋 4개로 나눠 커밋·푸시, PR #20 생성 완료(base `feat/KD3-431-pet-profile-create-update-api`, `MERGEABLE`). 로컬 MySQL 실제 HTTP 엔드투엔드 검증도 완료(§검증 결과 참고). 다음은 5단계 독립 리뷰.
+- 현재 공통 단계: `5`
+- 다음 결정 또는 전환 조건: 작업 브랜치는 `dev`/`epic`이 아니라 `feat/KD3-431-pet-profile-create-update-api`에서 분기한 stacked 브랜치다(KD3-431이 epic에 머지되면 base 재조정·rebase 예정). 구현·단위 테스트·전체 빌드·로컬 HTTP 엔드투엔드 검증까지 전부 완료, PR #20 생성 완료(`MERGEABLE`, `CLEAN`). **아직 컨텍스트를 공유하지 않는 진짜 독립 리뷰(5단계 핵심)를 안 거쳤다** — 이 세션이 계속 봐온 것과 사용자 확인만으로 진행됐다. CodeRabbit 자동 리뷰도 base가 default 브랜치가 아니라 스킵된 상태. 독립 리뷰 완료 후 머지 준비.
 
 ## 작업 목표
 
