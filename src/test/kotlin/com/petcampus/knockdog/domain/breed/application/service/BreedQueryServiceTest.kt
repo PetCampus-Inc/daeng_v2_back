@@ -56,5 +56,7 @@ class BreedQueryServiceTest {
             queries += query
             return emptyList()
         }
+
+        override fun existsById(id: Long): Boolean = all.any { it.id == id }
     }
 }

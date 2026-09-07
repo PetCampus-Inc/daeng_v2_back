@@ -1,4 +1,4 @@
-> 생성: 2026-08-02 13:45 · 최종 수정: 2026-09-02 22:02
+> 생성: 2026-08-02 13:45 · 최종 수정: 2026-09-04 19:28
 
 # 데이터 인벤토리
 
@@ -55,7 +55,8 @@
 | MySQL | `withdraw_reason` | 탈퇴 사유 | auth/user | auth/user | `REDESIGN` | `미착수` | 탈퇴 이력/사유 데이터 후보 | auth/user 슬라이스 | 보존 기간, 개인정보 삭제 정책 |
 | MySQL | `user_address` | 사용자 주소 | user/mypage | user/mypage | `REDESIGN` | `완료` | 사용자 저장 주소 후보. address 검색/좌표 변환 API와 별도 | mypage/address 슬라이스 (`POST /api/v0/mypage/address`) | HOME 주소 필수 여부, 좌표 저장 여부, 주소 타입 |
 | MySQL | `user_notification_setting` | user_notification_setting | user/notification | notification | `REDESIGN` | `미착수` | 사용자 알림 설정 후보. 레거시는 KD3-287에서 이 테이블을 건드리지 않고 `notification_preference`를 새로 만들어 두 개가 공존한다 | notification 슬라이스 | 두 테이블 중 어느 쪽이 진실인지 확정하고 신규 서버에서는 하나로 합친다 |
-| MySQL | `pet` | 반려견 | pet | pet | `REDESIGN` | `미착수` | 반려견 핵심 데이터 후보 | pet 슬라이스 | 보호자 관계, 대표 반려견, 삭제 정책 |
+| MySQL | `pet` | 반려견 | pet | pet | `REDESIGN` | `진행중` | 반려견 핵심 데이터 후보 | pet 슬라이스 ([`KD3-430`](../work/KD3-430-pet-domain-foundation-schema.md)) | HTTP API·유스케이스 미구현(KD3-431~434), 기존 데이터 backfill 미착수 |
+| MySQL | `pets` | (초안 없음) | pet | pet | `REDESIGN` | `진행중` | 신규 스키마. 소유자·breed_id는 다른 도메인 애그리게잇에 대한 느슨한 참조(FK 제약 없음). 대표견 단일성은 `representative_user_id`(nullable, UNIQUE) 컬럼으로 DB가 보장 | pet 슬라이스 ([`KD3-430`](../work/KD3-430-pet-domain-foundation-schema.md)) | 활성 pet 0건 상태의 동시 등록(첫 pet 경쟁) 시 최대 5마리 보장은 MySQL에서 미검증 |
 | MySQL | `tb_breed` | 견종 | pet/reference | pet | `DROP` | `해당없음` | 레거시가 KD3-370에서 `breed_catalog`를 신설해 대체했고 프론트도 `GET /api/v0/breed-catalog`로 이전 | - | 잔존 참조가 없는지 확인 후 삭제. 기준 데이터는 `breed_catalog`로 단일화 |
 | MySQL | `bookmark` | 북마크 | bookmark | bookmark/comparison | `REDESIGN` | `미착수` | 사용자-유치원 북마크 후보 | bookmark 슬라이스 | target이 school 고정인지, 중복 unique |
 | MySQL | `comparison_history` | 비교 내역 | comparison | bookmark/comparison | `DEFER` | `미착수` | 유치원 비교 이력 후보 | comparison 슬라이스 | 기능 유지 여부, 보존 기간 |

@@ -1,0 +1,137 @@
+> 생성: 2026-09-02 19:24 · 최종 수정: 2026-09-07 14:44
+
+# KD3-430 pet 도메인 기반 및 스키마 구축
+
+| 항목 | 값 |
+|---|---|
+| Jira | `KD3-430` |
+| 브랜치 | `feat/KD3-430-pet-domain-foundation-schema` |
+| 상위 에픽 | `KD3-404` |
+
+## 현재 제어점
+
+- 활성 workflow: `003-migration`
+- 현재 공통 단계: `5`
+- PR: [#15](https://github.com/PetCampus-Inc/daeng_v2_back/pull/15) (`feat/KD3-430-pet-domain-foundation-schema` → `epic/KD3-404-pet-domain-migration`)
+- 다음 결정 또는 전환 조건: 리뷰·CI 통과 후 머지. `KD3-418`이 `epic/KD3-404-pet-domain-migration`으로 머지되면서 base가 자동으로 재조정됐고, 이 브랜치도 그 위로 rebase 완료(2026-09-06) — 추가 재조정 불필요, 이제 리뷰·머지만 남음.
+
+## 작업 목표
+
+후속 pet 유스케이스가 공유할 순수 도메인 모델, Flyway 스키마, persistence 어댑터와 소유권 확인 경계를 구축한다.
+
+## 작업 범위
+
+- `pets` 스키마와 `breed_id` 참조 컬럼을 추가한다.
+- pet 식별자, 프로필 필드, 대표 여부, soft delete를 표현하는 도메인 모델을 만든다. 프로필 필드는 레거시(`daeng_v1_back`의 `pet/model/Pet.java`) 대조로 확정했다.
+- 사용자 소유 확인, 활성 펫 조회·저장, 견종 존재 확인을 위한 포트를 정의한다.
+- 최대 5마리와 대표견 단일성의 동시성 처리 방식을 구현·검증한다. 최초 등록 pet은 자동으로 대표견이 되는 레거시 규칙을 유지한다.
+
+### `pets` 테이블 확정 설계
+
+| 컬럼 | 타입 | NULL | 비고 |
+|---|---|---|---|
+| `id` | BIGINT PK | NOT NULL | AUTO_INCREMENT |
+| `user_id` | BIGINT | NOT NULL | 소유자. `SocialUser.userId`와 동일 패턴 — `@ManyToOne` + `ConstraintMode.NO_CONSTRAINT` + `EntityManager.getReference()`로 다른 도메인(auth) 애그리게잇을 프록시 참조만 한다([`jpa-entity.md`](../conventions/jpa-entity.md) §3) |
+| `name` | VARCHAR(100) | NOT NULL | |
+| `profile_image` | VARCHAR(500) | NULL | |
+| `relationship` | VARCHAR(20) | NOT NULL | enum, `@Enumerated(STRING)` |
+| `relationship_text` | VARCHAR(100) | NULL | `relationship='ETC'`일 때만 필수, 그 외에는 반드시 NULL(양방향 도메인 검증, KD3-431 계획 중 보강) |
+| `breed_id` | BIGINT | NOT NULL | `breeds.id` 참조. `user_id`와 동일한 `@ManyToOne`+`getReference()` 패턴(다른 도메인 애그리게잇 참조) |
+| `gender` | VARCHAR(20) | NOT NULL | enum |
+| `birth_year` | INT | NULL | 연도만 |
+| `weight` | DOUBLE | NOT NULL | 생성 시 필수이며 이후로도 항상 값이 있어야 한다(등록 후에도 지울 수 없음 — KD3-431 PATCH 설계 중 재확인). 1~99 범위·소수점 없음(정수 값)을 검증 |
+| `is_neutered` | BOOLEAN | NULL | |
+| `representative_user_id` | BIGINT | NULL, UNIQUE | 대표견이면 `user_id`와 같은 값, 아니면 NULL. 사용자당 대표견 1개를 DB가 무조건 보장하는 안전장치(구현 중 결정, 아래 참고) |
+| `created_at`/`updated_at`/`deleted_at` | DATETIME(6) | 규칙대로 | `BaseEntity` 상속 |
+
+실제 컬럼·제약의 최종 근거는 `V4__create_pets.sql`이며, 위 표와 어긋나면 SQL 파일이 우선한다.
+
+## 작업 제외 범위
+
+- HTTP API와 유스케이스 구현
+- 기존 pet 데이터 backfill
+- `school_pet_membership` 조회·갱신 및 `schoolConnectionBadge`
+- **user-pet 다대다(공동 소유·가족 공유) 모델**: 하나의 pet을 여러 사용자가 등록해 동일 정보를 공유하는 설계를 검토했으나, 문서·레거시 어디에도 확정된 요구사항이 없고(레거시 `Pet`도 `user_id` 단일 FK), 초대·권한·연결해제 플로우 같은 UX·정책이 전혀 정의돼 있지 않아 지금 스키마에 반영할 근거가 없다. 이 티켓에 후속 4개 티켓(KD3-431~434)이 대기 중이라 미확정 기능으로 범위를 넓히는 비용도 크다. 기획이 확정되면 별도 티켓으로 설계·조사(007 workflow)부터 시작한다. 관련 제약은 `docs/domains/pet.md`에 남긴다.
+
+## 방향 논의 및 결정 사항
+
+### 확정 사항
+
+- pet은 견종명을 저장하지 않고 `breed_id`를 참조한다. 컬럼명·참조 대상은 KD3-418이 실제로 만든 `breeds` 테이블·`domain/breed` 패키지 기준이다(`breed_catalog_id`는 레거시 서버의 옛 명칭이 잘못 남은 것이었다 — `docs/domains/pet.md`와 대조해 KD3-430 승인 직후 정정).
+- pet 삭제는 후속 삭제 유스케이스에서 soft delete로 처리한다.
+- DB FK 제약은 두지 않고 애플리케이션 경계에서 참조 정합성을 확인한다.
+- 작업 브랜치는 `dev`가 아닌 `feat/KD3-418-breed-catalog-v1-api`에서 분기한 stacked 브랜치로 진행한다. `breed_id` 참조가 KD3-418 산출물에 기능적으로 의존하기 때문이다. PR base는 KD3-418이 `dev`에 머지되기 전까지 `feat/KD3-418-breed-catalog-v1-api`로 두고, 머지 후 `dev`로 재조정한다. KD3-418에 추가 커밋이 발생하면 그 위로 rebase한다.
+- `birthYear`는 레거시와 동일하게 연도만 저장한다. 정확한 생년월일(date)로의 확장은 이번 작업 범위가 아니다.
+- `relationship`/`relationshipText`는 레거시와 동일하게 pet 도메인에 포함한다. `relationship`은 값이 8개로 고정되고 값 자체에 딸린 메타데이터가 없어 `breed`(FCI 표준 참조 데이터, 385건, 자체 메타데이터 보유)와 달리 참조 테이블이 아니라 Kotlin enum으로 관리한다 — 이 프로젝트의 `AddressType`/`Gender` 등과 동일한 패턴. `ETC`일 때만 `relationshipText` 필수 검증은 도메인 모델이 담당한다.
+- 최초 등록하는 pet은 자동으로 대표견이 되는 레거시 규칙(`PetService.registerPet`의 `isFirstPet`)을 그대로 유지한다.
+- `breedId`는 NOT NULL로 강제한다. `breeds` 카탈로그에 믹스견(1번)·기타(385번)가 있어 견종을 특정할 수 없는 경우도 표현 가능하다.
+- `profileImage`는 nullable로 설계한다. 레거시 엔티티 컬럼은 NOT NULL이지만 등록 요청 DTO의 `@NotBlank`가 주석 처리돼 있어 실제 운영에서 필수로 강제되지 않았다(레거시 자체 불일치) — 그 실질 동작을 따른다.
+- `gender`는 레거시(등록 요청 DTO `@NotNull`)와 동일하게 NOT NULL로 강제한다. 레거시 엔티티 컬럼 자체는 nullable이지만, 실제 등록 경로는 항상 값을 요구했다.
+- `weight` 타입은 DOUBLE로 유지한다(구현 중 재확인). 현재 기획은 1~99 정수지만, 레거시도 이미 저장 컬럼은 `Double`이었고(등록 API만 `Integer`로 받아 변환) 반려동물 체중은 소수점 단위(예: 소형견 2.3kg)가 실제로 의미 있는 데이터라 향후 확장 가능성이 높다. `INT → DOUBLE` 확장과 달리 이미 DOUBLE인 컬럼을 좁히는 쪽이 되돌리기 어려워, 지금 기획에 맞춰 **타입은 DOUBLE, 검증은 정수 값만 허용**(1~99 범위 + 소수점 없음)으로 구현한다. 도메인 모델(`Pet.create`)이 검증을 담당해 진입점과 무관하게 불변식을 지킨다.
+- `name`(VARCHAR 100)·`profile_image`(VARCHAR 500)·`relationship_text`(VARCHAR 100)는 이 프로젝트의 기존 컬럼(`User.nickname` length 100, `profile_image` length 500)보다 좁지 않게 여유를 두고 정했다. 프론트 화면의 실제 입력 제한은 별도이며 이 값보다 항상 좁게 잡는다.
+- `user_id`·`breed_id`는 `SocialUser.userId`와 동일한 패턴을 쓴다: `@ManyToOne` + `ConstraintMode.NO_CONSTRAINT` + `EntityManager.getReference()`로 다른 도메인(auth·breed) 애그리게잇을 전체 로딩 없이 프록시로만 참조한다([`jpa-entity.md`](../conventions/jpa-entity.md) §3). (구현 착수 시점에 "plain Long 컬럼"으로 잘못 안내했다가 `SocialUser` 코드를 다시 대조해 정정했다.)
+- 견종 이름(`nameKo` 등)은 pet 도메인에 중복 저장하지 않는다. 표시용 이름이 필요한 조회 API(KD3-432)가 `breedId`로 breed 도메인의 조회 포트를 호출해 응답 시점에 조합한다.
+- 견종 존재 확인은 breed 도메인의 `LoadBreedsPort`에 `existsById(id: Long): Boolean`을 추가(KD3-418 산출물 확장, `BreedPersistenceAdapter`가 `breedJpaRepository.existsById`로 구현)하고, pet 도메인은 자신의 `ExistsBreedPort`를 정의해 그 위에 위임하는 어댑터(`BreedExistenceAdapter`)로 연결한다. pet의 application 계층은 `LoadBreedsPort`를 직접 알지 못한다.
+- **대표견 단일성은 `is_representative` 불리언 대신 `representative_user_id`(nullable, UNIQUE) 컬럼으로 구현한다** (구현 중 결정). 대표견이면 `user_id`와 같은 값을, 아니면 NULL을 저장한다 — 매핑은 어댑터(`PetMapper`)가 전담하고 도메인 모델은 여전히 `isRepresentative: Boolean`만 노출한다. MySQL 전용 문법(생성 컬럼 등) 없이 표준 UNIQUE 제약만으로 동작해 로컬 테스트(H2, `ddl-auto: create-drop`)와 운영(MySQL) 양쪽에서 동일하게 검증할 수 있다.
+- **최대 5마리는 애플리케이션 레벨 잠금으로 처리한다**: `PetJpaRepository.findAllActiveByUserIdForUpdate`가 `@Lock(PESSIMISTIC_WRITE)`로 해당 사용자의 활성 pet 행을 잠그고, `PetPersistenceAdapter.registerWithinLimit`가 같은 트랜잭션에서 개수를 확인한 뒤 저장한다. ~~이 락은 기존 행이 있을 때만 신뢰할 수 있다 — MySQL InnoDB의 갭 락(0건일 때의 신규 삽입 직렬화)까지는 검증하지 못했다(아래 완료 확인 기준 참고).~~ **(2026-09-07 갱신) 이 잔여 케이스는 `LockUserPort` 도입으로 해결·검증 완료 — 아래 "첫 pet 경쟁 해결"·"Testcontainers 도입" 항목 참고.**
+- `Relationship`의 손윗형제 4종은 레거시 `ELDER_SISTER`/`ELDER_BROTHER`/`OLDER_SISTER`/`OLDER_BROTHER`를 쓰지 않고 `EONNI`/`NUNA`/`OPPA`/`HYUNG`(로마자 표기)로 바꿨다(구현 중 결정). 언니/누나/오빠/형은 "손윗형제의 성별 × 화자(보호자)의 성별" 조합이라 영어에 대응 단어가 없고, 레거시의 elder/older 구분은 실제로는 없는 의미 차이를 암시해 혼동을 준다. `@Enumerated(STRING)`이라 이 이름이 그대로 DB에 저장되고 향후 API 응답에도 노출될 값이라, 데이터·API가 없는 지금 정정하는 비용이 가장 낮다. `MOTHER`/`FATHER`/`GUARDIAN`/`ETC`는 정확한 영어 대응이 있어 그대로 유지한다.
+- **cutover·rollback은 불필요하다.** 이 티켓은 빈 `pets` 테이블을 신규로 만들 뿐 기존 운영 데이터를 옮기지 않는다(기존 pet 데이터 backfill은 작업 제외 범위). 되돌릴 필요가 생기면 `V4__create_pets.sql`을 Flyway `undo` 없이 테이블 자체를 드롭하는 것으로 충분하다 — 참조하는 운영 데이터나 트래픽이 아직 없기 때문이다.
+- **`weight`는 `Pet` 도메인 모델·DB 컬럼 전체에서 항상 non-null이다** (KD3-431 계획 중 두 차례에 걸쳐 보강). 처음엔 "생성 시점만 필수, DB 컬럼은 PATCH로 지울 수 있게 nullable"로 설계했으나, 사용자가 "수정 때도 NOT NULL이어야 한다"고 정정해 최종적으로 `weight`는 등록 후에도 절대 지울 수 없는 값으로 확정했다. 레거시 등록 API(`RegisterPetRequest`)도 `@NotNull`로 몸무게를 필수로 받았다 — 이번 결정은 그 필수성을 생성 시점뿐 아니라 생애주기 전체로 확장한 것이다. `Pet.create`/`reconstitute`/(추후 KD3-431의) `update` 전부 `weight: Double`(non-null)을 받고, DB 컬럼도 `NOT NULL`이다.
+- **`relationshipText` 검증을 양방향으로 강화했다** (KD3-431 계획 중 발견해 보강). 기존엔 "ETC면 텍스트 필수"만 검증했는데, "ETC가 아니면 텍스트는 반드시 NULL"도 함께 강제한다. 레거시 `PetService.update`는 필드가 `null`로 들어오면 무시하고 기존 값을 유지하는 방식이라 관계를 바꿔도 예전 `relationshipText`가 영구히 남는 결함이 있었다 — 도메인이 이 불변식을 직접 보장해 그 결함을 재현하지 않는다.
+
+### 미결 질문
+
+- 없음. 대표견과 최대 마릿수의 경쟁 상태 방지 세부 구현은 이 작업에서 결정·기록한다.
+
+### 사용자 승인 기록
+
+- 2026-09-02: 사용자가 pet 도메인을 유스케이스 단위로 분리하고 견종 ID 참조를 승인했다.
+- 2026-09-04: 레거시(`daeng_v1_back`) `Pet` 엔티티·`PetService` 대조로 프로필 필드 목록이 작업 범위에 없던 것을 발견했다. 사용자가 생년 필드(연도만 유지), `relationship`/`relationshipText` 포함(enum), 최초 등록 자동 대표견 유지, `breedId` NOT NULL, `profileImage` nullable을 확정했다. 이어서 `gender` NOT NULL, `weight` 1~99 범위 검증, 컬럼 길이(100/500/100), `user_id`/`breed_id`의 plain 컬럼 참조 방식을 확정했다.
+- 2026-09-04: `weight` 타입을 DOUBLE로 유지하되(확장성), 현재 기획(1~99 정수)에 맞춰 검증에 소수점 없음 조건을 추가하도록 사용자가 확정했다.
+- 2026-09-04: 사용자 요청으로 5단계 완료 여부를 `003-migration.md` 요구사항과 재대조해, cutover·rollback 결정 미기재와 "대표 변경" 시나리오 미검증 2건을 자체 발견했다. cutover·rollback 불필요 근거를 기록하고, 대표견 교체(해제 후 지정) 검증을 추가했다.
+- 2026-09-04: KD3-431(생성·수정 API) 계획 중 발견한 2가지를 사용자가 KD3-430에서 먼저 반영하도록 확정했다 — `weight`를 `Pet.create`에서 non-null로 요구(생성 시 필수, 레거시 등록 API와 동일), `relationshipText`를 "ETC가 아니면 반드시 NULL"까지 양방향으로 검증.
+- 2026-09-04: KD3-431의 PATCH 설계 중 사용자가 `weight`는 생성 시점뿐 아니라 수정 후에도 항상 NOT NULL이어야 한다고 정정했다 — 처음 결정(DB 컬럼은 nullable, PATCH로 지울 수 있음)을 철회하고 `weight`를 도메인 모델·DB 컬럼 전체에서 non-null로 최종 확정했다.
+- 2026-09-06: 사용자가 `Relationship`의 손윗형제 4종(`EONNI`/`NUNA`/`OPPA`/`HYUNG`)을 한글 상수명(`언니`/`누나`/`오빠`/`형`)으로 바꾸는 대안을 재검토했다. 결론은 로마자 표기 유지 — 근거는 두 가지다: (1) 로마자든 한글이든 둘 다 "한국어 특정 개념을 가리키는 토큰"이라 의미 전달력 자체엔 우열이 없다(레거시 `ELDER_SISTER`/`OLDER_SISTER`처럼 존재하지 않는 "나이 차등" 개념을 암시해 틀린 인상을 주는 것과는 다른 문제다 — 로마자는 모호할 뿐 틀린 정보를 주지 않는다). (2) 이 프로젝트의 enum은 `CommonErrorCode`/`AuthErrorCode`/`SocialUserStatus`/`AddressType`/`Provider`/`AgreementTermType`/`Gender` 등 예외 없이 전부 영어 상수를 쓴다(직접 확인함) — `Relationship`만 한글로 바꾸면(전부 한글로 바꿔도 마찬가지) 프로젝트 전체 관례와 어긋나는 유일한 파일이 된다. 레거시 `Relationship.java`도 대조했다 — DB·API에 실제로 나가는 값은 영어 enum 이름이고, 한글(`getDescription()`)은 별도 필드로 붙어 있었으나 실제로는 어디서도 호출되지 않는 죽은 코드였다(레거시도 "코드는 영어, 표시용 한글은 별도"라는 같은 원칙을 이미 쓰고 있었다는 근거로 확인).
+- 2026-09-06: 삭제된 pet에 `markAsRepresentative()`를 호출하면 `representative_user_id` UNIQUE 슬롯을 영구 점유해 이후 대표견 등록이 막힐 수 있는 문제를 사용자가 지적해 `delete()`와 같은 패턴(`check(!isDeleted)`)으로 차단하도록 확정했다. 지금은 `markAsRepresentative()`의 유일한 실제 호출처(`registerWithinLimit`)가 항상 갓 생성한 pet만 다뤄 재현되지 않지만, 대표견 설정 API(KD3-433)가 `findById`로 불러온 pet에 호출하는 순간 재현될 수 있어 선제적으로 막았다.
+- 2026-09-06: "첫 pet 경쟁"(활성 pet 0건 상태의 동시 등록) 잔여 케이스를 사용자가 다시 짚어 해결을 확정했다. 처음엔 "5마리를 순간적으로 넘길 수도 있는" 가벼운 문제로 평가했으나, 실제로는 `representative_user_id` UNIQUE 충돌로 정원에 여유가 있어도 정상 요청이 미처리 `DataIntegrityViolationException`(500)으로 실패하는 더 심각한 문제임을 재평가 후 확인했다. `users` 행을 먼저 `PESSIMISTIC_WRITE`로 잠그는 방식으로 해결하기로 확정했다.
+
+## 완료 확인 기준
+
+- Flyway 스키마가 빈 DB에 정상 적용된다.
+- 도메인 불변식과 persistence 어댑터의 단위 테스트를 통과한다.
+- 동시 등록·대표 변경 시 최대 마릿수와 대표견 단일성이 깨지지 않는 검증을 수행한다.
+- 사용자의 첫 pet 등록 시 자동으로 대표견이 되고, 이후 등록에는 자동 지정되지 않는 동작을 검증한다.
+- ArchUnit·ktlint를 포함한 관련 정적 검사를 통과한다.
+
+## 검증 결과
+
+- **`./gradlew build`(2026-09-04, weight 필수화·relationshipText 양방향 검증 보강 후 재실행)**: ktlint, 컴파일, 전체 테스트가 통과했다. `PetTest`(도메인 불변식, `weight` 필수·`relationshipText` 양방향 검증 테스트 포함) 13건, `PetPersistenceAdapterTest`(등록·대표견 지정/해제/교체·최대 마릿수·유니크 제약·삭제 후 재등록) 7건, `HexagonalArchitectureTest` 4건(신규 `domain.pet.domain` 패키지 포함), `BreedQueryServiceTest`(신규 `existsById` 포함) 3건 전부 통과.
+- **Flyway 로컬 MySQL 재적용 (2026-09-04, 이 세션에서 재현)**: `docker compose --env-file .env.local -f docker-compose.local.yaml up -d` 후 `./gradlew bootRun --args='--spring.profiles.active=local'`로 기동. 로그에 `Migrating schema knockdog to version "4 - create pets"` → `Successfully applied 1 migration ... now at version v4`가 남았다.
+- **최대 마릿수 동시성 — 실제 MySQL 교차 검증 (2026-09-04)**: H2(`ddl-auto: create-drop`) 기반 멀티스레드 테스트를 처음 작성했으나 `PESSIMISTIC_WRITE` 락이 H2에서 MySQL InnoDB처럼 블로킹하지 않아 `expected: <1> but was: <3>`로 실패했다(H2가 실제 잠금 동작을 재현하지 못하는 KD3-418의 LIKE 이스케이프 사례와 같은 한계). 이 H2 테스트는 신뢰할 수 없어 제거하고, 로컬 MySQL에 4건을 미리 저장한 뒤 동일한 `SELECT ... FOR UPDATE` 패턴을 쓰는 저장 프로시저를 만들어 3개 세션에서 동시 호출했다 — 정확히 1건만 성공(`race_inserted=1`)하고 나머지 2건은 `LIMIT_EXCEEDED`로 거부됐으며 최종 5건에서 멈췄다. 기존 행이 있는 경우(실사용 시나리오 대부분)의 직렬화는 실제 MySQL에서 확인했다. **(2026-09-07 갱신) 이 수동 검증도 자동화했다** — `PetRegistrationConcurrencyTest`에 "기존 4마리가 등록된 상태에서 신규 등록 3건을 동시에 실행하면 1건만 성공한다" 테스트를 추가해 Testcontainers 기반으로 재현·검증한다(1건 성공·2건 `LIMIT_EXCEEDED`·최종 5건·대표견 1건 확인).
+- **"첫 pet 경쟁" 케이스 해결 (2026-09-06)**: 위에서 남겨뒀던 잔여 케이스 — 활성 pet이 0건인 상태에서 동시 등록이 몰리는 경우 — 를 해결했다. 기존엔 `PetJpaRepository.findAllActiveByUserIdForUpdate`가 `pets` 테이블만 잠갔는데, 활성 pet이 0건이면 잠글 행이 없어 동시 요청이 모두 빈 목록을 읽고 각자 대표견으로 저장을 시도, `representative_user_id` UNIQUE 제약 충돌로 그중 하나가 `DataIntegrityViolationException`(미처리 → 500)으로 실패할 수 있었다. 정원에 여유가 있어도 정상 요청이 실패하는 문제라 "5마리를 순간적으로 넘길 수도 있다"는 이전 평가보다 실제로는 더 심각했다. `registerWithinLimit`가 `pets` 조회 전에 항상 존재하는 `users` 행을 먼저 잠그도록 수정해 활성 pet 0건 여부와 무관하게 등록을 사용자별로 직렬화한다.
+- **도메인 경계 정정 (2026-09-06)**: 위 잠금을 처음엔 `PetPersistenceAdapter`가 auth 도메인의 `UserJpaRepository`를 직접 주입받아 구현했는데, 이러면 pet의 어댑터가 auth의 JPA 엔티티·테이블 구조를 직접 알게 돼 도메인 경계를 어긴다는 지적을 받아 정정했다. auth에 `LockUserPort`(`lockById(userId: Long)`)를 새로 만들고 `UserPersistenceAdapter`가 구현하도록 옮긴 뒤, `PetPersistenceAdapter`는 그 포트만 의존하도록 바꿨다 — 이미 있던 `LoadBreedPort`(breed 도메인 참조) 패턴과 동일한 모양이 됐다. `PetPersistenceAdapterTest`(`@DataJpaTest` 슬라이스 테스트)에 `UserPersistenceAdapter`를 함께 `@Import`해야 해서 그것도 반영했다.
+- **`representative_user_id` UNIQUE 제약 이름 불일치 수정 (2026-09-06)**: `PetJpaEntity`의 `@Table(uniqueConstraints = [UniqueConstraint(name = "uk_pets_representative_user", ...)])`가 실제 MySQL 제약 이름과 다르다는 지적을 받았다 — `V4__create_pets.sql`이 `UNIQUE (representative_user_id)`로 이름을 명시하지 않아 MySQL이 컬럼명 그대로(`representative_user_id`) 자동 명명하고 있었다. `ddl-auto: validate`라 지금까지 기동은 문제없었지만, 이름이 다른 채로 두면 향후 이 이름으로 제약을 참조하는 마이그레이션(`DROP CONSTRAINT` 등)이 실패할 수 있어 SQL 쪽에 `CONSTRAINT uk_pets_representative_user`로 이름을 명시해 엔티티와 맞췄다. 로컬 MySQL에 재적용해 실제 제약 이름이 일치함을 확인했다.
+- **`uniqueConstraints`·`ConstraintMode.NO_CONSTRAINT` 삭제 검토 후 유지 (2026-09-06)**: 두 설정 모두 "Flyway가 스키마를 관리하니 엔티티엔 불필요한 중복 아니냐"는 의심을 받아 각각 실제로 지워보고 테스트를 돌렸다. 테스트 환경(`src/test/resources/application.yaml`)은 `flyway.enabled: false` + `ddl-auto: create-drop`이라 **테스트 DB(H2) 스키마는 오직 엔티티 annotation으로만 만들어진다** — 운영(Flyway)과 테스트(엔티티) 스키마 소스가 이원화돼 있다. `uniqueConstraints`를 지우자 대표견 유니크 제약을 검증하는 테스트가 즉시 깨졌고, `ConstraintMode.NO_CONSTRAINT`(`user_id`/`breed_id`)를 지우자 Hibernate가 H2에 실제 FK 제약을 만들어버려 `PetPersistenceAdapterTest` 전체가 하드코딩된 가짜 참조 ID 때문에 깨졌다. 둘 다 원복했다 — 장식이 아니라 테스트-운영 스키마 정합성에 실제로 필요한 코드다. 다만 이 이원화 구조 자체가 근본적으로는 취약하다(테스트 DB를 Testcontainers 등으로 실제 MySQL과 통일하는 게 장기적으로 더 안전하다) — 이번 작업 범위 밖이라 별도 검토로 남긴다.
+- **Testcontainers 도입 (2026-09-07)**: 위에서 남겨둔 "장기적으로 Testcontainers가 더 안전하다"를 이 세션에서 바로 실행했다. `testImplementation`에 `spring-boot-testcontainers`·`testcontainers-bom`·`testcontainers-mysql`을 추가하고, `application-testcontainers.yaml`(실제 MySQL 컨테이너 대상, `ddl-auto: validate` + `flyway.enabled: true`로 운영과 동일한 스키마 경로를 타게 함)을 새로 만들었다. `PetRegistrationConcurrencyTest`를 추가해 "활성 pet 0건 상태에서 동일 사용자 최초 등록 6건 동시 실행 → 5건 성공·1건 거부·대표견 1건"을 **자동화된 테스트로 재현**했다 — 지금까지 로컬에서 저장 프로시저로 수동 검증하던 것을 CI에서도 매번 자동으로 재검증하게 됐다. `LockUserPort.lockById` 호출을 일부러 제거하고 이 테스트가 실제로 실패하는지 확인한 뒤 원복해, 테스트가 회귀를 실제로 잡아낸다는 것도 검증했다. `registerWithinLimit`엔 잠금이 2개다 — `lockUserPort.lockById`(항상 존재하는 `users` 행을 잠가 그 사용자의 등록 요청을 직렬화)와 `petJpaRepository.findAllActiveByUserIdForUpdate`(그렇게 직렬화된 상태에서 활성 pet 개수를 안전하게 셈). 두 시나리오(0건 상태, 기존 4건 상태) 테스트가 이 둘을 함께 실제로 검증한다.
+- **`UserPersistenceAdapter.lockById` 전용 테스트는 추가하지 않기로 함 (2026-09-07)**: auth 자체 테스트 스위트엔 `lockById`를 직접 검증하는 테스트가 없다. 처음엔 auth 쪽에도 넣는 게 안전하다고 판단했으나 재검토 후 보류했다 — 의미 있으려면(락이 실제로 블로킹하는지) 결국 Testcontainers 기반 동시성 테스트가 또 필요해 `PetRegistrationConcurrencyTest`와 거의 중복되고, 가벼운 H2 스모크 테스트는 락 자체가 고장 나도 못 잡아 실효성이 낮다. pet 쪽 테스트가 이미 이 락의 존재·실제 블로킹 동작을 증명하고 있어, 지금 팀 규모(도메인 간 별도 팀 소유가 없음)에서는 이걸로 충분하다고 판단했다.
+- **`uniqueConstraints` 제거 (2026-09-07)**: `PetJpaEntity`의 `uniqueConstraints`·`ConstraintMode.NO_CONSTRAINT`를 "정말 둘 다 필요한가" 다시 검토했다. 결론은 갈렸다 — `ConstraintMode.NO_CONSTRAINT`는 Flyway가 실제로 FK를 안 만드는 것과 일치하는 정당한 매핑 정보([`jpa-entity.md`](../conventions/jpa-entity.md) §3)라 영구히 유지한다. 반면 `uniqueConstraints`는 Flyway가 이미 만드는 제약을 H2 테스트용으로만 중복 선언한 것이었다 — 이 제약을 검증하던 유일한 테스트(`PetPersistenceAdapterTest`의 "동일 사용자의 두 번째 대표견 저장은 유니크 제약 위반으로 실패한다")를 `PetRegistrationConcurrencyTest`(Testcontainers, 실제 MySQL)로 옮기고, `PetJpaEntity`에서 `uniqueConstraints`와 미사용 `UniqueConstraint` import를 제거했다. `PetPersistenceAdapterTest` 6건·`PetRegistrationConcurrencyTest` 3건(기존 2건 + 옮긴 1건) 전부 통과, ArchUnit·ktlint·docs-check도 통과 확인했다 — 이 엔티티에서 순수히 H2 테스트만을 위해 존재하던 유일한 코드를 없앴다.
+- **검증 (2026-09-06, 로컬 MySQL)**: H2 기반 자동화 테스트는 이전과 같은 이유(`PESSIMISTIC_WRITE`가 MySQL InnoDB처럼 블로킹하지 않음)로 신뢰할 수 없어 시도하지 않았다. 대신 이전과 동일한 방식으로 — 앱 코드와 같은 락 순서(`users` 행 잠금 → `pets` 카운트 확인 → INSERT)를 쓰는 저장 프로시저를 만들어, 활성 pet 0건인 새 사용자에게 최초 등록 6건을 동시 호출했다: 정확히 5건 성공·1건만 `LIMIT_EXCEEDED`로 거부됐고, 저장된 5건 중 대표견은 정확히 1건, `DataIntegrityViolationException` 없음을 확인했다(검증에 쓴 테스트 사용자·프로시저는 검증 후 삭제).
+- **ArchUnit·ktlint**: `domain.pet.domain` 패키지를 `HexagonalArchitectureTest`의 4번 규칙 대상에 등록했고, `ktlintCheck`가 통과했다.
+- **`weight` NOT NULL을 persistence 계층까지 확장 (2026-09-06)**: 위 79번째 결정 시점엔 도메인 모델(`Pet.create`/`reconstitute`)만 non-null이었고 `PetJpaEntity`·`V4__create_pets.sql`은 여전히 nullable로 남아 있었다 — 도메인 검증만으로는 막지 못하는 경로(예: 다른 어댑터가 직접 엔티티를 구성하는 경우)가 이론상 남는 gap이었다. `PetJpaEntity.weight`를 `Double?` → `Double`(`nullable = false`)로, `V4__create_pets.sql`의 `weight` 컬럼을 `DOUBLE` → `DOUBLE NOT NULL`로 바꿔 이 gap을 닫았다. 로컬 MySQL에서 `pets` 테이블과 Flyway 이력을 지우고 마이그레이션을 처음부터 재적용해 실제 스키마가 `NOT NULL`로 생성됨을 확인했다(상세 재현 절차는 KD3-431 작업 문서의 검증 결과 참고). `./gradlew build` 재실행 — ktlint·컴파일·전체 테스트·ArchUnit 통과, 회귀 없음.
+- **대표견 교체 (2026-09-04)**: 완료 확인 기준의 "대표 변경" 항목이 등록 시나리오만 검증되고 실제 교체(A 해제 → B 지정) 시나리오는 빠져 있던 것을 자체 점검에서 발견했다. `clearRepresentative()`+`save()`로 기존 대표견을 먼저 해제하고 `markAsRepresentative()`+`save()`로 새 대표견을 지정하는 순서가 유니크 제약과 충돌 없이 성공함을 `PetPersistenceAdapterTest`에 추가로 검증했다. 이 순서(해제 후 지정)를 지키지 않으면 유니크 제약에 걸린다 — 대표견 교체 유스케이스(KD3-433)는 이 순서를 지켜야 한다.
+
+## 독립 리뷰 (2026-09-04)
+
+컨텍스트를 공유하지 않는 리뷰어에게 이 문서와 `feat/KD3-418-breed-catalog-v1-api..feat/KD3-430-pet-domain-foundation-schema` 커밋 범위를 전달해 대조했다.
+
+- **(중간, 수정 완료) 대표견 soft delete 시 `representative_user_id` 미정리**: `Pet.delete()`가 `isRepresentative`를 해제하지 않아, 대표견을 soft delete한 뒤 활성 pet 0건 상태에서 새로 등록하면 `representative_user_id` UNIQUE 제약에 걸려 실패하는 결함을 발견했다. `Pet.delete()`가 `isRepresentative = false`도 함께 설정하도록 수정했고, `PetTest`(대표견 삭제 시 상태 해제)·`PetPersistenceAdapterTest`(대표견 삭제 후 재등록 성공)에 회귀 테스트를 추가했다. 삭제 유스케이스 자체는 KD3-434 범위이지만, 이 스키마·도메인 기반 위에서 재현되는 결함이라 이번 티켓에서 수정했다.
+- **(경미, 수정 완료) `Pet.reconstitute`의 code-style.md 위반 주석**: `code-style.md`(2026-09-02, 주석 금지)를 위반하는 KDoc이 있었고 같은 패턴의 `User.reconstitute`/`SocialUser.reconstitute`에는 없던 것이라 제거했다.
+- 그 외 항목(컬럼 설계, `SocialUser` 참조 패턴, 견종 존재 확인 위임 구조, ArchUnit 등록, 작업 제외 범위 준수, 검증 결과의 정직성)은 작업 문서와 실제 diff가 일치함을 확인받았다.
+
+## 작업 후 확인 목록
+
+| 대상 | 판정 | 근거 |
+|---|---|---|
+| `docs/work/KD3-430-pet-domain-foundation-schema.md` | 갱신 | 기반 설계·구현 결정·검증 결과 기록 |
+| `docs/domains/pet.md` | 갱신 | "pet 프로필과 불변식" 절 신규 추가, "pet 소유 관계" 절의 대표견 컬럼명 정정 |
+| `docs/inventory/database.md` | 갱신 | 레거시 `pet` 행 진척을 `진행중`으로, 신규 `pets` 행을 `REDESIGN`·`진행중`으로 추가 |

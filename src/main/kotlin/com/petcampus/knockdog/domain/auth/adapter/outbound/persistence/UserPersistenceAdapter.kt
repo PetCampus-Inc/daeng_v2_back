@@ -1,6 +1,7 @@
 package com.petcampus.knockdog.domain.auth.adapter.outbound.persistence
 
 import com.petcampus.knockdog.domain.auth.application.port.output.LoadUserPort
+import com.petcampus.knockdog.domain.auth.application.port.output.LockUserPort
 import com.petcampus.knockdog.domain.auth.application.port.output.SaveUserPort
 import com.petcampus.knockdog.domain.auth.domain.User
 import com.petcampus.knockdog.domain.auth.domain.UserCode
@@ -12,10 +13,15 @@ import org.springframework.stereotype.Component
 class UserPersistenceAdapter(
     private val userJpaRepository: UserJpaRepository,
 ) : LoadUserPort,
-    SaveUserPort {
+    SaveUserPort,
+    LockUserPort {
     override fun save(user: User): User = userJpaRepository.save(user.toJpaEntity()).toDomain()
 
     override fun findById(id: UserId): User? = userJpaRepository.findByIdOrNull(id.value)?.toDomain()
 
     override fun findByCode(code: UserCode): User? = userJpaRepository.findByUserCode(code.value)?.toDomain()
+
+    override fun lockById(userId: Long) {
+        userJpaRepository.findByIdForUpdate(userId)
+    }
 }
