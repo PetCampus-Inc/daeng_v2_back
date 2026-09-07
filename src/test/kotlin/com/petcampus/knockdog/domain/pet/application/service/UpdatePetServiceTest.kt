@@ -114,6 +114,16 @@ class UpdatePetServiceTest {
         }
     }
 
+    @Test
+    fun `relationship이 이미 ETC가 아닌 상태에서 relationshipText만 명시적으로 보내면 거부된다`() {
+        val pet = pet(relationship = Relationship.GUARDIAN, relationshipText = null)
+        val service = service(pet = pet)
+
+        assertFailsWith<IllegalArgumentException> {
+            service.update(command(petId = pet.id!!, relationshipText = JsonNullable.of("이모")))
+        }
+    }
+
     private fun service(
         pet: Pet?,
         breed: BreedSummary? = BreedSummary(4L, "골든 리트리버", null),
