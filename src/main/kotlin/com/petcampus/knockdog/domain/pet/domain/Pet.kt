@@ -64,6 +64,8 @@ class Pet private constructor(
         weight: Double,
         isNeutered: Boolean?,
     ) {
+        validateName(name)
+        validateProfileImage(profileImage)
         validateRelationshipText(relationship, relationshipText)
         validateWeight(weight)
 
@@ -97,6 +99,9 @@ class Pet private constructor(
         const val MAX_ACTIVE_COUNT = 5
 
         private val WEIGHT_RANGE = 1.0..99.0
+        private const val NAME_MAX_LENGTH = 100
+        private const val PROFILE_IMAGE_MAX_LENGTH = 500
+        private const val RELATIONSHIP_TEXT_MAX_LENGTH = 100
 
         fun create(
             userId: Long,
@@ -111,6 +116,8 @@ class Pet private constructor(
             isNeutered: Boolean?,
             isRepresentative: Boolean,
         ): Pet {
+            validateName(name)
+            validateProfileImage(profileImage)
             validateRelationshipText(relationship, relationshipText)
             validateWeight(weight)
 
@@ -162,12 +169,26 @@ class Pet private constructor(
                 deletedAt,
             )
 
+        private fun validateName(name: String) {
+            require(name.isNotBlank()) { "name은 비어 있을 수 없습니다." }
+            require(name.length <= NAME_MAX_LENGTH) { "name은 ${NAME_MAX_LENGTH}자를 초과할 수 없습니다." }
+        }
+
+        private fun validateProfileImage(profileImage: String?) {
+            if (profileImage != null) {
+                require(profileImage.length <= PROFILE_IMAGE_MAX_LENGTH) { "profileImage는 ${PROFILE_IMAGE_MAX_LENGTH}자를 초과할 수 없습니다." }
+            }
+        }
+
         private fun validateRelationshipText(
             relationship: Relationship,
             relationshipText: String?,
         ) {
             if (relationship == Relationship.ETC) {
                 require(!relationshipText.isNullOrBlank()) { "relationship이 ETC이면 relationshipText가 필요합니다." }
+                require(relationshipText.length <= RELATIONSHIP_TEXT_MAX_LENGTH) {
+                    "relationshipText는 ${RELATIONSHIP_TEXT_MAX_LENGTH}자를 초과할 수 없습니다."
+                }
             } else {
                 require(relationshipText == null) { "relationship이 ETC가 아니면 relationshipText는 비워야 합니다." }
             }

@@ -38,6 +38,47 @@ class PetTest {
     }
 
     @Test
+    fun `relationship이 ETC이고 relationshipText가 100자를 초과하면 생성에 실패한다`() {
+        assertFailsWith<IllegalArgumentException> {
+            pet(relationship = Relationship.ETC, relationshipText = "가".repeat(101))
+        }
+    }
+
+    @Test
+    fun `name이 비어 있으면 생성에 실패한다`() {
+        assertFailsWith<IllegalArgumentException> { pet(name = "") }
+    }
+
+    @Test
+    fun `name이 공백뿐이면 생성에 실패한다`() {
+        assertFailsWith<IllegalArgumentException> { pet(name = "   ") }
+    }
+
+    @Test
+    fun `name이 100자를 초과하면 생성에 실패한다`() {
+        assertFailsWith<IllegalArgumentException> { pet(name = "가".repeat(101)) }
+    }
+
+    @Test
+    fun `name이 100자이면 생성된다`() {
+        val result = pet(name = "가".repeat(100))
+
+        assertEquals(100, result.name.length)
+    }
+
+    @Test
+    fun `profileImage가 500자를 초과하면 생성에 실패한다`() {
+        assertFailsWith<IllegalArgumentException> { pet(profileImage = "a".repeat(501)) }
+    }
+
+    @Test
+    fun `profileImage가 500자이면 생성된다`() {
+        val result = pet(profileImage = "a".repeat(500))
+
+        assertEquals(500, result.profileImage?.length)
+    }
+
+    @Test
     fun `weight가 1 미만이면 생성에 실패한다`() {
         assertFailsWith<IllegalArgumentException> { pet(weight = 0.9) }
     }
@@ -111,14 +152,16 @@ class PetTest {
     }
 
     private fun pet(
+        name: String = "호두",
+        profileImage: String? = null,
         relationship: Relationship = Relationship.GUARDIAN,
         relationshipText: String? = null,
         weight: Double = 10.0,
         isRepresentative: Boolean = false,
     ) = Pet.create(
         userId = 1L,
-        name = "호두",
-        profileImage = null,
+        name = name,
+        profileImage = profileImage,
         relationship = relationship,
         relationshipText = relationshipText,
         breedId = 1L,
