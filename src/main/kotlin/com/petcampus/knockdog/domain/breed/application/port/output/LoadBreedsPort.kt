@@ -7,7 +7,5 @@ interface LoadBreedsPort {
 
     fun search(query: String): List<Breed>
 
-    fun existsById(id: Long): Boolean
-
     fun findById(id: Long): Breed?
 }

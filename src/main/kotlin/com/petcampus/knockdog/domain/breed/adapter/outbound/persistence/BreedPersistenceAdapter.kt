@@ -13,8 +13,6 @@ class BreedPersistenceAdapter(
 
     override fun search(query: String): List<Breed> = breedJpaRepository.search(query.escapeLikePattern()).map(BreedJpaEntity::toDomain)
 
-    override fun existsById(id: Long): Boolean = breedJpaRepository.existsById(id)
-
     override fun findById(id: Long): Breed? = breedJpaRepository.findByIdOrNull(id)?.toDomain()
 }
 
