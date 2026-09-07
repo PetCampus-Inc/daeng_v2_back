@@ -1,4 +1,4 @@
-> 생성: 2026-09-02 22:02 · 최종 수정: 2026-09-07 17:10
+> 생성: 2026-09-02 22:02 · 최종 수정: 2026-09-07 19:20
 
 # pet 도메인
 
@@ -53,6 +53,18 @@
 | 응답 | pet 전체 필드 + `breedNameKo`/`breedAlias`(견종 표시 정보, 위 "견종 표시 이름" 참고). 레거시 `PetResponse`와 달리 `createdAt`/`updatedAt`은 포함하지 않는다 — `Pet` 도메인 모델이 `User`/`SocialUser`처럼 audit 타임스탬프를 도메인에 담지 않는 이 프로젝트 관례를 따른다 |
 
 상세 구현과 검증 상태는 [`KD3-431`](../work/KD3-431-pet-profile-create-update-api.md)을 참고한다.
+
+## pet 목록·단건 조회 API
+
+| 항목 | 현재 결정 |
+|---|---|
+| 엔드포인트 | `GET /api/v1/pets`(본인 소유 활성 pet 목록), `GET /api/v1/pets/{petId}`(단건). 레거시 `GET /api/v0/pet/list`는 원래 `KEEP`, `GET /api/v0/pet/{petId}`는 `DEFER`로 판정돼 있었으나, 둘 다 RESTful `v1`로 재설계하기로 확정하며 `REDESIGN`으로 정정했다(KD3-432) |
+| 목록 정렬 | **대표견 우선 → 나머지는 이름 오름차순**(Java 기본 `String` 비교, 별도 로케일 처리 없음). 레거시 `PetService.getPets()`(커밋 `8dcaee89`, KD3-299)의 3단계 규칙("대표견 → 연결된(ACTIVE) 강아지 가나다순 → 미연결 강아지 가나다순")에서 유치원 연결 여부 기준(2·3단계)만 이 도메인 스코프(유치원 연결 제외) 밖이라 자연히 빠지고, 범용 1단계만 계승했다 |
+| 정렬의 알려진 한계 | 완성형 한글 이름은 기본 `String` 비교로도 가나다순이 정확히 나오지만(완성형 음절 블록 U+AC00~D7A3의 코드 배정이 초성 순서와 일치), 이름이 완성형 음절이 아닌 낱자모(예: "ㅋㅋ")로 시작하면 순서가 사전과 어긋난다. 이는 이 프로젝트만의 문제가 아니라 Unicode 기술위원회도 명시한 한계다([L2/17-078 "Hangul Sort Order"](https://www.unicode.org/L2/L2017/17078-hangul-sort-order.pdf)) — JDK의 `Collator.getInstance(Locale.KOREAN)`으로도 기본으로는 해결되지 않으며, 완전한 해결은 한국 국가표준 KS X 1026-1 기반 커스텀 비교 로직이 필요하다. 레거시도 이 한계를 그대로 안고 프로덕션에서 운영 중이었고 관련 버그 수정 이력이 없어, 이번 범위(최대 5마리)에서도 그대로 받아들이기로 했다(KD3-432) |
+| 소유권·상태 검증 | 단건은 `petId`가 없거나 soft delete된 pet이면 404(`PET-404-1`), 본인 소유가 아니면 403(`PET-403-1`). 목록은 본인 소유 활성 pet만 조회 대상이라 별도 인가 판정이 필요 없다 |
+| 응답 | 생성·수정 API와 동일한 `PetResponse` 계약(전체 필드 + `breedNameKo`/`breedAlias`)을 재사용한다 |
+
+상세 구현과 검증 상태는 [`KD3-432`](../work/KD3-432-pet-profile-query-api.md)를 참고한다.
 
 ## 참조
 
