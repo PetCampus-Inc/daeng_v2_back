@@ -1,4 +1,4 @@
-> 생성: 2026-09-07 12:22 · 최종 수정: 2026-09-07 12:22
+> 생성: 2026-09-07 12:22 · 최종 수정: 2026-09-07 13:15
 
 # KD3-478 — S3 인프라 기본 설정 및 범용 이미지 업로드 기능 이관
 
@@ -11,8 +11,9 @@
 ## 현재 제어점
 
 - 활성 workflow: `003-migration`
-- 현재 공통 단계: `2`(계획 승인·작업 문서 생성) 완료 → `3`(구현) 진입 예정
-- 다음 결정 또는 전환 조건: 구현 계획(유스케이스 슬라이스 분해)을 사람과 확인한 뒤 구현 시작. 로컬 검증 수단(LocalStack vs 실 S3)은 구현 착수 시점에 결정한다.
+- 현재 공통 단계: `5`(독립 리뷰·PR·문서 동기화) — 구현·검증(단계 3~4) 완료, `./gradlew build` green(106 테스트). 문서 동기화 완료. PR 생성 대기.
+- 다음 결정 또는 전환 조건: 독립 리뷰 → PR(`feat/KD3-478-s3-infra-image-upload` → `epic/KD3-477-s3-migration`). 머지 전 남은 사람 몫: ① `S3ObjectStorageAdapter`의 copy/delete/exists 로컬 S3 스모크 대조 ② Notion API 명세 등록 ③ 프론트(`daeng_v2_front`) v1 전환은 별도 작업. 완료되면 Jira `완료`로 전환.
+- `epic/KD3-477-s3-migration`은 dev로 합치지 않는다 — KD3-477(s3 마이그레이션)의 도메인별 후속이 남아 있으면 그 위에서 계속 진행. 후속이 없다고 확정되면 epic → dev 일반 merge.
 
 ## 작업 목표
 
@@ -70,7 +71,7 @@ domain/media/
       S3ObjectStorageAdapter.kt   ObjectStoragePort 구현, S3Client/S3Presigner 주입
 ```
 
-- `HexagonalArchitectureTest.kt` 규칙 4 대상 패키지 목록에 `...domain.media.domain` 등록.
+- `HexagonalArchitectureTest.kt` 규칙 4는 `domain.*.domain..` 와일드카드라 별도 등록 불필요(구현 중 확인 — hexagonal.md §3의 "현재 auth만 등록됨" 문구가 stale이라 같이 정정).
 - 컨트롤러는 유스케이스별 분리(hexagonal.md §1).
 
 ### API 계약 (v1 신규 — ADR 0012)
@@ -133,13 +134,14 @@ domain/media/
 
 ## 완료 확인 기준
 
-- [ ] `S3Client`/`S3Presigner` 빈이 `aws.s3` 설정으로 기동되고, 로컬에서 업로드 presign → 실제 PUT → 다운로드 presign → GET 왕복이 성공한다 (검증 수단 확정 후).
-- [ ] `POST /api/v1/media/upload-urls`: 인증 없으면 401, 인증 시 `tmp/{userCode}/` prefix key와 PUT presigned URL 반환. 허용 안 되는 `contentType`은 400(`MEDIA_UNSUPPORTED_CONTENT_TYPE`).
-- [ ] `POST /api/v1/media/download-urls`: 인증 필요, 임의 key에 대해 GET presigned URL 반환. 존재하지 않는 key 처리 방식(발급은 하되 404는 GET 시점 / 사전 head 검증) 결정 후 그대로 동작.
-- [ ] `POST /api/v1/media/commits`: 호출자 `tmp/` 밖의 key는 403(`MEDIA_FORBIDDEN_KEY`), 정상 시 영구 key로 copy 후 원본 delete, `{key, url}` 반환. 원본 부재 시 404(`MEDIA_OBJECT_NOT_FOUND`).
-- [ ] `HexagonalArchitectureTest` 통과 (규칙 4에 `media.domain` 등록 포함).
-- [ ] 단위 테스트: 각 서비스 + `ObjectStoragePort` 테스트 더블. 어댑터 통합 테스트는 로컬 검증 수단에 종속.
-- [ ] ktlint 통과.
+- [x] `POST /api/v1/media/upload-urls`: 인증 없으면 401, 인증 시 `tmp/{userCode}/` prefix key와 presigned URL 반환, 허용 안 되는 `contentType`은 400(`MEDIA_UNSUPPORTED_CONTENT_TYPE`) — `MediaEndpointsTest`, `IssueUploadUrlServiceTest`.
+- [x] `POST /api/v1/media/download-urls`: 인증 필요, 임의 key에 대해 presigned URL 반환 — `IssueDownloadUrlServiceTest`. **존재하지 않는 key: 사전 head 검증 없이 발급, 404는 GET 시점에 S3가 낸다**(레거시 동일, HEAD 호출 절약).
+- [x] `POST /api/v1/media/commits`: 호출자 `tmp/` 밖 key는 403(`MEDIA_FORBIDDEN_KEY`), 정상 시 copy 후 원본 delete, `{key, url}` 반환, 원본 부재 시 404(`MEDIA_OBJECT_NOT_FOUND`), `targetPath` 임시영역/`..` 금지 400(`MEDIA_INVALID_TARGET_PATH`) — `CommitObjectServiceTest`, `MediaEndpointsTest`.
+- [x] `HexagonalArchitectureTest` 통과 — 규칙 4 와일드카드가 `media.domain` 자동 포함.
+- [x] 단위 테스트: 각 서비스 + `ObjectStoragePort` fake. presigned URL 생성은 실제 `S3Presigner`로 오프라인 검증(`S3ObjectStorageAdapterTest` — 버킷·key·TTL·서명 포함 확인).
+- [x] `./gradlew build` green — ktlint(main/test/script) + ArchUnit + 전체 106 테스트.
+- [ ] **로컬 S3 스모크 대조 (사람 몫)**: `S3ObjectStorageAdapter`의 `copy`/`delete`/`exists`는 실제 S3 왕복이라 자동 테스트에서 제외됨. 로컬 자격증명 + 개발용 버킷으로 upload presign → PUT → commit(copy+delete) → download presign → GET 한 사이클을 대조하고 결과를 여기 남긴다. (003-migration §4 "로컬 대조" 방식)
+- [ ] **Notion API 명세 등록 (사람 몫)**: v1 media 3개 엔드포인트.
 
 ### 계약 parity (003-migration §4)
 
@@ -148,13 +150,15 @@ domain/media/
 
 ## 작업 후 확인 목록
 
-| 문서 | 판정 | 사유 |
+| 문서 | 판정 | 결과 |
 |---|---|---|
-| `docs/inventory/integrations.md` | 갱신 예정 | S3 행: 이관 진척 `미착수` → `진행중`, work 링크 추가, v1 계약·버킷·TTL 결정 반영. "presigned URL 발급을 도메인별 outbound 포트로 분리" 방향에 대한 이번 범위(범용 포트) 명시 |
-| `docs/inventory/api.md` | 갱신 예정 | L295~297 3개 행에 `대상 버전` `v1`, work 링크, 재검토 조건 추가 |
-| `docs/inventory/operations.md` | 갱신 예정 | S3 런타임 요구사항(필요 env var 목록, IAM 권한, 버킷 결정), "전용 버킷 신설 + `aws s3 sync` 콘텐츠 이관" 후속 옵션 기록. 자격증명 값은 적지 않음 |
-| `docs/domains/media.md` | 신설 예정 | 새 도메인 — 경계(범용 오브젝트 스토리지 접근), key 네임스페이스 규칙(`tmp/{userCode}/`), 인가 계약, v1 엔드포인트 매핑, 도메인별 소비와의 관계 |
-| `docs/architecture/hexagonal.md` | 확인 | 규칙 4 대상 패키지에 `media` 추가 사실을 §3 주석과 일치시킬지 확인 (문서가 "현재 auth만"이라고 적고 있음) |
-| Notion API 명세 | 갱신 예정 | v1 media 3개 엔드포인트 등록 (`docs/rules/notion-api-spec-sync.md`) |
-| `docs/conventions/*` | 해당 없음 | 새 판단 기준 없음 |
-| `build.gradle.kts` | 갱신 예정 | AWS SDK v2 의존성 — 문서 아님, PR에 포함 |
+| `docs/inventory/integrations.md` | 갱신 | S3 행: 진척 `미착수`→`진행중`, 사용 위치에 신규 서버(`media` 도메인·`global/config`) 추가, 범용 부분 v1 계약·인가·버킷·TTL 반영, 도메인별 소비·"outbound 포트 분리"·앨범 2단계는 각 도메인 후속으로 명시 |
+| `docs/inventory/api.md` | 갱신 | s3/image 3개 행: 진척 `진행중`, `대상 버전` `v1`, 도메인 `s3-image`→`media`, 근거에 KD3-478 링크·재설계 요지, 후속에 프론트 v1 전환 |
+| `docs/inventory/operations.md` | 갱신 | `S3(운영 제공)` 행 신설 — 레거시 자격증명 방식, 신규 서버 필요 env(`AWS_S3_REGION`/`AWS_S3_BUCKET`/자격증명)·IAM 권한, 전용 버킷 신설 시 절차(키 불필요·IAM ARN 추가·`aws s3 sync`), 배포 파이프라인 종속. 자격증명 값 미기재 |
+| `docs/domains/media.md` | 신설 | 새 도메인 — 경계·불변식(key 네임스페이스, content-type, commit 소유권, 다운로드 인가), v1 엔드포인트 매핑, 구조, 도메인별 소비와의 관계 |
+| `docs/architecture/hexagonal.md` | 갱신 | §3의 "규칙 4는 현재 auth만 등록됨 / 새 도메인 추가 시 등록 필요" 문구가 stale — 실제 테스트는 `domain.*.domain..` 와일드카드라 전 도메인 자동 포함. 표·설명 정정 (repo-wide 참고 문서라 fast dev PR 대상일 수 있음 — 아래 PR 노트) |
+| Notion API 명세 | 미완(사람 몫) | v1 media 3개 엔드포인트 등록 (`docs/rules/notion-api-spec-sync.md`) |
+| `docs/conventions/*` | 해당 없음 | 새 판단 기준 없음. content-type 허용 목록·key 규칙은 `media` 도메인 한정이라 `domains/media.md`에 둠 |
+| `docs/adr/` | 해당 없음 | 되돌리기 어렵거나 여러 도메인에 걸친 신규 결정 없음 — SDK v2 선택, `media` 명명 등은 이 문서에 기록 |
+| `build.gradle.kts` | 갱신 | AWS SDK v2 BOM `2.30.0` + `s3` + `url-connection-client`. 문서 아님, PR 포함 |
+| `docs/service.md` §6 용어집 | 확인, 변경 없음 | `media`는 사용자 대면 개념이 아니라 인프라성 도메인이라 용어집 추가 안 함 |
