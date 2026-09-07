@@ -1,4 +1,4 @@
-> 생성: 2026-09-02 19:24 · 최종 수정: 2026-09-07 19:55
+> 생성: 2026-09-02 19:24 · 최종 수정: 2026-09-07 20:35
 
 # KD3-432 pet 목록·단건 조회 API 구축
 
@@ -12,7 +12,7 @@
 
 - 활성 workflow: `003-migration`
 - 현재 공통 단계: `4`
-- 다음 결정 또는 전환 조건: 작업 브랜치는 `dev`/`epic`이 아니라 `feat/KD3-431-pet-profile-create-update-api`에서 분기한 stacked 브랜치다(KD3-431이 epic에 머지되면 base 재조정·rebase 예정). 구현·단위 테스트·전체 빌드·자체 재검토(2건 정정) 및 `MethodArgumentTypeMismatchException` 공통 핸들러 추가까지 완료(148건 통과)하고 커밋 4개로 나눠 커밋·푸시, PR #20 생성 완료(base `feat/KD3-431-pet-profile-create-update-api`, `MERGEABLE`). 다음은 5단계 독립 리뷰.
+- 다음 결정 또는 전환 조건: 작업 브랜치는 `dev`/`epic`이 아니라 `feat/KD3-431-pet-profile-create-update-api`에서 분기한 stacked 브랜치다(KD3-431이 epic에 머지되면 base 재조정·rebase 예정). 구현·단위 테스트·전체 빌드·자체 재검토(2건 정정) 및 `MethodArgumentTypeMismatchException` 공통 핸들러 추가까지 완료(148건 통과)하고 커밋 4개로 나눠 커밋·푸시, PR #20 생성 완료(base `feat/KD3-431-pet-profile-create-update-api`, `MERGEABLE`). 로컬 MySQL 실제 HTTP 엔드투엔드 검증도 완료(§검증 결과 참고). 다음은 5단계 독립 리뷰.
 
 ## 작업 목표
 
@@ -69,7 +69,11 @@
 
 - **`./gradlew build --rerun-tasks`(2026-09-07)**: ktlint, 컴파일, 전체 테스트, ArchUnit(헥사고날 경계) 통과. `GetPetsServiceTest` 4건(breed 정보 포함 반환, 대표견 우선·이름순 정렬, 빈 목록, 미존재 사용자), `GetPetServiceTest` 4건(정상 반환, 미존재 pet, 삭제된 pet, 타인 소유) 신규 통과, 기존 테스트 전부 회귀 없이 통과(총 147건, 실패·에러 0건).
 - **완료 확인 기준 대조**: 정상 경로·타인 pet 거부·삭제된 pet 미노출(단건)은 위 단위 테스트로 검증했다. 목록의 "삭제된 pet 미노출"은 `GetPetsService`가 `LoadPetPort.findAllActiveByUserId`(KD3-430에서 이미 `deletedAt is null` 필터링과 함께 검증된 포트)에 위임하므로 별도 재검증하지 않았다.
-- **로컬 HTTP 엔드투엔드 검증은 이번 라운드에서 하지 않았다** — KD3-431(쓰기 API)과 달리 이 티켓은 이미 검증된 컴포넌트(`LoadPetPort`, `LoadBreedPort`, `PetResponse`, `PetErrorCode`)만 읽기 전용으로 조합하는 얇은 레이어라 위험도가 낮다고 판단했다. 필요하면 이 라운드에 추가할 수 있다.
+- **로컬 HTTP 엔드투엔드 검증은 처음엔 위험도가 낮다고 판단해 생략했으나, 사용자 지적(단위 테스트는 fake port라 실제 Spring 라우팅·Jackson 역직렬화까지는 검증 못 한다)으로 실제로 수행했다(2026-09-07)**: 로컬 MySQL 데이터를 초기화(예전 세션의 Flyway 이력 충돌)하고 V1~V11 재적용, 테스트 사용자 2명으로 액세스 토큰을 서명해 검증했다(테스트 데이터는 검증 후 삭제):
+  - `GET /api/v1/pets` 인증 없이 호출 → 401, 빈 목록 → 200 `data: []` 확인
+  - pet 2마리 등록 후 목록 조회 → 대표견이 먼저, 나머지는 이름 오름차순(`나비` → `다롱이` → `라온이` → `마루`)으로 정렬됨을 실제 데이터로 확인
+  - `GET /api/v1/pets/{petId}` 정상 단건 조회, 존재하지 않는 `petId` → 404 `PET-404-1`, 타인 소유 pet → 403 `PET-403-1` 확인
+  - `GET /api/v1/pets/abc`(숫자 아닌 경로 변수) → 400 `INVALID_INPUT_VALUE` 확인 — 이번에 추가한 `MethodArgumentTypeMismatchException` 핸들러가 실제 요청에서도 500이 아니라 400을 응답함을 확인
 - **자체 재검토 후 재검증(2026-09-07)**: §구현 중 발견해 정정한 사항의 `requireNotNull`→`checkNotNull` 정정, `@Transactional(readOnly = true)` 누락 추가 반영 후 `./gradlew build --rerun-tasks` 재실행 — ktlint, 컴파일, 전체 테스트, ArchUnit 통과, 기존 147건 그대로 유지(실패·에러 0건, 이번 정정은 예외 타입·트랜잭션 경계만 바꿔 테스트 케이스 자체는 늘지 않음).
 - **`MethodArgumentTypeMismatchException` 핸들러 추가 후 재검증(2026-09-07)**: `GlobalExceptionHandler`에 핸들러 추가, `GlobalExceptionHandlerTest`에 `경로 변수 타입 불일치는 500이 아니라 400으로 응답한다` 케이스 추가 후 `./gradlew build --rerun-tasks` 재실행 — 29개 클래스 148건(기존 147 + 신규 1), 실패·에러 0건 확인.
 
