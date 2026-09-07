@@ -1,4 +1,4 @@
-> 생성: 2026-09-02 19:24 · 최종 수정: 2026-09-07 17:10
+> 생성: 2026-09-02 19:24 · 최종 수정: 2026-09-07 17:20
 
 # KD3-431 pet 프로필 생성·수정 API 구축
 
@@ -112,13 +112,14 @@
   - 존재하지 않는 `petId`로 PATCH → 404 `PET-404-1` 확인
   - 5마리까지 정상 등록 후 6번째 등록 시도 → 400 `PET-400-1` 확인
   - 다른 사용자의 pet을 PATCH 시도 → 403 `PET-403-1` 확인
-- **로컬 MySQL 실제 HTTP 엔드투엔드 재검증 (2026-09-04, `weight` non-null 정정 반영 후)**: `weight` 관련 변경분만 다시 검증했다(다른 경로는 이번 정정과 무관해 재검증하지 않음). 로컬 MySQL에 이미 반영돼 있던 구 스키마(`weight` nullable)의 `pets` 테이블·Flyway 이력을 지우고 `V4__create_pets.sql`(현재 버전, `weight NOT NULL`)을 처음부터 재적용한 뒤, 테스트 사용자 1명을 추가하고 동일한 방식으로 액세스 토큰을 서명해 검증했다(테스트 데이터는 검증 후 삭제):
-  - 정상 생성(`weight: 10.0`) → 200, `weight` 정상 저장 확인
+- **로컬 MySQL 실제 HTTP 엔드투엔드 재검증 (2026-09-04, `weight` non-null 정정 반영 후)**: `weight` 관련 변경분만 다시 검증했다(다른 경로는 이번 정정과 무관해 재검증하지 않음). 로컬 MySQL에 이미 반영돼 있던 구 스키마(`weight` nullable)의 `pets` 테이블·Flyway 이력을 지우고 `V11__create_pets.sql`(현재 버전, `weight NOT NULL`. 검증 당시엔 KD3-430 스택 브랜치 로컬 번호로 `V4__create_pets.sql`이었으나 이후 epic 머지 시 기존 breed·kindergarten 마이그레이션과 충돌하지 않도록 `V11`로 재번호됨)을 처음부터 재적용한 뒤, 테스트 사용자 1명을 추가하고 동일한 방식으로 액세스 토큰을 서명해 검증했다(테스트 데이터는 검증 후 삭제):
+  - 정상 생성(`weight: 10.0`) → 201, `weight` 정상 저장 확인
   - PATCH로 `weight: null`을 명시 → 400 `INVALID_INPUT_VALUE`("weight는 null일 수 없습니다.")로 거부됨 확인 — nullable 필드였을 때와 달리 더 이상 지워지지 않는다
   - PATCH로 `weight: 15`(값 변경만) → 200, `weight`가 정상적으로 갱신됨 확인
 - **독립 리뷰 후 재검증(2026-09-07)**: §방향 논의 및 결정 사항의 정정 사항(`PetResponse.weight` non-null화, `ExistsBreedPort`/`BreedExistenceAdapter`·`LoadBreedsPort.existsById`/`BreedPersistenceAdapter.existsById` 삭제, `GlobalExceptionHandler`의 `IllegalStateException` 전역 핸들러 추가) 반영 후 `./gradlew build`(ktlint, 컴파일, 전체 테스트, ArchUnit 포함) 재실행해 통과 확인. `UpdatePetServiceTest`에 `relationship이 이미 ETC가 아닌 상태에서 relationshipText만 명시적으로 보내면 거부된다` 케이스를 추가해(기존엔 관계를 함께 바꾸는 경우만 테스트) `validateRelationshipText`가 관계 변경 여부와 무관하게 동일하게 동작함을 명시적으로 커버.
 - **2차 독립 리뷰(fresh subagent) 후 재검증(2026-09-07)**: `./gradlew test --rerun`으로 캐시를 배제하고 전체 재실행 — 프로젝트 전체 29개 테스트 클래스 129건, 실패·에러 0건을 JUnit XML로 직접 확인(이전까지의 "통과" 보고가 `--tests` 필터 반복 실행으로 인해 다른 클래스의 리포트가 실제로 재생성됐는지 불확실했던 점을 사용자 지적으로 바로잡음). 이 재검증 과정에서 `UpdatePetService`의 `breedId`/`relationship`/`gender`/`name` 명시적 null 미방어 버그(위 §방향 논의 및 결정 사항 참고)를 발견해 수정하고, `UpdatePetServiceTest`에 4개 필드 각각의 명시적 null 거부 테스트를 추가한 뒤 `./gradlew build --rerun-tasks`로 전체 재실행해 29개 클래스 133건(기존 129 + 신규 4), 실패·에러 0건 확인.
 - **`name`/`relationshipText`/`profileImage` blank·길이 검증 추가 후 재검증(2026-09-07)**: 사용자 지적으로 발견한 검증 공백(위 §방향 논의 및 결정 사항 참고)을 `Pet.kt`에 반영한 뒤 `./gradlew build --rerun-tasks`로 전체 재실행 — 29개 클래스 140건(기존 133 + `PetTest` 신규 7: blank name, name 100/101자, relationshipText 101자, profileImage 500/501자), 실패·에러 0건 확인.
+- **위 `./gradlew build`/`test` 결과의 독립 검증 경로**: 이 문서의 로컬 실행 기록은 diff 자체에는 포함되지 않으므로, PR 본문에만 의존하지 않고 재확인하려면 PR #17의 GitHub Actions CI 체크(`build`, `docs-check`)를 본다 — 로컬 실행과 별개로 CI에서 독립적으로 재현되며, PR 페이지에서 직접 통과 여부를 볼 수 있다.
 
 ## 작업 후 확인 목록
 
