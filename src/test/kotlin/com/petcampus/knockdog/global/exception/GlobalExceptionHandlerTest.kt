@@ -142,6 +142,5 @@ class GlobalExceptionHandlerTest {
 @Suppress("UNUSED_PARAMETER")
 private fun cookieParameterHolder(oidcToken: String) = Unit
 
-/** MethodArgumentTypeMismatchException 생성에 MethodParameter가 필요해서 두는 더미 시그니처. */
 @Suppress("UNUSED_PARAMETER")
 private fun petIdParameterHolder(petId: Long) = Unit
