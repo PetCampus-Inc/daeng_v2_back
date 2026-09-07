@@ -16,7 +16,7 @@ data class PetResponse(
     val breedAlias: String?,
     val gender: Gender,
     val birthYear: Int?,
-    val weight: Double?,
+    val weight: Double,
     val isNeutered: Boolean?,
     val isRepresentative: Boolean,
 ) {
