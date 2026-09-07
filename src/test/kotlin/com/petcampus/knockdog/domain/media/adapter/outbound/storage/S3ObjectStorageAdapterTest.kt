@@ -14,11 +14,6 @@ import java.time.Duration
 import kotlin.test.assertContains
 import kotlin.test.assertEquals
 
-/**
- * presigned URL 생성은 서명 연산일 뿐 네트워크 호출이 아니므로 실제 S3 없이 검증한다.
- * copy/delete/exists의 S3 왕복은 로컬 스모크 테스트로 대조한다
- * (docs/work/KD3-478-s3-infra-image-upload.md "완료 확인 기준").
- */
 class S3ObjectStorageAdapterTest {
     private val presigner: S3Presigner =
         S3Presigner

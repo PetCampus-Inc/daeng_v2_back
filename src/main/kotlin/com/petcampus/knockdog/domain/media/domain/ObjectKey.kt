@@ -2,10 +2,6 @@ package com.petcampus.knockdog.domain.media.domain
 
 import java.util.UUID
 
-/**
- * S3 object key. presigned URL 문자열과 섞이지 않도록 별도 타입으로 감싸고,
- * 경로 탈출·절대 경로 같은 구조적 위반을 생성 시점에 막는다.
- */
 @JvmInline
 value class ObjectKey(
     val value: String,

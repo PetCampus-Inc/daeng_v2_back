@@ -8,10 +8,6 @@ import software.amazon.awssdk.regions.Region
 import software.amazon.awssdk.services.s3.S3Client
 import software.amazon.awssdk.services.s3.presigner.S3Presigner
 
-/**
- * AWS SDK v2 S3 클라이언트. 자격증명은 `DefaultCredentialsProvider`(env var 또는 인스턴스/태스크 역할)로 해결하며
- * 값을 애플리케이션 설정에 두지 않는다.
- */
 @Configuration
 class S3ClientConfig(
     private val properties: S3Properties,

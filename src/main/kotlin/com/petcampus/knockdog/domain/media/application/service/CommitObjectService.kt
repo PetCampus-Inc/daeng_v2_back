@@ -9,10 +9,6 @@ import com.petcampus.knockdog.domain.media.domain.ObjectKey
 import com.petcampus.knockdog.global.exception.BusinessException
 import org.springframework.stereotype.Service
 
-/**
- * 임시 업로드 오브젝트를 영구 경로로 확정(copy 후 원본 delete)한다.
- * 레거시 `POST /api/v0/s3/image/move`의 대체 — 레거시엔 없던 소유권 검증을 추가했다.
- */
 @Service
 class CommitObjectService(
     private val objectStoragePort: ObjectStoragePort,
