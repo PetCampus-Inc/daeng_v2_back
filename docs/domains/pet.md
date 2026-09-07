@@ -1,4 +1,4 @@
-> 생성: 2026-09-02 22:02 · 최종 수정: 2026-09-07 13:21
+> 생성: 2026-09-02 22:02 · 최종 수정: 2026-09-07 15:05
 
 # pet 도메인
 
@@ -44,8 +44,8 @@
 ## 참조
 
 - 시드 원본: `daeng_v1_back/scripts/migrations/KD3-370-create-breed.sql`(UTF-8, 385건). `docs/work/똑독_견종목록_2026-08-11.csv`는 CP949로 특수문자가 손상된 출처 확인용 사본이며 시드 생성 기준이 아니다
-- breeds 스키마: `src/main/resources/db/migration/V3__create_breeds.sql`
+- breeds 스키마: `src/main/resources/db/migration/V10__create_breeds.sql`
 - breed 코드: `domain/breed/`
 - 레거시 pet 원본: `daeng_v1_back`의 `pet/model/Pet.java`, `pet/service/PetService.java`
-- pets 스키마: `src/main/resources/db/migration/V4__create_pets.sql`
+- pets 스키마: `src/main/resources/db/migration/V11__create_pets.sql`
 - pet 코드: `domain/pet/`

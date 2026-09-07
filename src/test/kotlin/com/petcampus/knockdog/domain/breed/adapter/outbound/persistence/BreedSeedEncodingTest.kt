@@ -11,7 +11,7 @@ class BreedSeedEncodingTest {
     @Test
     fun `견종 시드는 UTF-8 특수문자를 보존한다`() {
         val seed =
-            checkNotNull(javaClass.classLoader.getResourceAsStream("db/migration/V3__create_breeds.sql"))
+            checkNotNull(javaClass.classLoader.getResourceAsStream("db/migration/V10__create_breeds.sql"))
                 .use { String(it.readBytes(), StandardCharsets.UTF_8) }
 
         assertEquals(385, INSERT_ROW.findAll(seed).count())

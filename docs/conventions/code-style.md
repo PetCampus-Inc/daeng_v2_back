@@ -1,10 +1,10 @@
-> 생성: 2026-09-02 18:05 · 최종 수정: 2026-09-02 18:40
+> 생성: 2026-09-02 18:05 · 최종 수정: 2026-09-06 10:30
 
 # 코드 스타일
 
 주석과 식별자 작명에 대해 모든 도메인이 따르는 규칙을 정의한다. 응답 계약은 [`api-contract.md`](api-contract.md), 예외 처리는 [`error-handling.md`](error-handling.md)에 둔다.
 
-왜 이렇게 정했는지는 `docs/work/KD3-413-kindergarten-static-lookup.md`(kindergarten 도메인 병합 후 추가됨) §방향 논의 및 결정 사항을 참고한다.
+왜 이렇게 정했는지는 [`KD3-413 작업 문서`](../work/KD3-413-kindergarten-static-lookup.md) §방향 논의 및 결정 사항을 참고한다.
 
 ## 1. 코드 내 설명 주석을 남기지 않는다
 
@@ -20,7 +20,7 @@
 
 - **예외**:
   - `id`, `url`, `http`, `api`, `lat`/`lng` 등 업계 전반에서 축약 자체가 표준 용어로 굳어진 것은 대상이 아니다. `lat`/`lng`는 auth 도메인([`UserAddress`](../../src/main/kotlin/com/petcampus/knockdog/domain/auth/domain/UserAddress.kt) 등)에서 이미 도메인부터 DB 컬럼까지 전부 이 이름으로 출시돼 있다.
-  - 외부 시스템(크롤링 JSON 등)이 이미 정해준 필드명을 그대로 받는 DTO는 그 경계에서만 원본 이름을 받되, 내부적으로는 명확한 이름으로 바꾸고 `@JsonProperty` 등으로 명시 매핑한다 — 예: `CrawledMenu`(`domain/kindergarten/adapter/outbound/seed/`)는 원본 JSON 키 `unit_str`을 `@JsonProperty("unit_str")`로 받아 `unitLabel` 필드에 매핑한다.
+  - 외부 시스템(크롤링 JSON 등)이 이미 정해준 필드명을 그대로 받는 DTO는 그 경계에서만 원본 이름을 받되, 내부적으로는 명확한 이름으로 바꾸고 `@JsonProperty` 등으로 명시 매핑한다 — 예: [`CrawledMenu`](../../src/main/kotlin/com/petcampus/knockdog/domain/kindergarten/adapter/outbound/seed/CrawledKindergarten.kt)는 원본 JSON 키 `unit_str`을 `@JsonProperty("unit_str")`로 받아 `unitLabel` 필드에 매핑한다.
 - **강제 수단**: 없음(약어 여부는 기계적으로 판정하기 어렵다) — 코드 리뷰에서 확인한다.
 - **첫 적용 사례**: `KindergartenMenu.unitLabel`/`totalDurationLabel`, `CrawledKindergarten.phoneNumber`(KD3-413).
 
@@ -34,4 +34,4 @@
 
 ## 4. 참고
 
-- 설계 근거·결정 경위: `docs/work/KD3-413-kindergarten-static-lookup.md`(kindergarten 도메인 병합 후 추가됨)
+- 설계 근거·결정 경위: [`docs/work/KD3-413-kindergarten-static-lookup.md`](../work/KD3-413-kindergarten-static-lookup.md)

@@ -1,4 +1,4 @@
-> 생성: 2026-09-02 19:24 · 최종 수정: 2026-09-04 13:41
+> 생성: 2026-09-02 19:24 · 최종 수정: 2026-09-07 15:05
 
 # KD3-418 견종 카탈로그 v1 API 구축
 
@@ -85,7 +85,7 @@
 - **Flyway 재적용 (2026-09-03, 이 세션에서 재현)**: 로컬 MySQL(`docker-compose.local.yaml`)의 `breeds` 테이블과 V3 `flyway_schema_history` 행을 삭제해 빈 상태로 되돌린 뒤 `./gradlew bootRun --args='--spring.profiles.active=local'`로 재기동했다. 로그에 `Migrating schema knockdog to version "3 - create breeds"` → `Successfully applied 1 migration to schema knockdog, now at version v3`가 남았고, 적용 후 `SELECT COUNT(*) FROM breeds`는 385였다.
 - **문자 인코딩 (2026-09-03, 이 세션에서 재현)**: 위 상태의 DB에서 `SELECT name_en, HEX(name_en) FROM breeds WHERE name_en REGEXP '[^ -~]'`로 CP949 원본에서 `?`로 대체됐던 영어 특수문자 8건(`SMÅLANDSSTÖVARE` 등)을 직접 조회했다. 전부 정상 UTF-8 hex(`Å`=`C385`, `Ö`=`C396`, `Ä`=`C384`, `Ü`=`C39C`, `Á`=`C381`, `Ç`=`C387`)였고 `?`(0x3F) 대체 문자는 없었다. `BreedSeedEncodingTest`가 같은 조건을 회귀 테스트로 고정한다.
 - **로컬 API (2026-09-03, 이 세션에서 재현)**: 같은 서버에 인증 헤더 없이 요청해 확인했다 — `GET /api/v1/breeds` → `code: SUCCESS`, 385건, 첫 항목 `id:1 믹스견`, 마지막 항목 `id:385 기타`(alias `목록에 없는 품종`), HTTP 200. `GET /api/v1/breeds?query=골든리트리버`(공백 없이 입력) → `id:4 골든 리트리버` 1건 반환, HTTP 200. 공백 무시 검색과 permitAll이 실제 HTTP 레벨에서 동작함을 확인했다.
-- **v1 시드 대 V3 시드 전 필드 대조**: 385건의 `display_order`·FCI 번호·영문명·국문명·별칭이 전부 일치한다는 것을 구현 시점(2026-09-02)과 독립 리뷰(§확정 사항 2026-09-02/03) 두 차례 스크립트로 대조했으나, 두 대조 모두 산출물을 로그·파일로 보존하지 않았다. **확인 불가로 표시한다** — 재현하려면 `daeng_v1_back/scripts/migrations/KD3-370-create-breed.sql`과 `V3__create_breeds.sql`을 다시 스크립트로 대조해야 한다.
+- **v1 시드 대 V3 시드 전 필드 대조**: 385건의 `display_order`·FCI 번호·영문명·국문명·별칭이 전부 일치한다는 것을 구현 시점(2026-09-02)과 독립 리뷰(§확정 사항 2026-09-02/03) 두 차례 스크립트로 대조했으나, 두 대조 모두 산출물을 로그·파일로 보존하지 않았다. **확인 불가로 표시한다** — 재현하려면 `daeng_v1_back/scripts/migrations/KD3-370-create-breed.sql`과 `V10__create_breeds.sql`(kindergarten 에픽과의 Flyway 버전 충돌로 2026-09-07에 `V3`에서 재번호됨)을 다시 스크립트로 대조해야 한다.
 - **참고(과거 기록, 재현 대상 아님)**: 최초 시드 생성 시 SQL 값 앞에 잘못 들어간 `+` 문자로 2026-09-02 로컬에서 Flyway 적용이 한 차례 실패했다. SQL을 수정하고 `flyway repair` 후 재적용에 성공했으며, 위 2026-09-03 재현에서는 이 문제 없이 V3이 한 번에 적용됐다.
 - **LIKE 메타문자 이스케이프 (2026-09-03)**: `BreedPersistenceAdapterTest`에 `_`, `%`, `\`(이스케이프 문자 자체)를 포함한 검색어 회귀 테스트 3건을 추가해 각각 리터럴로만 매칭되고 와일드카드로 해석되지 않음을 확인했다. 테스트 DB(H2, `MODE=MySQL`)뿐 아니라 실제 로컬 MySQL 8.0에도 동일한 `LIKE ... ESCAPE '\'` 패턴을 직접 실행해 `가나다`(매칭 안 됨)·`가_다`·`가%다`·`가\다`(각 검색어에만 매칭) 결과로 교차 확인했다.
 - **인코딩 손상 탐지 정규식 보강 (2026-09-03)**: `BreedSeedEncodingTest`의 `REPLACED_CHARACTER_IN_SQL_VALUE`가 ASCII `?`만 잡고 UTF-8 디코딩 실패 시 나오는 U+FFFD(`�`)는 못 잡던 것을 `[?�]`로 확장했다. 정규식이 실제로 U+FFFD와 `?` 둘 다 탐지하고 정상 문자(`Ä`)에는 반응하지 않는지 증명하는 양성/음성 케이스 테스트를 추가했다.
