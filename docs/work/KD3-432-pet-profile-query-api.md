@@ -12,7 +12,7 @@
 
 - 활성 workflow: `003-migration`
 - 현재 공통 단계: `4`
-- 다음 결정 또는 전환 조건: 작업 브랜치는 `dev`/`epic`이 아니라 `feat/KD3-431-pet-profile-create-update-api`에서 분기한 stacked 브랜치다(KD3-431이 epic에 머지되면 base 재조정·rebase 예정). 구현·단위 테스트·전체 빌드·자체 재검토(2건 정정) 및 `MethodArgumentTypeMismatchException` 공통 핸들러 추가까지 완료(148건 통과, §검증 결과 참고). 아직 커밋·푸시 전 — 사용자 승인 후 커밋 → 푸시 → PR 생성 순서로 진행. 독립 리뷰(5단계)는 PR 생성 이후.
+- 다음 결정 또는 전환 조건: 작업 브랜치는 `dev`/`epic`이 아니라 `feat/KD3-431-pet-profile-create-update-api`에서 분기한 stacked 브랜치다(KD3-431이 epic에 머지되면 base 재조정·rebase 예정). 구현·단위 테스트·전체 빌드·자체 재검토(2건 정정) 및 `MethodArgumentTypeMismatchException` 공통 핸들러 추가까지 완료(148건 통과)하고 커밋 4개로 나눠 커밋·푸시, PR #20 생성 완료(base `feat/KD3-431-pet-profile-create-update-api`, `MERGEABLE`). 다음은 5단계 독립 리뷰.
 
 ## 작업 목표
 
