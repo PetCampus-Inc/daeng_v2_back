@@ -1,4 +1,4 @@
-> 생성: 2026-09-02 19:24 · 최종 수정: 2026-09-07 18:15
+> 생성: 2026-09-02 19:24 · 최종 수정: 2026-09-07 20:35
 
 # KD3-431 pet 프로필 생성·수정 API 구축
 
@@ -122,6 +122,13 @@
 - **`name`/`relationshipText`/`profileImage` blank·길이 검증 추가 후 재검증(2026-09-07)**: 사용자 지적으로 발견한 검증 공백(위 §방향 논의 및 결정 사항 참고)을 `Pet.kt`에 반영한 뒤 `./gradlew build --rerun-tasks`로 전체 재실행 — 29개 클래스 140건(기존 133 + `PetTest` 신규 7: blank name, name 100/101자, relationshipText 101자, profileImage 500/501자), 실패·에러 0건 확인.
 - **`IllegalStateException` 전역 핸들러 철회 후 재검증(2026-09-07)**: `GlobalExceptionHandler.kt`/`CommonErrorCode.kt`/`GlobalExceptionHandlerTest.kt`/`docs/conventions/error-handling.md`를 되돌린 뒤 `./gradlew build --rerun-tasks`로 전체 재실행 — 29개 클래스 139건(기존 140에서 제거된 테스트 1건 반영), 실패·에러 0건 확인.
 - **위 `./gradlew build`/`test` 결과의 독립 검증 경로**: 이 문서의 로컬 실행 기록은 diff 자체에는 포함되지 않으므로, PR 본문에만 의존하지 않고 재확인하려면 PR #17의 GitHub Actions CI 체크(`build`, `docs-check`)를 본다 — 로컬 실행과 별개로 CI에서 독립적으로 재현되며, PR 페이지에서 직접 통과 여부를 볼 수 있다.
+- **로컬 MySQL 실제 HTTP 엔드투엔드 재검증(2026-09-07)**: 위의 후속 정정 사항(NPE 방어 4건, blank·길이 검증, `IllegalStateException` 핸들러 철회)이 2026-09-04 최초 e2e 검증 이후에 추가된 것이라 실제 요청으로 재확인하지 않은 상태였다 — 단위 테스트(fake port)만으로는 실제 Jackson 역직렬화·Spring 라우팅까지 검증되지 않는다는 사용자 지적으로 재검증했다. 로컬 MySQL 데이터를 초기화(예전 세션의 Flyway 이력이 현재 마이그레이션 파일과 충돌해 있었음)하고 V1~V11 전체 재적용, 테스트 사용자 2명을 추가하고 동일한 방식으로 액세스 토큰을 서명해 검증했다(테스트 데이터는 검증 후 삭제):
+  - 정상 생성 2건(대표견 자동 지정 확인), PATCH 필드 생략 시 유지, `relationship` 단독 변경 시 `relationshipText` 자동 제거(A) 확인
+  - PATCH로 `relationship=MOTHER`와 `relationshipText`를 동시 지정 → 400(E) 확인
+  - PATCH로 `breedId`/`relationship`/`gender`/`name`/`weight`에 각각 명시적 `null` → 5건 전부 400 `INVALID_INPUT_VALUE`(해당 필드명이 포함된 메시지)로 거부 확인 — 2차 독립 리뷰가 발견한 NPE 버그가 실제 요청으로도 고쳐졌음을 확인
+  - 빈 `name`, `name` 101자, `profileImage` 501자로 생성 시도 → 3건 전부 400으로 거부 확인 — 사용자가 발견한 검증 공백이 실제 요청으로도 고쳐졌음을 확인
+  - 5마리까지 정상 등록 후 6번째 등록 시도 → 400 `PET-400-1` 확인
+  - 인증 없이 요청 → 401, 존재하지 않는 `petId`로 단건 조회 → 404 `PET-404-1`, 타인 pet 접근 → 403 `PET-403-1` 확인(KD3-432 조회 API로 함께 확인, 아래 KD3-432 문서 참고)
 
 ## 작업 후 확인 목록
 
