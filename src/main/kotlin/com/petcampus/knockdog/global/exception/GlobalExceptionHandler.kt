@@ -10,6 +10,7 @@ import org.springframework.web.bind.MissingRequestCookieException
 import org.springframework.web.bind.MissingServletRequestParameterException
 import org.springframework.web.bind.annotation.ExceptionHandler
 import org.springframework.web.bind.annotation.RestControllerAdvice
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException
 
 @RestControllerAdvice
 class GlobalExceptionHandler {
@@ -40,6 +41,18 @@ class GlobalExceptionHandler {
         ResponseEntity
             .status(HttpStatus.BAD_REQUEST)
             .body(Response.error(CommonErrorCode.INVALID_INPUT_VALUE, e.message))
+
+    /**
+     * 경로 변수·쿼리 파라미터의 타입 불일치(예: `Long` 자리에 숫자가 아닌 값). 이 핸들러가 없으면
+     * catch-all(500)로 떨어진다 — Spring이 원래 자동으로 400 처리해주는 것을 이 클래스의 catch-all이
+     * 가로채 버리기 때문에, 그 기본 동작을 되살리는 핸들러다. 메시지는 파라미터 타입 등 내부 정보 노출
+     * 방지를 위해 고정 문구를 쓴다.
+     */
+    @ExceptionHandler(MethodArgumentTypeMismatchException::class)
+    fun handleTypeMismatch(e: MethodArgumentTypeMismatchException): ResponseEntity<Response<Unit>> =
+        ResponseEntity
+            .status(HttpStatus.BAD_REQUEST)
+            .body(Response.error(CommonErrorCode.INVALID_INPUT_VALUE, "요청 경로 또는 파라미터 값이 올바르지 않습니다."))
 
     /**
      * 필수 쿠키 누락. 인증 토큰을 쿠키로 받는 API(`/api/v1/auth/login`, `/refresh`, `POST /api/v1/users`)를
