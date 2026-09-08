@@ -54,6 +54,30 @@ class PetPersistenceAdapter(
         return save(target)
     }
 
+    @Transactional
+    override fun deleteAndPromoteWithinLock(pet: Pet): Pet? {
+        lockUserPort.lockById(pet.userId)
+        val activePets = petJpaRepository.findAllActiveByUserIdForUpdate(pet.userId).map { it.toDomain() }
+        val target =
+            activePets.find { it.id == pet.id }
+                ?: throw BusinessException(PetErrorCode.NOT_FOUND)
+        val wasRepresentative = target.isRepresentative
+
+        target.delete()
+        save(target)
+        if (!wasRepresentative) return null
+        flushClearedRepresentativesBeforeReassigning()
+
+        val next =
+            activePets
+                .filter { it.id != target.id }
+                .sortedWith(compareBy<Pet> { !it.isRepresentative }.thenBy { it.name })
+                .firstOrNull() ?: return null
+
+        next.markAsRepresentative()
+        return save(next)
+    }
+
     override fun save(pet: Pet): Pet {
         val userRef = entityManager.getReference(UserJpaEntity::class.java, pet.userId)
         val breedRef = entityManager.getReference(BreedJpaEntity::class.java, pet.breedId)

@@ -1,9 +1,11 @@
 package com.petcampus.knockdog.domain.pet.adapter.outbound.persistence
 
 import com.petcampus.knockdog.domain.auth.adapter.outbound.persistence.UserPersistenceAdapter
+import com.petcampus.knockdog.domain.pet.application.PetErrorCode
 import com.petcampus.knockdog.domain.pet.domain.Gender
 import com.petcampus.knockdog.domain.pet.domain.Pet
 import com.petcampus.knockdog.domain.pet.domain.Relationship
+import com.petcampus.knockdog.global.exception.BusinessException
 import jakarta.persistence.EntityManager
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest
@@ -173,6 +175,71 @@ class PetPersistenceAdapterTest(
         assertEquals("산책왕", result.name)
         val reloaded = petPersistenceAdapter.findById(requireNotNull(staleTarget.id))
         assertEquals("산책왕", reloaded?.name)
+    }
+
+    @Test
+    fun `대표견을 삭제하면 남은 pet 중 이름순으로 다음 pet이 새 대표견이 된다`() {
+        petPersistenceAdapter.registerWithinLimit(pet(userId = 1L, name = "가온"))
+        val toBecomeRepresentative = petPersistenceAdapter.registerWithinLimit(pet(userId = 1L, name = "나비"))
+        petPersistenceAdapter.registerWithinLimit(pet(userId = 1L, name = "다롱"))
+        val target = petPersistenceAdapter.setRepresentativeWithinLock(toBecomeRepresentative)
+
+        val promoted = petPersistenceAdapter.deleteAndPromoteWithinLock(target)
+
+        assertEquals("가온", promoted?.name)
+        assertTrue(requireNotNull(promoted).isRepresentative)
+        val reloadedTarget = petJpaRepository.findById(requireNotNull(target.id).value).orElseThrow()
+        assertTrue(reloadedTarget.deletedAt != null)
+        assertEquals(null, reloadedTarget.representativeUserId)
+    }
+
+    @Test
+    fun `대표견을 삭제했는데 남은 pet이 없으면 대표견 없음 상태가 된다`() {
+        val onlyPet = petPersistenceAdapter.registerWithinLimit(pet(userId = 1L))
+
+        val promoted = petPersistenceAdapter.deleteAndPromoteWithinLock(onlyPet)
+
+        assertEquals(null, promoted)
+        val reloaded = petJpaRepository.findById(requireNotNull(onlyPet.id).value).orElseThrow()
+        assertTrue(reloaded.deletedAt != null)
+        assertEquals(null, reloaded.representativeUserId)
+    }
+
+    @Test
+    fun `대표견을 삭제한 뒤 다른 pet이 새 대표견으로 승격돼도 유니크 제약에 걸리지 않는다`() {
+        val representative = petPersistenceAdapter.registerWithinLimit(pet(userId = 1L, name = "가온"))
+        petPersistenceAdapter.registerWithinLimit(pet(userId = 1L, name = "나비"))
+
+        petPersistenceAdapter.deleteAndPromoteWithinLock(representative)
+        petJpaRepository.flush()
+
+        val activePets = petJpaRepository.findAllActiveByUserId(1L)
+        assertEquals(1, activePets.size)
+        assertEquals("나비", activePets.single().name)
+        assertTrue(activePets.single().representativeUserId != null)
+    }
+
+    @Test
+    fun `대표견이 아닌 pet을 deleteAndPromoteWithinLock으로 삭제해도 기존 대표견은 그대로 유지된다`() {
+        val representative = petPersistenceAdapter.registerWithinLimit(pet(userId = 1L, name = "가온"))
+        val other = petPersistenceAdapter.registerWithinLimit(pet(userId = 1L, name = "나비"))
+
+        val promoted = petPersistenceAdapter.deleteAndPromoteWithinLock(other)
+
+        assertEquals(null, promoted)
+        val reloadedRepresentative = petJpaRepository.findById(requireNotNull(representative.id).value).orElseThrow()
+        assertTrue(reloadedRepresentative.representativeUserId != null)
+    }
+
+    @Test
+    fun `잠금 재조회 시점에 이미 삭제된 pet이면 500이 아니라 NOT_FOUND를 던진다`() {
+        val target = petPersistenceAdapter.registerWithinLimit(pet(userId = 1L, name = "가온"))
+        target.delete()
+        petPersistenceAdapter.save(target)
+
+        val exception = assertFailsWith<BusinessException> { petPersistenceAdapter.deleteAndPromoteWithinLock(target) }
+
+        assertEquals(PetErrorCode.NOT_FOUND, exception.errorCode)
     }
 
     private fun pet(
