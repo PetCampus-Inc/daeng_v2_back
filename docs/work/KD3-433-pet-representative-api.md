@@ -1,4 +1,4 @@
-> 생성: 2026-09-02 19:24 · 최종 수정: 2026-09-08 10:35
+> 생성: 2026-09-02 19:24 · 최종 수정: 2026-09-08 11:40
 
 # KD3-433 pet 대표견 설정 API 구축
 
@@ -55,7 +55,7 @@
 - 단위 테스트: `SetRepresentativeServiceTest`(정상 설정/이미 대표견인 경우 멱등/미존재 pet 404/삭제된 pet 404/타인 pet 403, 5건) 전부 통과.
 - 영속성 어댑터 테스트: `PetPersistenceAdapterTest`에 `setRepresentativeWithinLock` 케이스 3건(이미 대표견이면 유지, 기존 대표견 해제 후 대상 지정, 대표견이 없는 상태에서도 지정 가능) 추가, 전부 통과(기존 6건 포함 9건).
 - 동시성 테스트: `PetSetRepresentativeConcurrencyTest`(신규, `PetRegistrationConcurrencyTest`와 동일하게 Testcontainers MySQL 사용) — 동일 사용자의 pet 5마리에 대해 대표견 설정 요청 5건을 동시에 실행해도 최종적으로 대표견이 1건만 남음을 확인.
-- 전체 빌드: `./gradlew build --rerun-tasks` 통과(ktlint, ArchUnit 포함). 당시 전체 테스트 149건 통과 확인(`build/test-results/test/*.xml` 합산). KD3-431의 `@Version` rebase 반영 후엔 151건(아래 "알려진 리스크" 1번 참고).
+- 전체 빌드: `./gradlew build --rerun-tasks` 통과(ktlint, ArchUnit 포함). 최초 구현 시점엔 149건 통과 확인(`build/test-results/test/*.xml` 합산, 로컬 실행). KD3-431의 `@Version` rebase 반영 후 로컬에서 재실행해 151건, 실패·에러 0건 확인(마찬가지로 `build/test-results/test/*.xml` 합산 — 이 실행 자체의 로그·artifact는 PR diff에 첨부돼 있지 않다). 같은 커밋(`d473f01`) 기준 GitHub Actions CI의 `build` 체크도 별도로 통과했다 — [CI 실행 로그](https://github.com/PetCampus-Inc/daeng_v2_back/actions/runs/34180174440/job/101917498524)에서 초록불(BUILD SUCCESSFUL)을 직접 확인할 수 있다(정확한 테스트 건수까지는 CI 로그 리포터 출력 형식상 한 줄로 안 잡혀서, "151건"이라는 정확한 숫자는 로컬 실행 결과가 근거이고 CI는 그 실행이 실패 없이 통과했다는 것의 독립적 재확인이다).
 - 문서: `docs/domains/pet.md`에 "pet 대표견 설정 API" 절 추가(엔드포인트, 대표견 전환 처리, 동시성 처리, 소유권·상태 검증, 응답 형식). `docs/inventory/api.md`의 `POST /api/v0/pet/representative/{petId}`를 `KEEP`에서 `REDESIGN`으로 정정(KD3-431/432와 동일한 형식으로 `PUT /api/v1/pets/{petId}/representative` 재설계 확정 근거 기록).
 
 ## 독립 리뷰 결과
@@ -66,7 +66,7 @@ fresh subagent 리뷰(읽기 전용, 실제 코드·빌드 결과 확인 지시)
 2. **문서 오기**: `docs/domains/pet.md`에 레거시 대표견 설정 엔드포인트를 `PUT /api/v0/pet/representative/{petId}`로 적었으나, 실제 레거시(`daeng_v1_back`의 `PetController.java`)는 `POST`다. 같은 diff의 `docs/inventory/api.md`에는 이미 `POST`로 정확히 적혀 있어 문서 간 모순이었다. `POST`로 정정했다.
 3. **테스트 커버리지 공백**: 위 1번 버그를 직접 검증하는 테스트가 없었다는 지적 — 재발 방지 테스트 추가로 해소.
 
-반대 방향(다른 요청이 대표견 플래그 변경을 덮어쓰는 경우)은 `UpdatePetService`가 애초에 이 pet 행에 대한 잠금이 없는 이 프로젝트의 기존 구조적 한계이고 KD3-433이 새로 만든 문제가 아니라 이번 수정 범위에 포함하지 않았다 — 필요하면 별도 티켓으로 다룬다.
+반대 방향(다른 요청이 대표견 플래그 변경을 덮어쓰는 경우)은 이 1차 독립 리뷰 시점엔 `UpdatePetService`가 애초에 이 pet 행에 대한 잠금이 없는 이 프로젝트의 기존 구조적 한계이고 KD3-433이 새로 만든 문제가 아니라며 이번 수정 범위에서 제외했다. **이후 상태 갱신(2026-09-08): 이 갭은 더 이상 미해결이 아니다** — KD3-431에 도입한 `@Version`(낙관적 락)으로 해결 완료됐다. 경위와 근거는 아래 "알려진 리스크" 1번 참고.
 
 ## 로컬 HTTP e2e 검증 결과
 
