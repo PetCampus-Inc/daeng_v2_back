@@ -1,4 +1,4 @@
-> 생성: 2026-09-02 19:24 · 최종 수정: 2026-09-07 20:35
+> 생성: 2026-09-02 19:24 · 최종 수정: 2026-09-08 02:20
 
 # KD3-431 pet 프로필 생성·수정 API 구축
 
@@ -12,7 +12,7 @@
 
 - 활성 workflow: `003-migration`
 - 현재 공통 단계: `5`
-- 다음 결정 또는 전환 조건: `KD3-430`은 이미 `epic/KD3-404-pet-domain-migration`에 머지됐고 PR #17도 그 위로 base가 맞춰진 상태로 이미 생성돼 있다(rebase 완료). 1차 독립 리뷰(이 세션이 직접 수행), 2차 독립 리뷰(fresh subagent, `breedId`/`relationship`/`gender`/`name` 명시적 null NPE 버그 발견), 사용자가 직접 지적한 문자열 필드 blank·길이 검증 공백, PR 코멘트(CodeRabbit) 지적 3건(migration 파일명·상태코드 오기 정정, `IllegalStateException` 전역 핸들러 철회) 전부 반영해 커밋·푸시하고 전체 139건 통과 확인. 아직 커밋·푸시 전 — 사용자 승인 후 커밋 → 푸시 → PR #17 본문·GitHub 리뷰 스레드 정리 순서로 진행.
+- 다음 결정 또는 전환 조건: `KD3-430`은 이미 `epic/KD3-404-pet-domain-migration`에 머지됐고 PR #17도 그 위로 base가 맞춰진 상태로 이미 생성돼 있다(rebase 완료). 1차 독립 리뷰(이 세션이 직접 수행), 2차 독립 리뷰(fresh subagent, `breedId`/`relationship`/`gender`/`name` 명시적 null NPE 버그 발견), 사용자가 직접 지적한 문자열 필드 blank·길이 검증 공백, PR 코멘트(CodeRabbit) 지적 3건(migration 파일명·상태코드 오기 정정, `IllegalStateException` 전역 핸들러 철회) 전부 반영. 이후 KD3-433 검토 과정에서 발견한 `UpdatePetService`의 lost-update를 막기 위해 `@Version` 낙관적 락을 추가(2026-09-08, 위 "구현 중 발견해 정정한 사항" 참고) — 실제 동시 요청 8건으로 e2e 검증 완료. 아직 커밋·푸시 전 — 사용자 승인 후 커밋 → 푸시 → PR #17 본문·GitHub 리뷰 스레드 정리 순서로 진행.
 
 ## 작업 목표
 
@@ -79,6 +79,8 @@
 - **`weight`를 처음엔 PATCH로 지울 수 있는 nullable 필드 4개(`profileImage`/`birthYear`/`weight`/`isNeutered`) 중 하나로 설계했다가 정정했다.** `weight`는 생성 시에만 필수이고 이후엔 지울 수 있다고 잘못 판단한 것으로, 사용자가 "수정할 때도 non-null이어야 한다"고 지적해 바로잡았다. KD3-430(도메인·스키마)과 KD3-431(API) 양쪽 모두 수정해, `Pet` 도메인 모델·DB 컬럼·`UpdatePetCommand`/`UpdatePetRequest`의 `weight` 타입(`JsonNullable<Double>`, 비-nullable 내부 타입)과 `UpdatePetService`의 명시적 null 거부 로직까지 전부 반영했다.
 - **`name`/`relationshipText`/`profileImage`의 blank·길이 검증이 도메인에 아예 없었다 — 빈 이름이 저장되거나 DB 컬럼 길이 초과 시 500이 나가는 실제 버그였다.** 사용자가 `Pet.kt`(당시 검증은 `relationshipText`·`weight`뿐)와 `PetJpaEntity.kt`의 컬럼 길이(`name` 100자, `profileImage` 500자, `relationshipText` 100자)를 직접 대조해 지적했다. 빈 `name`은 DB `NOT NULL` 제약을 통과해(빈 문자열은 NULL이 아니므로) 그대로 저장되고, 컬럼 길이를 넘는 값은 `DataIntegrityViolationException`이 `GlobalExceptionHandler`의 catch-all(500)로 떨어져 계약(400 거부)과 어긋났다 — `breedId`/`relationship`/`gender`/`name` 명시적 null 버그와 같은 패턴(방어 코드 부분 적용 누락)이 검증 로직에서도 반복된 것이다. `Pet.kt`에 `validateName`(blank 금지, 100자 이하)·`validateProfileImage`(500자 이하)를 추가하고 `validateRelationshipText`에 100자 이하 검증을 더해 `create`/`update` 양쪽에 적용했다. `profileImage`가 빈 문자열(`""`)일 때 이를 유효로 볼지는 결정하지 않았다 — 길이 상한만 적용하고 blank 여부는 그대로 둔다.
 
+- **`PetJpaEntity`에 `@Version`(낙관적 락)을 추가했다(2026-09-08).** KD3-433(대표견 설정 API) 작업 중 발견한 문제: `UpdatePetService.update()`는 애초에 잠금이 전혀 없어서, `PATCH /api/v1/pets/{petId}`(필드 수정)와 `PUT /api/v1/pets/{petId}/representative`(대표견 지정, KD3-433)가 같은 pet에 거의 동시에 들어오면 나중에 커밋되는 쪽이 자신이 읽어둔 낡은 상태로 상대방의 변경을 조용히 덮어쓸 수 있었다(lost-update). KD3-433 브랜치에서 `setRepresentativeWithinLock`과 같은 방식(`users` 행 비관적 락 + 활성 pet 전체 재조회)으로 임시로 고쳐봤으나, pet 하나만 건드리면 되는 작업치고 서로 무관한 pet들까지 불필요하게 직렬화시키는 무거운 방식이라 CTO 관점 재검토 후 그 수정은 되돌리고, 이 파일들의 원 소유 티켓인 여기(KD3-431)에서 `@Version` 기반 낙관적 락으로 처리하기로 결정했다. `Pet` 도메인에 `version: Long` 필드 추가(`create()`는 0, `reconstitute()`는 DB 값 그대로), `PetMapper`가 양방향 매핑, `V12__pets_add_version.sql`로 `pets.version BIGINT NOT NULL DEFAULT 0` 컬럼 추가, `GlobalExceptionHandler`에 `OptimisticLockingFailureException` → 409 `RESOURCE_CONFLICT` 핸들러 추가. `registerWithinLimit`/`setRepresentativeWithinLock`(KD3-433)은 "여러 행에 걸친 불변식"(최대 5마리, 대표견 유일성)을 지켜야 해서 낙관적 락만으론 부족해 기존 `users` 행 비관적 락을 그대로 둔다 — `UpdatePetService`만 이걸로 바뀐다. 실무 근거: Baeldung·Vlad Mihalcea(Hibernate 코어) 모두 낙관적 락을 단일 행 동시 수정 문제의 기본 선택으로 권장.
+
 ### 미결 질문
 
 - `profileImage`가 빈 문자열(`""`)로 오면 유효한 값으로 저장할지, blank도 거부할지 결정하지 않았다. 지금은 길이 상한(500자)만 적용한다.
@@ -129,6 +131,7 @@
   - 빈 `name`, `name` 101자, `profileImage` 501자로 생성 시도 → 3건 전부 400으로 거부 확인 — 사용자가 발견한 검증 공백이 실제 요청으로도 고쳐졌음을 확인
   - 5마리까지 정상 등록 후 6번째 등록 시도 → 400 `PET-400-1` 확인
   - 인증 없이 요청 → 401, 존재하지 않는 `petId`로 단건 조회 → 404 `PET-404-1`, 타인 pet 접근 → 403 `PET-403-1` 확인(KD3-432 조회 API로 함께 확인, 아래 KD3-432 문서 참고)
+- **`@Version` 도입 후 검증(2026-09-08)**: `./gradlew build --rerun-tasks` 통과(ktlint, ArchUnit 포함, 전체 140건, 실패·에러 0건). `PetPersistenceAdapterTest`에 낙관적 락 충돌 재발 방지 테스트 추가 — H2 1차 캐시가 `findById`를 두 번 호출해도 같은 관리 엔티티를 반환해 충돌이 안 재현되는 함정을 겪어(`entityManager.clear()`로 우회), `@Version` 제거 시 이 테스트가 실제로 실패하는 것과 복원 후 통과하는 것을 직접 확인. 로컬 MySQL(Docker)에 실제 서버를 띄워 마이그레이션이 깨끗하게 적용됨을 확인하고, 정상 PATCH 1건(버전 0→1 증가 확인) 후 **같은 pet에 실제 동시 PATCH 요청 8건**을 병렬로 보내 정확히 1건만 200, 나머지 7건은 전부 `409 RESOURCE_CONFLICT`로 응답하는 것을 실측 확인(`@Version` → `OptimisticLockingFailureException` → `GlobalExceptionHandler` → 409 전체 경로가 실제로 동작함을 end-to-end로 증명).
 
 ## 작업 후 확인 목록
 
@@ -149,3 +152,8 @@
 | `Pet.kt` | 코드 수정 | `name`(blank 금지·100자 이하)·`profileImage`(500자 이하)·`relationshipText`(100자 이하) 검증 추가 — DB 컬럼 길이 초과 시 500이 나가던 버그, 빈 name이 저장되던 데이터 품질 문제 수정(사용자 발견) |
 | `PetTest.kt` | 테스트 추가 | blank name, name/relationshipText/profileImage 길이 상한·초과 케이스 추가 |
 | `docs/domains/pet.md` | 갱신 | "pet 프로필과 불변식"에 문자열 필드 길이·blank 검증 행 추가 |
+| `Pet.kt`/`PetJpaEntity.kt`/`PetMapper.kt` | 코드 수정 | `version: Long` 필드·`@Version` 추가(낙관적 락) — `UpdatePetService`의 lost-update 방지(KD3-433 검토에서 발견, 2026-09-08) |
+| `V12__pets_add_version.sql` | 신규 | `pets.version BIGINT NOT NULL DEFAULT 0` 컬럼 추가 |
+| `GlobalExceptionHandler.kt`/`CommonErrorCode.kt` | 코드 수정 | `OptimisticLockingFailureException` → 409 `RESOURCE_CONFLICT` 핸들러 추가 |
+| `docs/conventions/error-handling.md` | 갱신 | 처리 우선순위 목록에 `OptimisticLockingFailureException`(6번) 추가 |
+| `PetPersistenceAdapterTest.kt` | 테스트 추가 | 낙관적 락 충돌 재발 방지 테스트 1건 |

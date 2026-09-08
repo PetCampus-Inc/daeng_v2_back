@@ -80,8 +80,9 @@ open class BusinessException(val errorCode: ErrorCode, message: String? = null) 
 3. `NoSuchElementException` → 404 + `CommonErrorCode.RESOURCE_NOT_FOUND`
 4. `HttpMessageNotReadableException`(요청 본문 파싱 실패, 예: 필수 필드 누락) → 400 + `CommonErrorCode.INVALID_INPUT_VALUE` (메시지는 Jackson 내부 정보 노출 방지를 위해 고정 문구)
 5. `MissingServletRequestParameterException`(필수 `@RequestParam` 누락) → 400 + `CommonErrorCode.INVALID_INPUT_VALUE`
-6. `HttpRequestMethodNotSupportedException`(Spring이 던지는 405) → 405 + `CommonErrorCode.METHOD_NOT_ALLOWED`
-7. 그 외 `Exception` → 500 + `CommonErrorCode.INTERNAL_SERVER_ERROR`
+6. `OptimisticLockingFailureException`(`@Version` 낙관적 락 충돌 — 저장 시점에 다른 트랜잭션이 먼저 같은 행을 바꿔서 버전이 안 맞는 경우) → 409 + `CommonErrorCode.RESOURCE_CONFLICT`(KD3-431, `PetJpaEntity.version` 도입과 함께 추가)
+7. `HttpRequestMethodNotSupportedException`(Spring이 던지는 405) → 405 + `CommonErrorCode.METHOD_NOT_ALLOWED`
+8. 그 외 `Exception` → 500 + `CommonErrorCode.INTERNAL_SERVER_ERROR`
 
 2~3번은 하위 호환을 위해 남겨둔 것이다 — `BusinessException`을 쓰지 않는 기존 코드(예: `GetOwnerService`)가 아직 있다. **새로 작성하는 코드는 2~3번 대신 `BusinessException` + 도메인별 `ErrorCode`를 쓴다.**
 
