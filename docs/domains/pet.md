@@ -1,4 +1,4 @@
-> 생성: 2026-09-02 22:02 · 최종 수정: 2026-09-08 18:05
+> 생성: 2026-09-02 22:02 · 최종 수정: 2026-09-08 18:10
 
 # pet 도메인
 
@@ -37,7 +37,7 @@
 | `breedId` | NOT NULL. `breeds`에 믹스견(1번)·기타(385번)가 있어 견종을 특정할 수 없는 경우도 표현 가능해 견종 미상 상태를 별도로 두지 않는다 |
 | 대표견 단일성 | `pets.representative_user_id`(nullable, UNIQUE — 대표견이면 `user_id`와 같은 값, 아니면 NULL)로 DB가 보장한다. 최초 등록하는 pet은 자동으로 대표견이 되는 레거시 규칙을 유지한다. **대표견을 교체할 때는 반드시 기존 대표견을 먼저 해제(`clearRepresentative`+저장)한 뒤 새 대표견을 지정(`markAsRepresentative`+저장)해야 한다** — 순서를 바꾸면 UNIQUE 제약 위반으로 실패한다 |
 | 최대 마릿수 | 사용자당 5마리. `SELECT ... FOR UPDATE`로 활성 pet 행을 잠근 뒤 등록하는 애플리케이션 레벨 잠금으로 처리한다. 활성 pet이 0건이라 잠글 행이 없는 상태의 동시 등록도, 항상 존재하는 `users` 행을 먼저 잠그는 `LockUserPort`로 직렬화한다(Testcontainers 기반 자동화 테스트로 검증 — [`KD3-430`](../work/KD3-430-pet-domain-foundation-schema.md) 검증 결과 참고) |
-| 삭제 | soft delete(`deleted_at`). 사용자가 직접 삭제하는 유스케이스는 후속 티켓(KD3-434) |
+| 삭제 | soft delete(`deleted_at`). 사용자가 직접 삭제하는 유스케이스는 `DELETE /api/v1/pets/{petId}`(KD3-434, 구현 완료) — 아래 "pet 삭제 API" 참고 |
 | 탈퇴 회원 pet 정리(미착수) | 레거시엔 `WithdrawnUserDeleteService`라는 스케줄러가 있어, 회원 탈퇴 후 유예 기간이 지나면 그 사용자의 pet을 전부 물리 삭제한다(앨범·북마크·메모·알림 등과 함께 계정 탈퇴 정리 작업 일부, `petRepository.deleteAllByUserPks(...)`). v2엔 이 메커니즘 자체가 없다 — KD3-434(사용자가 직접 pet 하나를 지우는 것)와는 다른, **계정 탈퇴가 트리거하는 예약 작업**이라 auth 도메인 쪽에서 발동돼야 한다. 개인정보 보관 정책과 관련된 사안이라 방치하면 탈퇴한 사용자의 pet 데이터가 계속 안 지워진 채 남는다. 2026-09-08 레거시 전체 대조 조사에서 발견 — 아직 어느 티켓에도 안 걸려 있다. auth 쪽 문서·티켓화는 후속으로 미룬 상태(사용자 확인, 2026-09-08) |
 | 견종 표시 이름 | pet 테이블에 중복 저장하지 않는다. `LoadBreedPort.findById`(breed 도메인의 `LoadBreedsPort.findById`에 위임)로 응답 시점에 `nameKo`/`alias`를 조합한다(KD3-431) |
 
@@ -78,6 +78,18 @@
 | 응답 | pet 생성·수정 API와 동일하게 `PetResponse`(pet 전체 필드 + `breedNameKo`/`breedAlias`)를 반환한다. 레거시는 `Response<Void>`였으나, 이 프로젝트의 다른 pet 엔드포인트 관례를 따른다 |
 
 상세 구현과 검증 상태는 [`KD3-433`](../work/KD3-433-pet-representative-api.md)을 참고한다.
+
+## pet 삭제 API
+
+| 항목 | 현재 결정 |
+|---|---|
+| 엔드포인트 | `DELETE /api/v1/pets/{petId}`, 응답 `204 No Content`. 레거시 `POST /api/v0/pet/remove/{petId}`는 인벤토리에서 원래 `미착수`로 남아 있었으나, 다른 pet 엔드포인트와 동일한 RESTful URL 패턴으로 재설계해 구현했다(KD3-434) |
+| 삭제 대상이 대표견일 때 | **레거시엔 없는 v2 신규 동작**: 레거시 `PetService.removePet`은 자동 승격 로직이 없어 대표견을 지우면 그냥 대표견 없음 상태로 남았다. v2는 남은 활성 pet 중 정렬 1순위(대표견 우선 → 이름순과 같은 비교자, 대표견 자신이 삭제 대상이라 실질적으로 이름순 1번)를 자동으로 새 대표견으로 승격한다. 남은 pet이 없으면 대표견 없음 상태로 둔다 |
+| 락 분기 | 대표견이 아닌 pet은 `Pet.delete()` + `SavePetPort.save`(`@Version` 낙관적 락)만으로 가볍게 처리한다. 대표견인 pet만 `SavePetPort.deleteAndPromoteWithinLock`으로 "pet 대표견 설정 API"와 같은 `users` 행 비관적 락 패턴을 타 삭제+승격을 한 트랜잭션으로 묶는다 |
+| UNIQUE 제약과의 상호작용 | `pets.representative_user_id` UNIQUE는 `deleted_at`과 무관하게 걸린다 — 대표견을 삭제할 때 그 pet의 `representative_user_id`를 null로 같이 지우지 않으면 이후 누구도 새 대표견으로 승격될 수 없다(`Pet.delete()`가 `isRepresentative`도 `false`로 지워 자동 처리). 삭제 저장과 새 대표견 승격 저장이 같은 UNIQUE 컬럼을 건드리므로, "pet 대표견 설정 API"의 flush-순서 버그와 같은 이유로 그 사이에 명시적 flush가 필요하다 |
+| 소유권·상태 검증 | `petId`가 없거나 이미 soft delete된 pet이면 404(`PET-404-1`), 본인 소유가 아니면 403(`PET-403-1`) — 다른 pet 엔드포인트와 동일한 에러 코드를 재사용한다 |
+
+상세 구현과 검증 상태는 [`KD3-434`](../work/KD3-434-pet-delete-api.md)을 참고한다.
 
 ## 참조
 

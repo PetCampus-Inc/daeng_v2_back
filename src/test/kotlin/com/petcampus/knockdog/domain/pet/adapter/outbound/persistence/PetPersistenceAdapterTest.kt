@@ -175,6 +175,60 @@ class PetPersistenceAdapterTest(
         assertEquals("산책왕", reloaded?.name)
     }
 
+    @Test
+    fun `대표견을 삭제하면 남은 pet 중 이름순으로 다음 pet이 새 대표견이 된다`() {
+        petPersistenceAdapter.registerWithinLimit(pet(userId = 1L, name = "가온"))
+        val toBecomeRepresentative = petPersistenceAdapter.registerWithinLimit(pet(userId = 1L, name = "나비"))
+        petPersistenceAdapter.registerWithinLimit(pet(userId = 1L, name = "다롱"))
+        val target = petPersistenceAdapter.setRepresentativeWithinLock(toBecomeRepresentative)
+
+        val promoted = petPersistenceAdapter.deleteAndPromoteWithinLock(target)
+
+        assertEquals("가온", promoted?.name)
+        assertTrue(requireNotNull(promoted).isRepresentative)
+        val reloadedTarget = petJpaRepository.findById(requireNotNull(target.id).value).orElseThrow()
+        assertTrue(reloadedTarget.deletedAt != null)
+        assertEquals(null, reloadedTarget.representativeUserId)
+    }
+
+    @Test
+    fun `대표견을 삭제했는데 남은 pet이 없으면 대표견 없음 상태가 된다`() {
+        val onlyPet = petPersistenceAdapter.registerWithinLimit(pet(userId = 1L))
+
+        val promoted = petPersistenceAdapter.deleteAndPromoteWithinLock(onlyPet)
+
+        assertEquals(null, promoted)
+        val reloaded = petJpaRepository.findById(requireNotNull(onlyPet.id).value).orElseThrow()
+        assertTrue(reloaded.deletedAt != null)
+        assertEquals(null, reloaded.representativeUserId)
+    }
+
+    @Test
+    fun `대표견을 삭제한 뒤 다른 pet이 새 대표견으로 승격돼도 유니크 제약에 걸리지 않는다`() {
+        val representative = petPersistenceAdapter.registerWithinLimit(pet(userId = 1L, name = "가온"))
+        petPersistenceAdapter.registerWithinLimit(pet(userId = 1L, name = "나비"))
+
+        petPersistenceAdapter.deleteAndPromoteWithinLock(representative)
+        petJpaRepository.flush()
+
+        val activePets = petJpaRepository.findAllActiveByUserId(1L)
+        assertEquals(1, activePets.size)
+        assertEquals("나비", activePets.single().name)
+        assertTrue(activePets.single().representativeUserId != null)
+    }
+
+    @Test
+    fun `대표견이 아닌 pet을 deleteAndPromoteWithinLock으로 삭제해도 기존 대표견은 그대로 유지된다`() {
+        val representative = petPersistenceAdapter.registerWithinLimit(pet(userId = 1L, name = "가온"))
+        val other = petPersistenceAdapter.registerWithinLimit(pet(userId = 1L, name = "나비"))
+
+        val promoted = petPersistenceAdapter.deleteAndPromoteWithinLock(other)
+
+        assertEquals(null, promoted)
+        val reloadedRepresentative = petJpaRepository.findById(requireNotNull(representative.id).value).orElseThrow()
+        assertTrue(reloadedRepresentative.representativeUserId != null)
+    }
+
     private fun pet(
         userId: Long,
         isRepresentative: Boolean = false,

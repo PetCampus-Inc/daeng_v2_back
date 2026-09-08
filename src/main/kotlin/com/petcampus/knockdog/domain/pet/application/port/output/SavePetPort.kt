@@ -8,4 +8,6 @@ interface SavePetPort {
     fun save(pet: Pet): Pet
 
     fun setRepresentativeWithinLock(pet: Pet): Pet
+
+    fun deleteAndPromoteWithinLock(pet: Pet): Pet?
 }
