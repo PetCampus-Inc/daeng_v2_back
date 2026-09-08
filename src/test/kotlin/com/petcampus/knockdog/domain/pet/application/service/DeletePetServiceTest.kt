@@ -6,6 +6,7 @@ import com.petcampus.knockdog.domain.auth.domain.User
 import com.petcampus.knockdog.domain.auth.domain.UserAddress
 import com.petcampus.knockdog.domain.auth.domain.UserCode
 import com.petcampus.knockdog.domain.auth.domain.UserId
+import com.petcampus.knockdog.domain.pet.application.PetErrorCode
 import com.petcampus.knockdog.domain.pet.application.port.input.DeletePetCommand
 import com.petcampus.knockdog.domain.pet.application.port.output.LoadPetPort
 import com.petcampus.knockdog.domain.pet.application.port.output.SavePetPort
@@ -15,6 +16,7 @@ import com.petcampus.knockdog.domain.pet.domain.PetId
 import com.petcampus.knockdog.domain.pet.domain.Relationship
 import com.petcampus.knockdog.global.exception.BusinessException
 import kotlin.test.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
@@ -49,7 +51,9 @@ class DeletePetServiceTest {
     fun `존재하지 않는 pet이면 NOT_FOUND를 던진다`() {
         val service = service(pet = null)
 
-        assertFailsWith<BusinessException> { service.delete(command(petId = PetId(1L))) }
+        val exception = assertFailsWith<BusinessException> { service.delete(command(petId = PetId(1L))) }
+
+        assertEquals(PetErrorCode.NOT_FOUND, exception.errorCode)
     }
 
     @Test
@@ -58,7 +62,9 @@ class DeletePetServiceTest {
         pet.delete()
         val service = service(pet = pet)
 
-        assertFailsWith<BusinessException> { service.delete(command(petId = pet.id!!)) }
+        val exception = assertFailsWith<BusinessException> { service.delete(command(petId = pet.id!!)) }
+
+        assertEquals(PetErrorCode.NOT_FOUND, exception.errorCode)
     }
 
     @Test
@@ -66,7 +72,9 @@ class DeletePetServiceTest {
         val pet = pet(userId = 999L)
         val service = service(pet = pet)
 
-        assertFailsWith<BusinessException> { service.delete(command(petId = pet.id!!)) }
+        val exception = assertFailsWith<BusinessException> { service.delete(command(petId = pet.id!!)) }
+
+        assertEquals(PetErrorCode.NOT_AUTHORIZED, exception.errorCode)
     }
 
     private fun service(
