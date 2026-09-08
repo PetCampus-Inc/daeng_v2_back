@@ -23,6 +23,7 @@ fun Pet.toJpaEntity(
         isNeutered = isNeutered,
         representativeUserId = if (isRepresentative) userId else null,
         deletedAt = deletedAt,
+        version = version,
     )
 
 fun PetJpaEntity.toDomain(): Pet =
@@ -40,4 +41,5 @@ fun PetJpaEntity.toDomain(): Pet =
         isNeutered = isNeutered,
         isRepresentative = representativeUserId != null,
         deletedAt = deletedAt,
+        version = version,
     )

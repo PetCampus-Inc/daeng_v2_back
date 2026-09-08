@@ -16,6 +16,7 @@ class Pet private constructor(
     isNeutered: Boolean?,
     isRepresentative: Boolean,
     deletedAt: LocalDateTime?,
+    val version: Long,
 ) {
     var name: String = name
         private set
@@ -135,6 +136,7 @@ class Pet private constructor(
                 isNeutered = isNeutered,
                 isRepresentative = isRepresentative,
                 deletedAt = null,
+                version = 0,
             )
         }
 
@@ -152,6 +154,7 @@ class Pet private constructor(
             isNeutered: Boolean?,
             isRepresentative: Boolean,
             deletedAt: LocalDateTime?,
+            version: Long = 0,
         ): Pet =
             Pet(
                 id,
@@ -167,6 +170,7 @@ class Pet private constructor(
                 isNeutered,
                 isRepresentative,
                 deletedAt,
+                version,
             )
 
         private fun validateName(name: String) {
