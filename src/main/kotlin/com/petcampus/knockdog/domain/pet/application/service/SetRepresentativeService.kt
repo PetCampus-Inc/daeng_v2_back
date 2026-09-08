@@ -12,6 +12,7 @@ import com.petcampus.knockdog.domain.pet.application.port.output.LoadPetPort
 import com.petcampus.knockdog.domain.pet.application.port.output.SavePetPort
 import com.petcampus.knockdog.global.exception.BusinessException
 import org.springframework.stereotype.Service
+import org.springframework.transaction.annotation.Transactional
 
 @Service
 class SetRepresentativeService(
@@ -20,6 +21,7 @@ class SetRepresentativeService(
     private val loadBreedPort: LoadBreedPort,
     private val savePetPort: SavePetPort,
 ) : SetRepresentativeUseCase {
+    @Transactional
     override fun setRepresentative(command: SetRepresentativeCommand): SetRepresentativeResult {
         val userId = requireUserId(command.userCode)
         val pet =

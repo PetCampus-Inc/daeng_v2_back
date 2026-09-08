@@ -68,6 +68,10 @@ fresh subagent 리뷰(읽기 전용, 실제 코드·빌드 결과 확인 지시)
 
 반대 방향(다른 요청이 대표견 플래그 변경을 덮어쓰는 경우)은 이 1차 독립 리뷰 시점엔 `UpdatePetService`가 애초에 이 pet 행에 대한 잠금이 없는 이 프로젝트의 기존 구조적 한계이고 KD3-433이 새로 만든 문제가 아니라며 이번 수정 범위에서 제외했다. **이후 상태 갱신(2026-09-08): 이 갭은 더 이상 미해결이 아니다** — KD3-431에 도입한 `@Version`(낙관적 락)으로 해결 완료됐다. 경위와 근거는 아래 "알려진 리스크" 1번 참고.
 
+### 2차 리뷰 (자동화 리뷰 도구, 2026-09-08, PR #21)
+
+4. **서비스 계층에 `@Transactional` 누락(실사용 영향 가능성 있음, 수정 완료)**: `SetRepresentativeService.setRepresentative()`에 `@Transactional`이 없었다(`CreatePetService`·`UpdatePetService`는 있음 — 이 서비스만 빠진 불일치였다). Spring 기본 전파(`REQUIRED`) 규칙상, 호출부에 활성 트랜잭션이 없으면 `savePetPort.setRepresentativeWithinLock(pet)`(자체 `@Transactional`) 호출이 독립적인 트랜잭션 하나로 시작·커밋된다. 그 뒤에 실행되는 `checkNotNull(loadBreedPort.findById(updated.breedId))`가 breed 부재로 예외를 던지면, 대표견 변경은 이미 커밋된 채로 API는 500을 반환한다 — 롤백되지 않는 부분 커밋. 수정: `setRepresentative()`에 `@Transactional`을 추가해 대표견 저장과 breed 조회를 하나의 트랜잭션으로 묶었다. 검증: `SetRepresentativeTransactionBoundaryTest`(Testcontainers 실제 MySQL)를 새로 추가 — `PetJpaEntity.breed`의 `@JoinColumn`이 `ConstraintMode.NO_CONSTRAINT`라 실제 FK가 없다는 점을 이용해 breed 행을 미리 지워 breed 조회 실패를 재현하고, 대표견 변경이 DB에 전혀 반영되지 않았음을 직접 확인한다. 수정 전 코드로 되돌려 이 테스트가 실패하는 것도 확인했다 — 다만 예상했던 "롤백 안 됨" 단언 실패가 아니라 `UserJpaEntity.addresses` 지연 컬렉션 접근 시점의 `LazyInitializationException`이 먼저 터졌다(활성 Hibernate 세션 자체가 없어서 발생 — `@Transactional` 부재라는 같은 근본 원인의 더 이른 증상). 수정 적용 후 재실행하면 정상 통과.
+
 ## 로컬 HTTP e2e 검증 결과
 
 로컬 MySQL(Docker)·`./gradlew bootRun --args='--spring.profiles.active=local'`로 실제 서버를 띄우고, HS256 JWT를 직접 서명해 실제 HTTP 요청으로 검증했다(테스트 사용자·pet은 검증 후 DB에서 직접 삭제).
@@ -106,3 +110,5 @@ fresh subagent 리뷰(읽기 전용, 실제 코드·빌드 결과 확인 지시)
 | `docs/work/KD3-433-pet-representative-api.md` | 갱신 | API 결정·검증 결과 기록 |
 | `docs/inventory/api.md` | 갱신 | `/api/v0/pet/representative/{petId}`를 `KEEP`→`REDESIGN`으로 정정 |
 | `docs/domains/pet.md` | 갱신 | "pet 대표견 설정 API" 절 추가 |
+| `SetRepresentativeService.kt` | 갱신 | `@Transactional` 누락 수정(2차 리뷰 4번) |
+| `SetRepresentativeTransactionBoundaryTest.kt` | 신규 | 위 수정의 재발 방지 테스트(Testcontainers) |
