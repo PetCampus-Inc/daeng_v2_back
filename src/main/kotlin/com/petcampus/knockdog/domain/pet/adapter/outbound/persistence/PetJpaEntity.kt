@@ -18,6 +18,7 @@ import jakarta.persistence.Id
 import jakarta.persistence.JoinColumn
 import jakarta.persistence.ManyToOne
 import jakarta.persistence.Table
+import jakarta.persistence.Version
 import java.time.LocalDateTime
 
 @Entity
@@ -54,4 +55,7 @@ class PetJpaEntity(
     @Column(name = "representative_user_id")
     val representativeUserId: Long? = null,
     deletedAt: LocalDateTime? = null,
+    @Version
+    @Column(name = "version", nullable = false)
+    var version: Long = 0,
 ) : BaseEntity(deletedAt)

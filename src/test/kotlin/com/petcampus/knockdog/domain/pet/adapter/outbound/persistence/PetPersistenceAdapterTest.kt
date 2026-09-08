@@ -4,9 +4,11 @@ import com.petcampus.knockdog.domain.auth.adapter.outbound.persistence.UserPersi
 import com.petcampus.knockdog.domain.pet.domain.Gender
 import com.petcampus.knockdog.domain.pet.domain.Pet
 import com.petcampus.knockdog.domain.pet.domain.Relationship
+import jakarta.persistence.EntityManager
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest
 import org.springframework.context.annotation.Import
+import org.springframework.dao.OptimisticLockingFailureException
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -16,6 +18,8 @@ import kotlin.test.assertTrue
 @Import(PetPersistenceAdapter::class, UserPersistenceAdapter::class)
 class PetPersistenceAdapterTest(
     @Autowired private val petPersistenceAdapter: PetPersistenceAdapter,
+    @Autowired private val petJpaRepository: PetJpaRepository,
+    @Autowired private val entityManager: EntityManager,
 ) {
     @Test
     fun `첫 등록은 자동으로 대표견이 된다`() {
@@ -72,6 +76,43 @@ class PetPersistenceAdapterTest(
 
         assertTrue(result.isRepresentative)
     }
+
+    @Test
+    fun `읽은 시점 이후 버전이 바뀐 pet을 저장하면 낙관적 락 충돌이 발생한다`() {
+        val registered = petPersistenceAdapter.registerWithinLimit(pet(userId = 1L))
+        val petId = requireNotNull(registered.id)
+        entityManager.clear()
+
+        val stale = requireNotNull(petPersistenceAdapter.findById(petId))
+        entityManager.clear()
+
+        val fresh = requireNotNull(petPersistenceAdapter.findById(petId))
+        renameTo(fresh, "보리")
+        petPersistenceAdapter.save(fresh)
+        petJpaRepository.flush()
+        entityManager.clear()
+
+        renameTo(stale, "메리")
+        assertFailsWith<OptimisticLockingFailureException> {
+            petPersistenceAdapter.save(stale)
+            petJpaRepository.flush()
+        }
+    }
+
+    private fun renameTo(
+        pet: Pet,
+        name: String,
+    ) = pet.update(
+        name = name,
+        profileImage = pet.profileImage,
+        relationship = pet.relationship,
+        relationshipText = pet.relationshipText,
+        breedId = pet.breedId,
+        gender = pet.gender,
+        birthYear = pet.birthYear,
+        weight = pet.weight,
+        isNeutered = pet.isNeutered,
+    )
 
     private fun pet(
         userId: Long,

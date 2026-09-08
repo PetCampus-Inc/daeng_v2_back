@@ -34,6 +34,7 @@ dependencies {
     implementation("org.flywaydb:flyway-mysql")
     implementation("org.jetbrains.kotlin:kotlin-reflect")
     implementation("com.fasterxml.jackson.module:jackson-module-kotlin")
+    implementation("org.openapitools:jackson-databind-nullable:0.2.11")
     implementation("io.jsonwebtoken:jjwt-api:0.12.6")
     implementation("com.google.api-client:google-api-client:2.7.0")
     runtimeOnly("io.jsonwebtoken:jjwt-impl:0.12.6")

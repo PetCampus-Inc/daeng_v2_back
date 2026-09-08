@@ -2,6 +2,7 @@ package com.petcampus.knockdog.domain.breed.adapter.outbound.persistence
 
 import com.petcampus.knockdog.domain.breed.application.port.output.LoadBreedsPort
 import com.petcampus.knockdog.domain.breed.domain.Breed
+import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Component
 
 @Component
@@ -12,7 +13,7 @@ class BreedPersistenceAdapter(
 
     override fun search(query: String): List<Breed> = breedJpaRepository.search(query.escapeLikePattern()).map(BreedJpaEntity::toDomain)
 
-    override fun existsById(id: Long): Boolean = breedJpaRepository.existsById(id)
+    override fun findById(id: Long): Breed? = breedJpaRepository.findByIdOrNull(id)?.toDomain()
 }
 
 private fun String.escapeLikePattern(): String = replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")

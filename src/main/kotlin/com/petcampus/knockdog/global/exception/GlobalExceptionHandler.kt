@@ -1,6 +1,7 @@
 package com.petcampus.knockdog.global.exception
 
 import com.petcampus.knockdog.global.response.Response
+import org.springframework.dao.OptimisticLockingFailureException
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.http.converter.HttpMessageNotReadableException
@@ -49,6 +50,12 @@ class GlobalExceptionHandler {
         ResponseEntity
             .status(HttpStatus.BAD_REQUEST)
             .body(Response.error(CommonErrorCode.INVALID_INPUT_VALUE, e.message))
+
+    @ExceptionHandler(OptimisticLockingFailureException::class)
+    fun handleOptimisticLockingFailure(e: OptimisticLockingFailureException): ResponseEntity<Response<Unit>> =
+        ResponseEntity
+            .status(HttpStatus.CONFLICT)
+            .body(Response.error(CommonErrorCode.RESOURCE_CONFLICT))
 
     @ExceptionHandler(HttpRequestMethodNotSupportedException::class)
     fun handleMethodNotSupported(e: HttpRequestMethodNotSupportedException): ResponseEntity<Response<Unit>> =

@@ -2,6 +2,7 @@ package com.petcampus.knockdog.global.exception
 
 import org.junit.jupiter.api.Test
 import org.springframework.core.MethodParameter
+import org.springframework.dao.OptimisticLockingFailureException
 import org.springframework.http.HttpStatus
 import org.springframework.http.converter.HttpMessageNotReadableException
 import org.springframework.mock.http.MockHttpInputMessage
@@ -91,6 +92,17 @@ class GlobalExceptionHandlerTest {
 
         assertEquals(HttpStatus.BAD_REQUEST, response.statusCode)
         assertEquals(CommonErrorCode.INVALID_INPUT_VALUE.code, response.body?.code)
+    }
+
+    @Test
+    fun `낙관적 락 충돌은 500이 아니라 409로 응답한다`() {
+        val exception = OptimisticLockingFailureException("Row was updated or deleted by another transaction")
+
+        val response = handler.handleOptimisticLockingFailure(exception)
+
+        assertEquals(HttpStatus.CONFLICT, response.statusCode)
+        assertEquals(CommonErrorCode.RESOURCE_CONFLICT.code, response.body?.code)
+        assertEquals(CommonErrorCode.RESOURCE_CONFLICT.message, response.body?.message)
     }
 
     @Test
