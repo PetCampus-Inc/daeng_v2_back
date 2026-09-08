@@ -1,5 +1,6 @@
 package com.petcampus.knockdog.domain.media.adapter.inbound.web
 
+import com.fasterxml.jackson.databind.ObjectMapper
 import com.petcampus.knockdog.domain.auth.application.port.output.TokenPort
 import com.petcampus.knockdog.domain.auth.domain.UserCode
 import com.petcampus.knockdog.domain.media.application.port.output.ObjectStoragePort
@@ -39,7 +40,7 @@ class MediaEndpointsTest {
             .perform(
                 post("/api/v1/media/upload-urls")
                     .contentType(MediaType.APPLICATION_JSON)
-                    .content("""{"contentType":"image/webp"}"""),
+                    .content("""{"purpose":"PROFILE_IMAGE","contentType":"image/webp"}"""),
             ).andExpect(status().isUnauthorized)
     }
 
@@ -50,9 +51,9 @@ class MediaEndpointsTest {
                 post("/api/v1/media/upload-urls")
                     .header("Authorization", bearer())
                     .contentType(MediaType.APPLICATION_JSON)
-                    .content("""{"contentType":"image/webp"}"""),
+                    .content("""{"purpose":"PROFILE_IMAGE","contentType":"image/webp"}"""),
             ).andExpect(status().isOk)
-            .andExpect(jsonPath("$.data.key").value(startsWith("tmp/A1B2C3D4/")))
+            .andExpect(jsonPath("$.data.key").value(startsWith("tmp/A1B2C3D4/PROFILE_IMAGE/")))
             .andExpect(jsonPath("$.data.url").value(startsWith("https://fake/put/")))
             .andExpect(jsonPath("$.data.expiresIn").value(600))
     }
@@ -64,9 +65,21 @@ class MediaEndpointsTest {
                 post("/api/v1/media/upload-urls")
                     .header("Authorization", bearer())
                     .contentType(MediaType.APPLICATION_JSON)
-                    .content("""{"contentType":"application/pdf"}"""),
+                    .content("""{"purpose":"PROFILE_IMAGE","contentType":"application/pdf"}"""),
             ).andExpect(status().isBadRequest)
             .andExpect(jsonPath("$.code").value("MEDIA_UNSUPPORTED_CONTENT_TYPE"))
+    }
+
+    @Test
+    fun `지원하지 않는 purpose면 400과 MEDIA_UNSUPPORTED_PURPOSE`() {
+        mockMvc
+            .perform(
+                post("/api/v1/media/upload-urls")
+                    .header("Authorization", bearer())
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("""{"purpose":"MEMO_ATTACHMENT","contentType":"image/webp"}"""),
+            ).andExpect(status().isBadRequest)
+            .andExpect(jsonPath("$.code").value("MEDIA_UNSUPPORTED_PURPOSE"))
     }
 
     @Test
@@ -76,9 +89,33 @@ class MediaEndpointsTest {
                 post("/api/v1/media/commits")
                     .header("Authorization", bearer())
                     .contentType(MediaType.APPLICATION_JSON)
-                    .content("""{"key":"tmp/ZZZZZZZZ/x.webp","targetPath":"memo/1"}"""),
+                    .content("""{"key":"tmp/ZZZZZZZZ/PROFILE_IMAGE/x.webp"}"""),
             ).andExpect(status().isForbidden)
             .andExpect(jsonPath("$.code").value("MEDIA_FORBIDDEN_KEY"))
+    }
+
+    @Test
+    fun `commit은 업로드된 PROFILE_IMAGE를 호출자 폴더로 확정한다`() {
+        val uploadResponse =
+            mockMvc
+                .perform(
+                    post("/api/v1/media/upload-urls")
+                        .header("Authorization", bearer())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""{"purpose":"PROFILE_IMAGE","contentType":"image/webp"}"""),
+                ).andReturn()
+                .response
+                .contentAsString
+        val key = ObjectMapper().readTree(uploadResponse).at("/data/key").asText()
+
+        mockMvc
+            .perform(
+                post("/api/v1/media/commits")
+                    .header("Authorization", bearer())
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("""{"key":"$key"}"""),
+            ).andExpect(status().isOk)
+            .andExpect(jsonPath("$.data.key").value(startsWith("user/A1B2C3D4/")))
     }
 
     @TestConfiguration

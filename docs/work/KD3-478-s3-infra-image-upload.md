@@ -1,4 +1,4 @@
-> 생성: 2026-09-07 12:22 · 최종 수정: 2026-09-07 18:30
+> 생성: 2026-09-07 12:22 · 최종 수정: 2026-09-08 10:30
 
 # KD3-478 — S3 인프라 기본 설정 및 범용 이미지 업로드 기능 이관
 
@@ -11,10 +11,10 @@
 ## 현재 제어점
 
 - 활성 workflow: `003-migration`
-- 현재 공통 단계: `5`(독립 리뷰·PR·문서 동기화) — 구현·검증 완료, `./gradlew build` green, 문서 동기화 완료. [PR #19](https://github.com/PetCampus-Inc/daeng_v2_back/pull/19) (`feat/KD3-478-s3-infra-image-upload` → `epic/KD3-477-s3-migration`) 생성.
-  - 독립 리뷰(컨텍스트 미공유 서브에이전트): "no material findings".
-  - CodeRabbit: Major 2건 반영 완료 — ① `S3ObjectStorageAdapter.exists()`가 `S3Exception(statusCode==404)`도 `false`로 변환(SDK v2가 `NoSuchKeyException` 대신 던질 수 있음), 403은 재던짐 ② operations.md의 IAM 정책 표기를 유효 action(`s3:GetObject`/`s3:PutObject`/`s3:DeleteObject` + `s3:ListBucket`)으로 정정. CodeRabbit "Docstring Coverage 0%" 경고는 AGENTS.md 주석 금지와 충돌 — `.coderabbit.yaml` 설정 조정으로 별건 처리 예정(무시).
-- 다음 결정 또는 전환 조건: 머지 전 남은 사람 몫: ① `S3ObjectStorageAdapter`의 copy/delete/exists 로컬 S3 스모크 대조 ② Notion API 명세 등록. ③ 프론트(`daeng_v2_front`) v1 전환은 별도 작업. ①②가 끝나면 머지 후 Jira `완료`로 전환.
+- 현재 공통 단계: `3`(구현) — B안(확정 사항 9~12) 재구현 중. 1차 구현은 [PR #19](https://github.com/PetCampus-Inc/daeng_v2_back/pull/19)에 있고, B안 재작업 커밋을 이어 붙인다.
+  - 1차 구현 리뷰 이력: 독립 서브에이전트 "no material findings" / CodeRabbit Major 2건(`exists()` S3Exception 404, operations.md IAM action 표기) 반영 완료.
+  - `.coderabbit.yaml` "Docstring Coverage 0%" 경고는 AGENTS.md 주석 금지와 충돌 — 별건 처리(무시).
+- 다음 결정 또는 전환 조건: B안 재구현 → `./gradlew build` green → 재리뷰 → 단계 5. 머지 전 사람 몫: ① 로컬 S3 스모크 대조 ② Notion API 명세 등록. ③ 프론트 v1 전환은 별도.
 - `epic/KD3-477-s3-migration`은 dev로 합치지 않는다 — KD3-477(s3 마이그레이션)의 도메인별 후속이 남아 있으면 그 위에서 계속 진행. 후속이 없다고 확정되면 epic → dev 일반 merge.
 
 ## 작업 목표
@@ -78,15 +78,18 @@ domain/media/
 
 ### API 계약 (v1 신규 — ADR 0012)
 
-| 엔드포인트 | 요청 | 응답 | 인가 |
-|---|---|---|---|
-| `POST /api/v1/media/upload-urls` | `{contentType}` (허용 목록 검증) | `{url, key, expiresIn}` | 인증 필요. 서버가 `key = tmp/{userCode}/{uuid}.{ext}` 생성 — 클라이언트는 prefix/path를 지정하지 못한다 |
-| `POST /api/v1/media/download-urls` | `{key}` | `{url, expiresIn}` | 인증만 요구. key 소유권 검증은 하지 않는다(소비 도메인 책임) |
-| `POST /api/v1/media/commits` | `{key, targetPath}` | `{key, url}` | 인증 필요. `key`가 호출자 `tmp/{userCode}/` 아래인지, `targetPath`가 허용 prefix인지 서버가 검증. copy + delete로 영구 위치 이동 |
+클라이언트는 **무엇을** 올리는지(`purpose`)만 선언하고, **어디에** 둘지는 서버가 결정한다. 클라이언트가 저장 경로를 지정하지 않는다 (B안 — 아래 확정 사항 9~11).
 
-- 응답 필드명은 레거시(`preSignedUrl`, `key`)를 그대로 쓰지 않고 `url`/`key`로 정리한다. `daeng_v2_front` 레포가 로컬에 없어 프론트 소비 코드 대조는 못 했다 — 프론트 전환은 별도 작업이며(ADR 0012), 필드명 최종 확정 시 프론트와 맞춘다. 아래 "미결 질문" 참고.
+| 엔드포인트 | 요청 | 응답 | 인가·경로 |
+|---|---|---|---|
+| `POST /api/v1/media/upload-urls` | `{purpose, contentType}` | `{url, key, expiresIn}` | 인증 필요. `purpose`·`contentType` 허용 목록 검증. 서버가 `key = tmp/{userCode}/{purpose}/{uuid}.{ext}` 생성 |
+| `POST /api/v1/media/download-urls` | `{key}` | `{url, expiresIn}` | 인증만 요구. key 소유권 검증은 하지 않는다(소비 도메인 책임) |
+| `POST /api/v1/media/commits` | `{key}` | `{key, url}` | 인증 필요. `key`가 호출자 `tmp/{userCode}/` 아래인지 검증 → key에서 `purpose` 파싱 → 그 purpose의 경로 템플릿으로 이동(copy 후 원본 delete). `targetPath` 파라미터 없음 |
+
+- **`purpose` 초기 지원 목록**: `PROFILE_IMAGE` 하나 (→ `user/{userCode}/{uuid}.{ext}`). 프론트에서 pet 프로필·원장 프로필 둘 다 레거시 `path: user/{userId}`로 같은 스코프라 하나로 커버. memo(`kindergarten/{id}/memo/{userId}`)·유치원 편집·제보 등 **리소스 스코프 purpose는 미지원**(400) — 그 도메인 마이그레이션 때 자체 write 엔드포인트에서 `ObjectStoragePort`를 호출.
+- 응답 필드명은 레거시(`preSignedUrl`, `key`)를 그대로 쓰지 않고 `url`/`key`로 정리한다. 프론트 전환은 별도 작업이며(ADR 0012), 필드명 최종 확정 시 프론트와 맞춘다.
 - 공통 응답 래퍼는 `global/response/Response.kt`(`Response.success(data)`), 성공 `code`는 `"SUCCESS"`.
-- 오류는 `BusinessException(MediaErrorCode.*)`. 후보: `MEDIA_OBJECT_NOT_FOUND`(404), `MEDIA_UNSUPPORTED_CONTENT_TYPE`(400), `MEDIA_FORBIDDEN_KEY`(403).
+- 오류는 `BusinessException(MediaErrorCode.*)`: `MEDIA_OBJECT_NOT_FOUND`(404), `MEDIA_UNSUPPORTED_CONTENT_TYPE`(400), `MEDIA_UNSUPPORTED_PURPOSE`(400), `MEDIA_FORBIDDEN_KEY`(403).
 
 ## 작업 제외 범위
 
@@ -106,12 +109,16 @@ domain/media/
 |---|---|---|
 | 1 | 새 도메인 `media` 신설 (정석형 슬라이스). SDK 클라이언트 빈은 `global/config` | ADR 0003(정석형 통일). 이름은 `s3`가 아니라 `media` — 아웃바운드 포트가 벤더를 숨기는데 패키지명에 벤더를 박으면 추상화와 충돌. 프론트가 이미 `shared/lib/media`로 부름 |
 | 2 | 3개 API 전부 `/api/v1/**` 신규 | ADR 0012(신규 서버는 `v0` 미제공). 레거시는 GET으로 URL 발급(비RESTful) + 경로에 동사 — api-migration.md §2 재명명 대상 |
-| 3 | 임시 key는 서버 생성 `tmp/{userCode}/{uuid}.{ext}`, 클라이언트 prefix 지정 불가 | 0004 보안 스멜("누구나 자신 명의로 업로드 URL 발급") 제거. 업로드 대상이 호출자 네임스페이스로 강제됨 |
+| 3 | 임시 key는 서버 생성 `tmp/{userCode}/{purpose}/{uuid}.{ext}`, 클라이언트 prefix 지정 불가 | 0004 보안 스멜("누구나 자신 명의로 업로드 URL 발급") 제거. 업로드 대상이 호출자 네임스페이스로 강제됨. `{purpose}` 세그먼트로 commit이 DB 조회 없이 목적 복원 |
 | 4 | 다운로드 presign은 인증만 요구, key 소유권 검증 안 함 | ADR 0007 기본 deny로 "인증 없음"은 자동 해소. 소유권은 key가 특정 도메인 리소스에 연결됐는지의 문제라 소비 도메인 책임. 범용 API는 짧은 TTL만 보장. 유치원 공용 이미지 조회가 안 깨짐 |
-| 5 | 범용 commit 유지 (`POST /api/v1/media/commits`), source가 호출자 `tmp/` 아래인지 검증 | 레거시 `moveImage.ts` 흐름 보존. 레거시 `move`의 "임의 path 이동" 권한 공백은 서버 검증으로 메움 |
+| 5 | 범용 commit 유지 (`POST /api/v1/media/commits`) | 레거시 `moveImage.ts` 2단계 흐름 보존. staging(`tmp/`) 영역이 있어야 orphan을 blanket lifecycle로 정리 가능 (A1처럼 최종 경로로 바로 올리면 `pet/` prefix를 통째로 만료 못 시킴) |
+| **9** | **클라이언트가 저장 경로를 정하지 않는다 (B안).** `upload-urls`가 `purpose`를 받아 tmp key에 인코딩, `commits`는 그 purpose로 서버가 최종 경로 결정 | 레거시는 클라가 `path`를 지정 → "임의 경로 이동" 권한 공백(0004). 저장 레이아웃이 프론트에 하드코딩돼 백엔드가 못 바꿈. B안은 2단계 패턴의 장점(staging)은 지키고 경로 결정만 서버로 회수. 실무 표준(중앙 purpose 설정 + attach 시점 소유권)에 근접하되, 신규 서버에 도메인 attach 엔드포인트가 아직 없어 A1은 채택 불가 |
+| **10** | purpose→경로 매핑은 `MediaPurpose` enum 한 곳. 도메인별 ImageService를 만들지 않는다 | 순수 매핑이라 도메인 지식 불필요. 소유권까지 넣으면 auth·kindergarten·memo에 의존하는 god service가 됨 — 헥사고날 경계 위반. caller-scoped purpose는 "내 폴더에만 쓸 수 있음"이라 소유권이 암묵적 |
+| **11** | 리소스 스코프 purpose(memo·kindergarten·제보)는 이번에 미지원 | `media`가 `kindergarten_owners` 등을 알 수 없음. 그 도메인 마이그레이션 때 자체 write 유스케이스가 `ObjectStoragePort` 주입받아 처리. 그때까지 프론트는 그 경로에 대해 레거시 `v0` 유지(ADR 0012) |
 | 6 | 버킷은 레거시 `kindergarten-image-bucket` 재사용, `${AWS_S3_BUCKET:...}` env 주입 | 새 AWS 리소스·IAM 정책 변경 0. 기존 IAM 키가 이미 접근 권한 보유. 환경 격리 부재는 레거시도 동일한 기존 갭 — KD3-478 범위 아님. 전용 버킷 전환은 env 1줄 + IAM 수정(코드 무변경) |
 | 7 | AWS SDK v2 (`software.amazon.awssdk`) | v1은 2024년 유지보수 종료 공지. 신규 구축이므로 지금 전환. `S3Presigner`도 v2가 깔끔 |
 | 8 | 로컬 검증 수단은 구현 착수 시 결정 | 설계는 `ObjectStoragePort` 추상화로 테스트 가능하게 유지 |
+| **12** | commit은 멱등 + `delete` best-effort. S3 클라이언트에 명시적 타임아웃 | `copy`(tmp→dest)·`delete`(없는 것 삭제=no-op) 둘 다 멱등이라 재시도 안전. `copy` 성공 후 `delete` 실패는 영구본이 이미 있으므로 200 반환하고 로그만 — temp는 `tmp/` lifecycle이 정리. async/outbox/saga는 오버엔지니어링(2 S3 호출, 실패가 안전). `tmp/` lifecycle 규칙은 operations.md |
 
 ### 자격증명·버킷에 대한 확인 결과 (참고)
 
@@ -125,7 +132,9 @@ domain/media/
 - v1 응답 필드명(`url` vs `preSignedUrl`, `expiresIn` 포함 여부) — 프론트 전환 작업에서 `daeng_v2_front` 소비 코드와 맞춰 최종 확정. 현재는 `{url, key, expiresIn}` 잠정.
 - presign TTL: 업로드/다운로드를 분리할지, 레거시처럼 단일 값(`local/dev` 1시간, `prod` 20분)으로 갈지 — 구현 시 확정.
 - `contentType` 허용 목록 — 확정: `image/jpeg`·`image/png`·`image/webp`·`image/heic`·`image/heif` (프론트 `useImagePicker.ts` picker 목록과 일치). 프론트가 방어적으로 두는 `image/jpg`(비표준 별칭)는 미대응 — 브라우저 `File.type`은 보통 `image/jpeg`라 실사용 시 문제 없을 전망이나 네이티브 브릿지 경로 확인은 프론트 전환 작업 몫.
-- commit의 `targetPath` 허용 prefix 규칙 — 도메인별 소비가 붙기 전까지는 검증 기준이 느슨할 수밖에 없음. 최소 규칙(예: `tmp/` 금지, 절대경로·`..` 금지)만 이번에 두고 도메인 확정은 후속.
+- ~~commit의 `targetPath` 허용 prefix 규칙~~ — 해소: 클라이언트가 `targetPath`를 안 보낸다(B안). 서버가 `purpose`로 경로 결정.
+- `MediaPurpose` enum 확장 — 리소스 스코프 purpose를 나중에 `media`에 추가할지 vs 각 도메인 엔드포인트에 둘지는 첫 도메인(memo 또는 kindergarten) 마이그레이션 때 확정.
+- `tmp/` orphan lifecycle 규칙의 만료 기간(1일? 7일?) — 운영에서 결정, operations.md.
 - 로컬 검증 수단 (LocalStack 컨테이너 vs 실 S3 + 개발자 자격증명).
 
 ### 사용자 승인 기록
@@ -133,21 +142,26 @@ domain/media/
 - 2026-09-07 — 브랜치 구조(`epic/KD3-477-s3-migration` → `feat/KD3-478-s3-infra-image-upload`), type 접두사 `feat` 승인.
 - 2026-09-07 — 작업 범위(S3 인프라 + 범용 이미지 API만, 도메인별 소비 제외), AWS SDK v2, 도메인명 `media` 승인.
 - 2026-09-07 — 방향 논의 확정 사항 1~8 전체 승인 ("yes 이대로 작성해줘").
+- 2026-09-08 — **B안 승인** — 클라이언트 `targetPath` 제거, `purpose` 기반 서버 경로 결정(확정 사항 9~12). 단계 2로 복귀 후 재구현. 초기 purpose는 `PROFILE_IMAGE` 하나.
 
 ## 완료 확인 기준
 
-- [x] `POST /api/v1/media/upload-urls`: 인증 없으면 401, 인증 시 `tmp/{userCode}/` prefix key와 presigned URL 반환, 허용 안 되는 `contentType`은 400(`MEDIA_UNSUPPORTED_CONTENT_TYPE`) — `MediaEndpointsTest`, `IssueUploadUrlServiceTest`.
-- [x] `POST /api/v1/media/download-urls`: 인증 필요, 임의 key에 대해 presigned URL 반환 — `IssueDownloadUrlServiceTest`. **존재하지 않는 key: 사전 head 검증 없이 발급, 404는 GET 시점에 S3가 낸다**(레거시 동일, HEAD 호출 절약).
-- [x] `POST /api/v1/media/commits`: 호출자 `tmp/` 밖 key는 403(`MEDIA_FORBIDDEN_KEY`), 정상 시 copy 후 원본 delete, `{key, url}` 반환, 원본 부재 시 404(`MEDIA_OBJECT_NOT_FOUND`), `targetPath` 임시영역/`..` 금지 400(`MEDIA_INVALID_TARGET_PATH`) — `CommitObjectServiceTest`, `MediaEndpointsTest`.
-- [x] `HexagonalArchitectureTest` 통과 — 규칙 4 와일드카드가 `media.domain` 자동 포함.
-- [x] 단위 테스트: 각 서비스 + `ObjectStoragePort` fake. presigned URL 생성은 실제 `S3Presigner`로 오프라인 검증(`S3ObjectStorageAdapterTest` — 버킷·key·TTL·서명 포함 확인).
-- [x] `./gradlew build` green — ktlint(main/test/script) + ArchUnit + 전체 106 테스트.
+> B안 재구현 대상. `[x]`는 재구현 후 다시 검증한다.
+
+- [ ] `POST /api/v1/media/upload-urls {purpose, contentType}`: 인증 없으면 401, 인증 시 `tmp/{userCode}/{purpose}/…` key 반환. 미지원 `purpose`는 400(`MEDIA_UNSUPPORTED_PURPOSE`), 미지원 `contentType`은 400(`MEDIA_UNSUPPORTED_CONTENT_TYPE`).
+- [ ] `POST /api/v1/media/download-urls {key}`: 인증 필요, 임의 key에 대해 presigned URL 반환. 존재하지 않는 key는 사전 HEAD 없이 발급(404는 GET 시점 S3).
+- [ ] `POST /api/v1/media/commits {key}`: 호출자 `tmp/` 밖 key는 403(`MEDIA_FORBIDDEN_KEY`), key의 purpose가 미지원이면 400(`MEDIA_UNSUPPORTED_PURPOSE`), 원본 부재 시 404(`MEDIA_OBJECT_NOT_FOUND`). 정상 시 `PROFILE_IMAGE` → `user/{userCode}/{uuid}.{ext}`로 copy, 원본 best-effort delete, `{key, url}` 반환.
+- [ ] `copy` 성공 후 `delete` 실패해도 200 (로그만) — `CommitObjectServiceTest`.
+- [ ] S3 클라이언트에 `apiCallTimeout`/`apiCallAttemptTimeout` 설정.
+- [ ] `HexagonalArchitectureTest` 통과 — 규칙 4 와일드카드가 `media.domain` 자동 포함.
+- [ ] 단위 테스트: 각 서비스 + `ObjectStoragePort` fake. presigned URL 생성은 실제 `S3Presigner`로 오프라인 검증(`S3ObjectStorageAdapterTest` — 버킷·key·TTL·서명 포함 확인).
+- [ ] `./gradlew build` green — ktlint(main/test/script) + ArchUnit + 전체 테스트.
 - [ ] **로컬 S3 스모크 대조 (사람 몫)**: `S3ObjectStorageAdapter`의 `copy`/`delete`/`exists`는 실제 S3 왕복이라 자동 테스트에서 제외됨. 로컬 자격증명 + 개발용 버킷으로 upload presign → PUT → commit(copy+delete) → download presign → GET 한 사이클을 대조하고 결과를 여기 남긴다. (003-migration §4 "로컬 대조" 방식)
 - [ ] **Notion API 명세 등록 (사람 몫)**: v1 media 3개 엔드포인트.
 
 ### 계약 parity (003-migration §4)
 
-- 3개 API 전부 `REDESIGN` — 레거시 응답과 1:1 대조 대상 아님. 대조 제외 근거: 경로·메서드·응답 필드명·인가 정책을 의도적으로 바꿈(위 확정 사항 2~5). `KEEP` 항목 없음.
+- 3개 API 전부 `REDESIGN` — 레거시 응답과 1:1 대조 대상 아님. 대조 제외 근거: 경로·메서드·요청·응답·인가를 의도적으로 바꿈(확정 사항 2~5, 9). `KEEP` 항목 없음.
 - 다만 **프론트가 현재 레거시 `v0` S3 API로 올린 key/URL을 다른 도메인 요청 본문에 넣고 있다**(예: `RegisterUserRequest.profileImage`). v1 전환 전까지 이 값들의 형식(전체 URL vs key)이 신규 API 산출물과 어긋나지 않는지, 프론트 전환 작업에서 확인 대상으로 넘긴다.
 
 ## 작업 후 확인 목록

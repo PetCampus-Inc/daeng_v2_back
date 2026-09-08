@@ -6,6 +6,7 @@ interface IssueUploadUrlUseCase {
 
 data class IssueUploadUrlCommand(
     val userCode: String,
+    val purpose: String,
     val contentType: String,
 )
 

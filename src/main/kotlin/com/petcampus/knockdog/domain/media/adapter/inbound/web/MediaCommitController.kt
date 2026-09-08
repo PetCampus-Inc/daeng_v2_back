@@ -19,10 +19,7 @@ class MediaCommitController(
         @AuthenticationPrincipal userCode: String,
         @RequestBody request: CommitRequest,
     ): Response<CommitResponse> {
-        val result =
-            commitObjectUseCase.commit(
-                CommitObjectCommand(userCode = userCode, key = request.key, targetPath = request.targetPath),
-            )
+        val result = commitObjectUseCase.commit(CommitObjectCommand(userCode = userCode, key = request.key))
 
         return Response.success(CommitResponse(key = result.key, url = result.url))
     }
@@ -30,7 +27,6 @@ class MediaCommitController(
 
 data class CommitRequest(
     val key: String,
-    val targetPath: String,
 )
 
 data class CommitResponse(

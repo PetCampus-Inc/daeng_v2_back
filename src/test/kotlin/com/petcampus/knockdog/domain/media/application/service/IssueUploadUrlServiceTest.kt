@@ -36,14 +36,14 @@ class IssueUploadUrlServiceTest {
     }
 
     @Test
-    fun `업로드 key는 호출자의 임시 네임스페이스로 강제된다`() {
+    fun `업로드 key는 호출자의 임시 네임스페이스와 purpose로 강제된다`() {
         val port = RecordingStoragePort()
         val service = IssueUploadUrlService(port)
 
-        val result = service.issue(IssueUploadUrlCommand(userCode = "A1B2C3D4", contentType = "image/webp"))
+        val result = service.issue(IssueUploadUrlCommand(userCode = "A1B2C3D4", purpose = "PROFILE_IMAGE", contentType = "image/webp"))
 
         assertTrue(port.lastUploadKey!!.isInTemporaryAreaOf("A1B2C3D4"))
-        assertTrue(result.key.startsWith("tmp/A1B2C3D4/"))
+        assertTrue(result.key.startsWith("tmp/A1B2C3D4/PROFILE_IMAGE/"))
         assertEquals("https://s3.example.com/put/${result.key}", result.url)
         assertEquals(600, result.expiresIn)
     }
@@ -54,9 +54,21 @@ class IssueUploadUrlServiceTest {
 
         val exception =
             assertFailsWith<BusinessException> {
-                service.issue(IssueUploadUrlCommand(userCode = "A1B2C3D4", contentType = "application/pdf"))
+                service.issue(IssueUploadUrlCommand(userCode = "A1B2C3D4", purpose = "PROFILE_IMAGE", contentType = "application/pdf"))
             }
 
         assertEquals("MEDIA_UNSUPPORTED_CONTENT_TYPE", exception.errorCode.code)
+    }
+
+    @Test
+    fun `지원하지 않는 purpose면 거부한다`() {
+        val service = IssueUploadUrlService(RecordingStoragePort())
+
+        val exception =
+            assertFailsWith<BusinessException> {
+                service.issue(IssueUploadUrlCommand(userCode = "A1B2C3D4", purpose = "MEMO_ATTACHMENT", contentType = "image/webp"))
+            }
+
+        assertEquals("MEDIA_UNSUPPORTED_PURPOSE", exception.errorCode.code)
     }
 }

@@ -7,7 +7,6 @@ interface CommitObjectUseCase {
 data class CommitObjectCommand(
     val userCode: String,
     val key: String,
-    val targetPath: String,
 )
 
 data class CommittedObject(

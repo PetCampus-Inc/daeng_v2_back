@@ -19,13 +19,17 @@ class MediaUploadUrlController(
         @AuthenticationPrincipal userCode: String,
         @RequestBody request: UploadUrlRequest,
     ): Response<UploadUrlResponse> {
-        val result = issueUploadUrlUseCase.issue(IssueUploadUrlCommand(userCode = userCode, contentType = request.contentType))
+        val result =
+            issueUploadUrlUseCase.issue(
+                IssueUploadUrlCommand(userCode = userCode, purpose = request.purpose, contentType = request.contentType),
+            )
 
         return Response.success(UploadUrlResponse(url = result.url, key = result.key, expiresIn = result.expiresIn))
     }
 }
 
 data class UploadUrlRequest(
+    val purpose: String,
     val contentType: String,
 )
 

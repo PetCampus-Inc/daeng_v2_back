@@ -17,12 +17,16 @@ value class ObjectKey(
 
     fun isInTemporaryAreaOf(userCode: String): Boolean = value.startsWith("$TEMPORARY_PREFIX$userCode/")
 
+    fun temporaryPurpose(): MediaPurpose? = value.split("/").getOrNull(PURPOSE_SEGMENT_INDEX)?.let { MediaPurpose.from(it) }
+
     companion object {
         private const val TEMPORARY_PREFIX = "tmp/"
+        private const val PURPOSE_SEGMENT_INDEX = 2
 
         fun temporary(
             userCode: String,
+            purpose: MediaPurpose,
             contentType: MediaContentType,
-        ): ObjectKey = ObjectKey("$TEMPORARY_PREFIX$userCode/${UUID.randomUUID()}.${contentType.extension}")
+        ): ObjectKey = ObjectKey("$TEMPORARY_PREFIX$userCode/${purpose.name}/${UUID.randomUUID()}.${contentType.extension}")
     }
 }
