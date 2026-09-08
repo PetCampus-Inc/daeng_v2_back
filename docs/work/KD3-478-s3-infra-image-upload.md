@@ -1,4 +1,4 @@
-> 생성: 2026-09-07 12:22 · 최종 수정: 2026-09-08 10:30
+> 생성: 2026-09-07 12:22 · 최종 수정: 2026-09-08 11:00
 
 # KD3-478 — S3 인프라 기본 설정 및 범용 이미지 업로드 기능 이관
 
@@ -11,10 +11,10 @@
 ## 현재 제어점
 
 - 활성 workflow: `003-migration`
-- 현재 공통 단계: `3`(구현) — B안(확정 사항 9~12) 재구현 중. 1차 구현은 [PR #19](https://github.com/PetCampus-Inc/daeng_v2_back/pull/19)에 있고, B안 재작업 커밋을 이어 붙인다.
-  - 1차 구현 리뷰 이력: 독립 서브에이전트 "no material findings" / CodeRabbit Major 2건(`exists()` S3Exception 404, operations.md IAM action 표기) 반영 완료.
+- 현재 공통 단계: `5`(독립 리뷰·PR·문서 동기화). B안(확정 사항 9~12) 재구현 완료(`8ef2be1`), `./gradlew build` green(119 테스트). [PR #19](https://github.com/PetCampus-Inc/daeng_v2_back/pull/19).
+  - 리뷰: 1차 구현 + B안 재구현 각각 독립 서브에이전트 리뷰 "no material findings". CodeRabbit 1차 Major 2건(`exists()` S3Exception 404, operations.md IAM action)은 `abd5a09`에서 반영, 해당 스레드에 회신함. B안 커밋에 대한 CodeRabbit 재검토는 push 반영 대기.
   - `.coderabbit.yaml` "Docstring Coverage 0%" 경고는 AGENTS.md 주석 금지와 충돌 — 별건 처리(무시).
-- 다음 결정 또는 전환 조건: B안 재구현 → `./gradlew build` green → 재리뷰 → 단계 5. 머지 전 사람 몫: ① 로컬 S3 스모크 대조 ② Notion API 명세 등록. ③ 프론트 v1 전환은 별도.
+- 다음 결정 또는 전환 조건: CodeRabbit B안 재검토 확인 → 머지 준비. 머지 전 사람 몫: ① 로컬 S3 스모크 대조 ② Notion API 명세 등록. ③ 프론트 v1 전환은 별도.
 - `epic/KD3-477-s3-migration`은 dev로 합치지 않는다 — KD3-477(s3 마이그레이션)의 도메인별 후속이 남아 있으면 그 위에서 계속 진행. 후속이 없다고 확정되면 epic → dev 일반 merge.
 
 ## 작업 목표
