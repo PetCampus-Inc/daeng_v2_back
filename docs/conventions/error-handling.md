@@ -1,4 +1,4 @@
-> 생성: 2026-08-31 01:05 · 최종 수정: 2026-09-07 17:30
+> 생성: 2026-08-31 01:05 · 최종 수정: 2026-09-07 21:30
 
 # 예외·에러 코드 처리
 
@@ -80,13 +80,17 @@ open class BusinessException(val errorCode: ErrorCode, message: String? = null) 
 3. `NoSuchElementException` → 404 + `CommonErrorCode.RESOURCE_NOT_FOUND`
 4. `HttpMessageNotReadableException`(요청 본문 파싱 실패, 예: 필수 필드 누락) → 400 + `CommonErrorCode.INVALID_INPUT_VALUE` (메시지는 Jackson 내부 정보 노출 방지를 위해 고정 문구)
 5. `MissingServletRequestParameterException`(필수 `@RequestParam` 누락) → 400 + `CommonErrorCode.INVALID_INPUT_VALUE`
-6. `OptimisticLockingFailureException`(`@Version` 낙관적 락 충돌 — 저장 시점에 다른 트랜잭션이 먼저 같은 행을 바꿔서 버전이 안 맞는 경우) → 409 + `CommonErrorCode.RESOURCE_CONFLICT`(KD3-431, `PetJpaEntity.version` 도입과 함께 추가)
-7. `HttpRequestMethodNotSupportedException`(Spring이 던지는 405) → 405 + `CommonErrorCode.METHOD_NOT_ALLOWED`
-8. 그 외 `Exception` → 500 + `CommonErrorCode.INTERNAL_SERVER_ERROR`
+6. `MethodArgumentTypeMismatchException`(경로 변수·쿼리 파라미터 타입 불일치, 예: `Long` 자리에 숫자 아닌 값) → 400 + `CommonErrorCode.INVALID_INPUT_VALUE` (메시지는 파라미터 타입 등 내부 정보 노출 방지를 위해 고정 문구). 이 핸들러가 없으면 Spring이 원래 자동으로 400 처리해주는 것을 catch-all이 가로채 500으로 만들어버린다 — 새 기능이 아니라 프레임워크 기본 동작을 되살리는 핸들러다(KD3-432)
+7. `MissingRequestCookieException`(필수 쿠키 누락) → 400 + `CommonErrorCode.INVALID_INPUT_VALUE`. 인증 토큰을 쿠키로 받는 API(`/api/v1/auth/login`, `/refresh`, `POST /api/v1/users`)를 쿠키 없이 호출하면 발생한다 — 클라이언트 실수이므로 500이 아니라 400으로 내린다
+8. `OptimisticLockingFailureException`(`@Version` 낙관적 락 충돌 — 저장 시점에 다른 트랜잭션이 먼저 같은 행을 바꿔서 버전이 안 맞는 경우) → 409 + `CommonErrorCode.RESOURCE_CONFLICT`(KD3-431, `PetJpaEntity.version` 도입과 함께 추가)
+9. `HttpRequestMethodNotSupportedException`(Spring이 던지는 405) → 405 + `CommonErrorCode.METHOD_NOT_ALLOWED`
+10. 그 외 `Exception` → 500 + `CommonErrorCode.INTERNAL_SERVER_ERROR`
 
 2~3번은 하위 호환을 위해 남겨둔 것이다 — `BusinessException`을 쓰지 않는 기존 코드(예: `GetOwnerService`)가 아직 있다. **새로 작성하는 코드는 2~3번 대신 `BusinessException` + 도메인별 `ErrorCode`를 쓴다.**
 
-catch-all(7번)이 프레임워크가 던지는 다른 예외(예: 존재하지 않는 라우트)까지 500으로 마스킹할 수 있다는 점은 여전히 알려진 한계다 — 4~6번은 실제로 겪은 케이스를 좁혀서 처리한 것이고, `@Valid` 기반 필드별 검증 실패 응답 포맷은 아직 다루지 않았다(티켓 KD3-257의 7번 항목에서 별도로 정리 예정).
+catch-all(10번)이 프레임워크가 던지는, 아직 전용 핸들러가 없는 예외까지 500으로 마스킹할 수 있다는 점은 여전히 알려진 한계다 — 4~9번은 실제로 겪은 케이스를 좁혀서 처리한 것이고, `@Valid` 기반 필드별 검증 실패 응답 포맷은 아직 다루지 않았다(티켓 KD3-257의 7번 항목에서 별도로 정리 예정). **새로운 전용 핸들러를 추가할 땐 catch-all을 없애거나 고치는 게 아니라, 이 목록에 구체적인 예외 타입 핸들러를 하나 더 추가하는 방식을 따른다** — catch-all은 예상 못한 예외의 최후 안전망으로 남겨두고, 알려진 예외는 이렇게 하나씩 구체적으로 잡아나가는 것이 정석이다.
+
+`GlobalExceptionHandler.kt`에는 이 처리 우선순위를 설명하는 주석을 코드에 남기지 않는다(`code-style.md` §1, 주석 금지) — 각 핸들러의 근거는 이 문서에 둔다.
 
 `IllegalStateException`(`check()` 실패)에 대한 전역 핸들러는 두지 않는다. `Pet.delete()`/`Pet.markAsRepresentative()`(KD3-433/434 예정)처럼 상태 위반을 던지는 API는 그 티켓에서 구현할 때 서비스 레이어가 명시적으로 잡아 해당 API에 맞는 `BusinessException`/에러코드로 변환한다(`CreatePetService.create()`의 `registerWithinLimit` 호출부가 이미 이 패턴이다) — `IllegalStateException` 타입 자체를 전역으로 잡으면 pet과 무관한 다른 도메인의 예상 못한 버그까지 409로 오분류될 위험이 있어 채택하지 않았다.
 

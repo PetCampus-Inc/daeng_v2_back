@@ -9,6 +9,7 @@ import org.springframework.mock.http.MockHttpInputMessage
 import org.springframework.web.HttpRequestMethodNotSupportedException
 import org.springframework.web.bind.MissingRequestCookieException
 import org.springframework.web.bind.MissingServletRequestParameterException
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException
 import kotlin.reflect.jvm.javaMethod
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
@@ -106,6 +107,17 @@ class GlobalExceptionHandlerTest {
     }
 
     @Test
+    fun `경로 변수 타입 불일치는 500이 아니라 400으로 응답한다`() {
+        val parameter = MethodParameter(::petIdParameterHolder.javaMethod!!, 0)
+        val exception = MethodArgumentTypeMismatchException("abc", Long::class.java, "petId", parameter, null)
+
+        val response = handler.handleTypeMismatch(exception)
+
+        assertEquals(HttpStatus.BAD_REQUEST, response.statusCode)
+        assertEquals(CommonErrorCode.INVALID_INPUT_VALUE.code, response.body?.code)
+    }
+
+    @Test
     fun `지원하지 않는 HTTP 메소드는 500이 아니라 405로 응답한다`() {
         val exception = HttpRequestMethodNotSupportedException("POST")
 
@@ -129,3 +141,6 @@ class GlobalExceptionHandlerTest {
 /** MissingRequestCookieException 생성에 MethodParameter가 필요해서 두는 더미 시그니처. */
 @Suppress("UNUSED_PARAMETER")
 private fun cookieParameterHolder(oidcToken: String) = Unit
+
+@Suppress("UNUSED_PARAMETER")
+private fun petIdParameterHolder(petId: Long) = Unit
