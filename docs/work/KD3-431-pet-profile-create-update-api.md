@@ -1,4 +1,4 @@
-> 생성: 2026-09-02 19:24 · 최종 수정: 2026-09-08 02:20
+> 생성: 2026-09-02 19:24 · 최종 수정: 2026-09-08 10:05
 
 # KD3-431 pet 프로필 생성·수정 API 구축
 
@@ -132,6 +132,7 @@
   - 5마리까지 정상 등록 후 6번째 등록 시도 → 400 `PET-400-1` 확인
   - 인증 없이 요청 → 401, 존재하지 않는 `petId`로 단건 조회 → 404 `PET-404-1`, 타인 pet 접근 → 403 `PET-403-1` 확인(KD3-432 조회 API로 함께 확인, 아래 KD3-432 문서 참고)
 - **`@Version` 도입 후 검증(2026-09-08)**: `./gradlew build --rerun-tasks` 통과(ktlint, ArchUnit 포함, 전체 140건, 실패·에러 0건). `PetPersistenceAdapterTest`에 낙관적 락 충돌 재발 방지 테스트 추가 — H2 1차 캐시가 `findById`를 두 번 호출해도 같은 관리 엔티티를 반환해 충돌이 안 재현되는 함정을 겪어(`entityManager.clear()`로 우회), `@Version` 제거 시 이 테스트가 실제로 실패하는 것과 복원 후 통과하는 것을 직접 확인. 로컬 MySQL(Docker)에 실제 서버를 띄워 마이그레이션이 깨끗하게 적용됨을 확인하고, 정상 PATCH 1건(버전 0→1 증가 확인) 후 **같은 pet에 실제 동시 PATCH 요청 8건**을 병렬로 보내 정확히 1건만 200, 나머지 7건은 전부 `409 RESOURCE_CONFLICT`로 응답하는 것을 실측 확인(`@Version` → `OptimisticLockingFailureException` → `GlobalExceptionHandler` → 409 전체 경로가 실제로 동작함을 end-to-end로 증명).
+- **독립 리뷰(fresh subagent) 후 보강(2026-09-08)**: `GlobalExceptionHandler`의 기존 핸들러는 전부 `GlobalExceptionHandlerTest`에 직접 호출 단위 테스트가 있는데 새로 추가한 `handleOptimisticLockingFailure`만 빠져 있던 걸 발견 — 409 동작 근거가 영속성 테스트(핸들러를 안 거침)와 로컬 e2e(재현 불가능한 수동 확인)뿐이었다. 같은 패턴으로 단위 테스트를 추가해(`OptimisticLockingFailureException` 직접 생성 → 409 `RESOURCE_CONFLICT` 확인) `./gradlew build --rerun-tasks` 재실행 — 전체 141건(기존 140 + 신규 1), 실패·에러 0건 확인. 그 외 발견 사항 없음(`PetMapper` 양방향 매핑, `Pet` 생성자 배선, 마이그레이션 안전성, 핸들러 순서/그림자 위험, 새 영속성 테스트의 `entityManager.clear()` 필요성, ArchUnit, 주석 컨벤션, 문서 과장 여부 전부 재확인됨).
 
 ## 작업 후 확인 목록
 
@@ -157,3 +158,4 @@
 | `GlobalExceptionHandler.kt`/`CommonErrorCode.kt` | 코드 수정 | `OptimisticLockingFailureException` → 409 `RESOURCE_CONFLICT` 핸들러 추가 |
 | `docs/conventions/error-handling.md` | 갱신 | 처리 우선순위 목록에 `OptimisticLockingFailureException`(6번) 추가 |
 | `PetPersistenceAdapterTest.kt` | 테스트 추가 | 낙관적 락 충돌 재발 방지 테스트 1건 |
+| `GlobalExceptionHandlerTest.kt` | 테스트 추가 | 독립 리뷰가 발견한 공백(새 핸들러만 전용 단위 테스트 없음) 보강 |
