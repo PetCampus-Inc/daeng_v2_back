@@ -1,4 +1,4 @@
-> 생성: 2026-09-02 19:24 · 최종 수정: 2026-09-07 22:05
+> 생성: 2026-09-02 19:24 · 최종 수정: 2026-09-08 17:45
 
 # KD3-432 pet 목록·단건 조회 API 구축
 
@@ -12,7 +12,7 @@
 
 - 활성 workflow: `003-migration`
 - 현재 공통 단계: `5`
-- 다음 결정 또는 전환 조건: 작업 브랜치는 `dev`/`epic`이 아니라 `feat/KD3-431-pet-profile-create-update-api`에서 분기한 stacked 브랜치다(KD3-431이 epic에 머지되면 base 재조정·rebase 예정). 구현·단위 테스트·전체 빌드·로컬 HTTP 엔드투엔드 검증까지 전부 완료, PR #20 생성 완료(`MERGEABLE`, `CLEAN`). **아직 컨텍스트를 공유하지 않는 진짜 독립 리뷰(5단계 핵심)를 안 거쳤다** — 이 세션이 계속 봐온 것과 사용자 확인만으로 진행됐다. CodeRabbit 자동 리뷰도 base가 default 브랜치가 아니라 스킵된 상태. 독립 리뷰 완료 후 머지 준비.
+- 다음 결정 또는 전환 조건: KD3-431이 `epic/KD3-404-pet-domain-migration`에 머지(PR #17, 2026-09-08)되면서, 이 브랜치를 431의 옛 히스토리 대신 epic 위로 `git rebase --onto`(432 고유 커밋 11개만 재생)해 base를 재조정했다. rebase 중 충돌 2건(`GlobalExceptionHandlerTest.kt`, `docs/conventions/error-handling.md` — 두 브랜치가 같은 위치에 각자 새 항목을 추가해서 생긴 것, 로직 충돌 아님) 전부 해결·전체 빌드 재확인 후 push. PR #20 base도 epic으로 자동 갱신됨. **독립 리뷰(fresh subagent, 읽기 전용, 실제 코드·빌드 직접 재실행 지시) 완료(2026-09-08)** — 발견 사항 1건(breed 누락 시 500 경로 테스트 공백) 반영해 재발 방지 테스트 추가. 머지 준비 완료.
 
 ## 작업 목표
 
@@ -78,6 +78,7 @@
   - `GET /api/v1/pets/abc`(숫자 아닌 경로 변수) → 400 `INVALID_INPUT_VALUE` 확인 — 이번에 추가한 `MethodArgumentTypeMismatchException` 핸들러가 실제 요청에서도 500이 아니라 400을 응답함을 확인
 - **자체 재검토 후 재검증(2026-09-07)**: §구현 중 발견해 정정한 사항의 `requireNotNull`→`checkNotNull` 정정, `@Transactional(readOnly = true)` 누락 추가 반영 후 `./gradlew build --rerun-tasks` 재실행 — ktlint, 컴파일, 전체 테스트, ArchUnit 통과, 기존 147건 그대로 유지(실패·에러 0건, 이번 정정은 예외 타입·트랜잭션 경계만 바꿔 테스트 케이스 자체는 늘지 않음).
 - **`MethodArgumentTypeMismatchException` 핸들러 추가 후 재검증(2026-09-07)**: `GlobalExceptionHandler`에 핸들러 추가, `GlobalExceptionHandlerTest`에 `경로 변수 타입 불일치는 500이 아니라 400으로 응답한다` 케이스 추가 후 `./gradlew build --rerun-tasks` 재실행 — 29개 클래스 148건(기존 147 + 신규 1), 실패·에러 0건 확인.
+- **독립 리뷰 결과(fresh subagent, 2026-09-08)**: epic으로 rebase한 뒤 실제로 코드를 읽고 `./gradlew build`를 직접 재실행해 검증(Docker 사용, Testcontainers 포함) — 150건 전부 통과 확인(신뢰만 하지 않고 직접 재현). 확인된 사항: 소유권·상태 검증이 `UpdatePetService`와 동일한 패턴, 정렬 비교자에 역전·off-by-one 없음(3마리 케이스로 실제 확인), 두 서비스 모두 진짜 읽기 전용(`SavePetPort` 의존 없음), `MethodArgumentTypeMismatchException` 핸들러가 다른 핸들러에 가려지지 않고 실제로 이 앱의 다른 엔드포인트(`KindergartenController`의 `lat`/`lng` 파라미터)의 기존 500 버그도 부수적으로 고쳐준다는 점까지 확인. **발견 사항 1건(반영 완료)**: `GetPetServiceTest`/`GetPetsServiceTest` 둘 다 breed 조회 실패(500) 경로를 테스트하지 않고 있었다 — `checkNotNull`을 다시 `requireNotNull`(400)로 되돌리는 회귀가 있어도 기존 테스트로는 못 잡는 상태였다. 두 파일에 `참조하는 breed가 없으면 500으로 이어지는 예외를 던진다` 케이스를 추가해 반영(전체 152건, 실패·에러 0건).
 
 ## 작업 후 확인 목록
 
@@ -89,6 +90,6 @@
 | `GetPetsUseCase.kt`/`GetPetUseCase.kt` | 신규 | 유스케이스 인터페이스(`GetBreedsUseCase` 네이밍 전례 따름) |
 | `GetPetsService.kt`/`GetPetService.kt` | 신규 | 목록·단건 조회 서비스. 기존 `LoadPetPort`/`LoadBreedPort`/`PetErrorCode` 재사용, 신규 포트 없음. 자체 재검토로 `checkNotNull` 정정·`@Transactional(readOnly = true)` 추가 |
 | `GetPetsController.kt`/`GetPetController.kt` | 신규 | `GET /api/v1/pets`, `GET /api/v1/pets/{petId}` |
-| `GetPetsServiceTest.kt`/`GetPetServiceTest.kt` | 신규 | 정상 경로·정렬·빈 목록·미존재/삭제/타인 소유 케이스 |
+| `GetPetsServiceTest.kt`/`GetPetServiceTest.kt` | 신규 | 정상 경로·정렬·빈 목록·미존재/삭제/타인 소유 케이스, breed 누락 500 케이스(독립 리뷰 반영) |
 | `GlobalExceptionHandler.kt`/`GlobalExceptionHandlerTest.kt` | 코드 추가 | `MethodArgumentTypeMismatchException` → 400 핸들러 추가(pet 범위를 넘는 공통 변경, 근거는 `docs/conventions/error-handling.md` §3) |
 | `docs/conventions/error-handling.md` | 갱신 | `MethodArgumentTypeMismatchException` 처리 순위 추가, "새 핸들러는 catch-all을 고치지 말고 목록에 추가하는 방식을 따른다" 원칙 명문화 |

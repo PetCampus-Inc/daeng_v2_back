@@ -65,6 +65,13 @@ class GetPetsServiceTest {
         assertFailsWith<BusinessException> { service.getPets(command()) }
     }
 
+    @Test
+    fun `참조하는 breed가 없으면 500으로 이어지는 예외를 던진다`() {
+        val service = service(pets = listOf(pet(id = 1L, name = "호두")), breed = null)
+
+        assertFailsWith<IllegalStateException> { service.getPets(command()) }
+    }
+
     private fun service(
         pets: List<Pet>,
         userId: Long? = 1L,

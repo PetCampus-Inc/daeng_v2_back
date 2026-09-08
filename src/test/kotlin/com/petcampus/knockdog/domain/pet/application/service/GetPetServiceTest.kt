@@ -55,6 +55,14 @@ class GetPetServiceTest {
         assertFailsWith<BusinessException> { service.getPet(command(petId = pet.id!!)) }
     }
 
+    @Test
+    fun `참조하는 breed가 없으면 500으로 이어지는 예외를 던진다`() {
+        val pet = pet()
+        val service = service(pet = pet, breed = null)
+
+        assertFailsWith<IllegalStateException> { service.getPet(command(petId = pet.id!!)) }
+    }
+
     private fun service(
         pet: Pet?,
         breed: BreedSummary? = BreedSummary(4L, "골든 리트리버", null),
