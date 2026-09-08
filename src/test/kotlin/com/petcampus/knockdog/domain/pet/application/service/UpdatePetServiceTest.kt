@@ -256,5 +256,7 @@ class UpdatePetServiceTest {
         override fun registerWithinLimit(pet: Pet): Pet = pet
 
         override fun save(pet: Pet): Pet = pet
+
+        override fun setRepresentativeWithinLock(pet: Pet): Pet = pet
     }
 }

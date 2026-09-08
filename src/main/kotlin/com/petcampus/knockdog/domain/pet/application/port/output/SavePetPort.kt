@@ -6,4 +6,6 @@ interface SavePetPort {
     fun registerWithinLimit(pet: Pet): Pet
 
     fun save(pet: Pet): Pet
+
+    fun setRepresentativeWithinLock(pet: Pet): Pet
 }

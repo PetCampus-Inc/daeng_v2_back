@@ -114,12 +114,74 @@ class PetPersistenceAdapterTest(
         isNeutered = pet.isNeutered,
     )
 
+    @Test
+    fun `이미 대표견인 pet에 setRepresentativeWithinLock을 호출하면 그대로 유지된다`() {
+        val representative = petPersistenceAdapter.registerWithinLimit(pet(userId = 1L))
+
+        val result = petPersistenceAdapter.setRepresentativeWithinLock(representative)
+
+        assertTrue(result.isRepresentative)
+    }
+
+    @Test
+    fun `setRepresentativeWithinLock을 호출하면 기존 대표견을 해제하고 대상 pet을 대표견으로 설정한다`() {
+        val previousRepresentative = petPersistenceAdapter.registerWithinLimit(pet(userId = 1L))
+        val target = petPersistenceAdapter.registerWithinLimit(pet(userId = 1L))
+
+        val result = petPersistenceAdapter.setRepresentativeWithinLock(target)
+
+        assertTrue(result.isRepresentative)
+        val reloadedPrevious = petPersistenceAdapter.findById(requireNotNull(previousRepresentative.id))
+        assertEquals(false, reloadedPrevious?.isRepresentative)
+    }
+
+    @Test
+    fun `대표견이 없는 상태에서도 setRepresentativeWithinLock으로 대표견을 설정할 수 있다`() {
+        val onlyRepresentative = petPersistenceAdapter.registerWithinLimit(pet(userId = 1L))
+        val target = petPersistenceAdapter.registerWithinLimit(pet(userId = 1L))
+        onlyRepresentative.clearRepresentative()
+        petPersistenceAdapter.save(onlyRepresentative)
+
+        val result = petPersistenceAdapter.setRepresentativeWithinLock(target)
+
+        assertTrue(result.isRepresentative)
+    }
+
+    @Test
+    fun `setRepresentativeWithinLock 호출 전에 다른 필드가 동시에 변경돼도 그 변경을 덮어쓰지 않는다`() {
+        val staleTarget = petPersistenceAdapter.registerWithinLimit(pet(userId = 1L, name = "호두"))
+        val concurrentlyRenamed =
+            Pet.reconstitute(
+                id = requireNotNull(staleTarget.id),
+                userId = staleTarget.userId,
+                name = "산책왕",
+                profileImage = staleTarget.profileImage,
+                relationship = staleTarget.relationship,
+                relationshipText = staleTarget.relationshipText,
+                breedId = staleTarget.breedId,
+                gender = staleTarget.gender,
+                birthYear = staleTarget.birthYear,
+                weight = staleTarget.weight,
+                isNeutered = staleTarget.isNeutered,
+                isRepresentative = staleTarget.isRepresentative,
+                deletedAt = staleTarget.deletedAt,
+            )
+        petPersistenceAdapter.save(concurrentlyRenamed)
+
+        val result = petPersistenceAdapter.setRepresentativeWithinLock(staleTarget)
+
+        assertEquals("산책왕", result.name)
+        val reloaded = petPersistenceAdapter.findById(requireNotNull(staleTarget.id))
+        assertEquals("산책왕", reloaded?.name)
+    }
+
     private fun pet(
         userId: Long,
         isRepresentative: Boolean = false,
+        name: String = "호두",
     ) = Pet.create(
         userId = userId,
-        name = "호두",
+        name = name,
         profileImage = null,
         relationship = Relationship.GUARDIAN,
         relationshipText = null,

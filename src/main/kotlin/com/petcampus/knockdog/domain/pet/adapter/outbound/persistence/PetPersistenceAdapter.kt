@@ -3,10 +3,12 @@ package com.petcampus.knockdog.domain.pet.adapter.outbound.persistence
 import com.petcampus.knockdog.domain.auth.adapter.outbound.persistence.UserJpaEntity
 import com.petcampus.knockdog.domain.auth.application.port.output.LockUserPort
 import com.petcampus.knockdog.domain.breed.adapter.outbound.persistence.BreedJpaEntity
+import com.petcampus.knockdog.domain.pet.application.PetErrorCode
 import com.petcampus.knockdog.domain.pet.application.port.output.LoadPetPort
 import com.petcampus.knockdog.domain.pet.application.port.output.SavePetPort
 import com.petcampus.knockdog.domain.pet.domain.Pet
 import com.petcampus.knockdog.domain.pet.domain.PetId
+import com.petcampus.knockdog.global.exception.BusinessException
 import jakarta.persistence.EntityManager
 import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Component
@@ -34,9 +36,29 @@ class PetPersistenceAdapter(
         return save(pet)
     }
 
+    @Transactional
+    override fun setRepresentativeWithinLock(pet: Pet): Pet {
+        lockUserPort.lockById(pet.userId)
+        val activePets = petJpaRepository.findAllActiveByUserIdForUpdate(pet.userId).map { it.toDomain() }
+        val target =
+            activePets.find { it.id == pet.id }
+                ?: throw BusinessException(PetErrorCode.NOT_FOUND)
+        if (target.isRepresentative) return target
+
+        activePets
+            .filter { it.isRepresentative }
+            .forEach { save(it.apply { clearRepresentative() }) }
+        flushClearedRepresentativesBeforeReassigning()
+
+        target.markAsRepresentative()
+        return save(target)
+    }
+
     override fun save(pet: Pet): Pet {
         val userRef = entityManager.getReference(UserJpaEntity::class.java, pet.userId)
         val breedRef = entityManager.getReference(BreedJpaEntity::class.java, pet.breedId)
         return petJpaRepository.save(pet.toJpaEntity(userRef, breedRef)).toDomain()
     }
+
+    private fun flushClearedRepresentativesBeforeReassigning() = entityManager.flush()
 }
