@@ -1,4 +1,4 @@
-> 생성: 2026-09-02 22:02 · 최종 수정: 2026-09-08 18:10
+> 생성: 2026-09-02 22:02 · 최종 수정: 2026-09-08 18:12
 
 # pet 도메인
 
@@ -40,6 +40,7 @@
 | 삭제 | soft delete(`deleted_at`). 사용자가 직접 삭제하는 유스케이스는 `DELETE /api/v1/pets/{petId}`(KD3-434, 구현 완료) — 아래 "pet 삭제 API" 참고 |
 | 탈퇴 회원 pet 정리(미착수) | 레거시엔 `WithdrawnUserDeleteService`라는 스케줄러가 있어, 회원 탈퇴 후 유예 기간이 지나면 그 사용자의 pet을 전부 물리 삭제한다(앨범·북마크·메모·알림 등과 함께 계정 탈퇴 정리 작업 일부, `petRepository.deleteAllByUserPks(...)`). v2엔 이 메커니즘 자체가 없다 — KD3-434(사용자가 직접 pet 하나를 지우는 것)와는 다른, **계정 탈퇴가 트리거하는 예약 작업**이라 auth 도메인 쪽에서 발동돼야 한다. 개인정보 보관 정책과 관련된 사안이라 방치하면 탈퇴한 사용자의 pet 데이터가 계속 안 지워진 채 남는다. 2026-09-08 레거시 전체 대조 조사에서 발견 — 아직 어느 티켓에도 안 걸려 있다. auth 쪽 문서·티켓화는 후속으로 미룬 상태(사용자 확인, 2026-09-08) |
 | 견종 표시 이름 | pet 테이블에 중복 저장하지 않는다. `LoadBreedPort.findById`(breed 도메인의 `LoadBreedsPort.findById`에 위임)로 응답 시점에 `nameKo`/`alias`를 조합한다(KD3-431) |
+| `userCode`→`userId` 변환 중복(미착수) | `AccessTokenAuthenticationFilter`는 JWT를 검증해 `SecurityContextHolder`에 `userCode`(String) principal만 넣고, 실제 `User` 조회·존재 검증(`requireUserId`)은 각 서비스가 직접 한다 — pet 도메인 서비스 5개(`CreatePetService`·`UpdatePetService`·`SetRepresentativeService`·`DeletePetService`·`GetPetsService`)에 거의 동일한 코드가 중복돼 있고, **auth의 `UserAgreementController`도 같은 패턴**이라 pet 도메인만의 문제가 아니다. 개선안: 커스텀 애노테이션(`@CurrentUserId`) + `HandlerMethodArgumentResolver`로 컨트롤러가 `userId: Long`을 바로 받게 하면 중복이 사라진다(어댑터가 `LoadUserPort`를 호출하는 건 헥사고날 의존 방향에 어긋나지 않고, 리졸버에서 던진 예외도 `@RestControllerAdvice`가 그대로 잡음). pet 도메인만으로 끝나지 않는 리팩터링이라 특정 티켓에 끼워 넣지 않고 별도 작업으로 미뤘다(사용자 확인, 2026-09-08). 착수 시 재확인할 점: `User` 조회가 서비스의 `@Transactional` 밖으로 이동함 — 지금도 락 없는 조회라 실질적 위험 증가는 없다고 판단했지만 재검토 필요 |
 
 상세 구현과 검증 상태는 [`KD3-430`](../work/KD3-430-pet-domain-foundation-schema.md)을 참고한다.
 
