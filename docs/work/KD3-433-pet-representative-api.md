@@ -1,4 +1,4 @@
-> 생성: 2026-09-02 19:24 · 최종 수정: 2026-09-07 23:55
+> 생성: 2026-09-02 19:24 · 최종 수정: 2026-09-08 10:20
 
 # KD3-433 pet 대표견 설정 API 구축
 
@@ -11,8 +11,8 @@
 ## 현재 제어점
 
 - 활성 workflow: `003-migration`
-- 현재 공통 단계: `4`
-- 다음 결정 또는 전환 조건: 구현·단위 테스트·영속성 어댑터 테스트·동시성 테스트(Testcontainers)까지 작성 완료. 독립 리뷰(fresh subagent) 1건 수행, lost-update 버그 1건 발견해 수정. 로컬 HTTP e2e 검증에서 **독립 리뷰도 자동화 테스트도 못 잡은 두 번째 실제 버그**(같은 트랜잭션 안 update 두 개의 flush 순서가 뒤바뀌어 UNIQUE 제약 위반 500)를 발견해 수정했다(아래 "독립 리뷰 결과", "로컬 HTTP e2e 검증 결과" 참고). 동시성 테스트도 개별 요청 실패를 마스킹하고 있던 걸 발견해 `Future.get()`으로 실제로 실패를 감지하도록 고쳤다. `./gradlew build --rerun-tasks` 전체 149건 통과 확인(ktlint·ArchUnit·전 테스트 포함). API 인벤토리·pet 도메인 문서 갱신 완료. 사용자가 URL 설계와 검증 계획을 사후 검토해 승인했다(아래 "사용자 승인 기록" 참고). 다음: 커밋 → 푸시 → PR 생성(base `feat/KD3-431-pet-profile-create-update-api`) 순서로 진행. 작업 브랜치는 `dev`/`epic`이 아니라 `feat/KD3-431-pet-profile-create-update-api`에서 분기한 stacked 브랜치다 — `PetErrorCode`/`LoadPetPort`/`SavePetPort`/`PetResponse`가 KD3-431에서 만들어졌고 `epic/KD3-404-pet-domain-migration`엔 아직 없기 때문이다. **KD3-432 위에는 쌓지 않는다** — 433이 실제로 쓰는 건 431의 산출물뿐이고 432(조회 API)는 전혀 재사용하지 않아, 432 위에 쌓으면 432가 나중에 바뀔 때마다 433도 불필요하게 리베이스해야 하는 문제만 생긴다(432→431 리베이스 필요 상황을 직접 겪고 확인).
+- 현재 공통 단계: `5`
+- 다음 결정 또는 전환 조건: 구현·테스트·문서·독립 리뷰·로컬 e2e 검증 전부 완료. [PR #21](https://github.com/PetCampus-Inc/daeng_v2_back/pull/21) 생성(base `feat/KD3-431-pet-profile-create-update-api` — 이유는 "확정 사항" 참고). PR 생성 후 CTO 관점 락 설계 재검토(2026-09-08) — `UpdatePetService` lost-update를 KD3-433 안에서 비관적 락으로 임시로 고쳐봤다가, 필요 이상으로 무겁다고 판단해 되돌리고 `@Version`(낙관적 락)으로 KD3-431에서 처리하기로 결정. **KD3-431에 `@Version` 반영·독립 리뷰·커밋·푸시까지 완료됐고, 이 브랜치를 그 위로 rebase·force-push 완료했다(아래 "알려진 리스크" 1번 참고)** — 이제 이 브랜치도 낙관적 락 보호를 받는다. 다음: PR #21 리뷰 대응, KD3-431이 epic에 머지되면 base 재조정·rebase.
 
 ## 작업 목표
 
@@ -55,7 +55,7 @@
 - 단위 테스트: `SetRepresentativeServiceTest`(정상 설정/이미 대표견인 경우 멱등/미존재 pet 404/삭제된 pet 404/타인 pet 403, 5건) 전부 통과.
 - 영속성 어댑터 테스트: `PetPersistenceAdapterTest`에 `setRepresentativeWithinLock` 케이스 3건(이미 대표견이면 유지, 기존 대표견 해제 후 대상 지정, 대표견이 없는 상태에서도 지정 가능) 추가, 전부 통과(기존 6건 포함 9건).
 - 동시성 테스트: `PetSetRepresentativeConcurrencyTest`(신규, `PetRegistrationConcurrencyTest`와 동일하게 Testcontainers MySQL 사용) — 동일 사용자의 pet 5마리에 대해 대표견 설정 요청 5건을 동시에 실행해도 최종적으로 대표견이 1건만 남음을 확인.
-- 전체 빌드: `./gradlew build --rerun-tasks` 통과(ktlint, ArchUnit 포함). 전체 테스트 149건 통과, 실패·에러 0건(`build/test-results/test/*.xml` 합산으로 직접 확인).
+- 전체 빌드: `./gradlew build --rerun-tasks` 통과(ktlint, ArchUnit 포함). 당시 전체 테스트 149건 통과 확인(`build/test-results/test/*.xml` 합산). KD3-431의 `@Version` rebase 반영 후엔 151건(아래 "알려진 리스크" 1번 참고).
 - 문서: `docs/domains/pet.md`에 "pet 대표견 설정 API" 절 추가(엔드포인트, 대표견 전환 처리, 동시성 처리, 소유권·상태 검증, 응답 형식). `docs/inventory/api.md`의 `POST /api/v0/pet/representative/{petId}`를 `KEEP`에서 `REDESIGN`으로 정정(KD3-431/432와 동일한 형식으로 `PUT /api/v1/pets/{petId}/representative` 재설계 확정 근거 기록).
 
 ## 독립 리뷰 결과
@@ -81,6 +81,16 @@ fresh subagent 리뷰(읽기 전용, 실제 코드·빌드 결과 확인 지시)
 - **존재하지 않는 pet**: `404 PET-404-1`.
 - **삭제된 pet 거부**: `deleted_at`을 직접 채운 pet에 요청 시 `404 PET-404-1`(삭제 API는 KD3-434 범위라 DB에서 직접 시뮬레이션).
 - **인증 없이 요청**: `401 UNAUTHORIZED_REQUEST`(범위 밖이지만 확인).
+
+## 알려진 리스크 (후속 처리 필요)
+
+검토(2026-09-08)에서 나온 지적. "나중에 고려해볼 개선사항"이 아니라 지금도 재현 가능한 문제라 명시적으로 남긴다.
+
+1. **~~`UpdatePetService`가 `setRepresentativeWithinLock`의 락 체계 밖에 있어 lost-update 가능~~ — 해결 완료(2026-09-08)**: `PATCH /api/v1/pets/{petId}`(필드 수정)는 원래 `LockUserPort.lockById`를 전혀 호출하지 않았다. 같은 pet에 대해 PATCH와 `PUT .../representative`가 거의 동시에 들어오면, 먼저 커밋된 대표견 상태를 뒤이은 PATCH가 자신이 읽어둔 낡은 상태로 덮어써 조용히 되돌릴 수 있었다 — `setRepresentativeWithinLock` 안에서 고친 lost-update 버그(위 "독립 리뷰 결과" 1번)와 같은 패턴이 반대쪽(`UpdatePetService`)에 남아 있던 것. **경위**: `setRepresentativeWithinLock`과 같은 방식(`users` 행 잠그고 활성 pet 전체 재조회)으로 KD3-433 안에서 임시로 고쳐봤으나(`SavePetPort.updateWithinLock`), CTO 관점 재검토 결과 pet 하나만 건드리면 되는 `UpdatePetService`엔 필요 이상으로 무거운 방식이라 판단해 KD3-433에서는 되돌렸다(서로 무관한 pet A·B 수정까지 같은 락으로 불필요하게 직렬화됨). **최종 해법**: `PetJpaEntity`에 `@Version`(낙관적 락)을 도입 — `registerWithinLimit`/`setRepresentativeWithinLock`은 "여러 행에 걸친 불변식(최대 5마리, 대표견 유일성)"을 지켜야 해서 낙관적 락만으로는 부족해 지금의 `users` 행 비관적 락을 그대로 유지하고, `UpdatePetService`만 `@Version` + 일반 `save()`로 전환했다(`OptimisticLockingFailureException`을 `GlobalExceptionHandler`에서 409 `RESOURCE_CONFLICT`로 매핑). `PetJpaEntity`·`UpdatePetService`가 원래 KD3-431 소유 파일이라 KD3-431 PR(#17)에서 구현·독립 리뷰·커밋·푸시까지 완료했고(실제 동시 요청 8건으로 e2e 검증: 1건 성공·7건 409), 이 브랜치(KD3-433)를 그 위로 rebase·force-push해 반영했다 — 이제 이 브랜치도 낙관적 락 보호를 받는다. 실무 근거: Baeldung·Vlad Mihalcea(Hibernate 코어) 모두 낙관적 락을 기본 선택으로 권장, RFC 7231이 409를 버전 충돌의 정확한 용도로 명시.
+2. **락 대기 타임아웃 처리 없음(운영 리스크, 우선순위 낮음, 미해결)**: `SELECT ... FOR UPDATE`(`LockUserPort.lockById`, `findAllActiveByUserIdForUpdate`)가 InnoDB 기본 `innodb_lock_wait_timeout`(50초)에 걸렸을 때 의미 있는 클라이언트 응답(409 등)이 없다 — 지금은 `GlobalExceptionHandler`의 catch-all(500)로 떨어진다.
+3. **`users` 행이 여러 기능의 공용 락 지점이 되고 있음(운영 리스크, 우선순위 낮음, 미해결)**: 지금은 pet 등록·대표견 설정 두 기능만 이 락을 쓰지만, 앞으로 같은 패턴("항상 존재하는 부모 행 잠그기")을 다른 기능에도 계속 쓰면 서로 무관한 기능들이 같은 물리적 락 하나를 놓고 경쟁하게 된다.
+
+**처리 방침**: 1번은 처리 완료(KD3-431에서 구현, KD3-433은 rebase로 반영받음). 2·3번은 지금 트래픽 규모에서는 급하지 않아 별도 티켓으로 다루기로 했다(Jira 티켓은 사용자 지시 전까지 생성하지 않음).
 
 ## 완료 확인 기준
 
