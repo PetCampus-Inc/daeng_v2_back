@@ -1,9 +1,11 @@
 package com.petcampus.knockdog.domain.pet.adapter.outbound.persistence
 
 import com.petcampus.knockdog.domain.auth.adapter.outbound.persistence.UserPersistenceAdapter
+import com.petcampus.knockdog.domain.pet.application.PetErrorCode
 import com.petcampus.knockdog.domain.pet.domain.Gender
 import com.petcampus.knockdog.domain.pet.domain.Pet
 import com.petcampus.knockdog.domain.pet.domain.Relationship
+import com.petcampus.knockdog.global.exception.BusinessException
 import jakarta.persistence.EntityManager
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest
@@ -227,6 +229,17 @@ class PetPersistenceAdapterTest(
         assertEquals(null, promoted)
         val reloadedRepresentative = petJpaRepository.findById(requireNotNull(representative.id).value).orElseThrow()
         assertTrue(reloadedRepresentative.representativeUserId != null)
+    }
+
+    @Test
+    fun `잠금 재조회 시점에 이미 삭제된 pet이면 500이 아니라 NOT_FOUND를 던진다`() {
+        val target = petPersistenceAdapter.registerWithinLimit(pet(userId = 1L, name = "가온"))
+        target.delete()
+        petPersistenceAdapter.save(target)
+
+        val exception = assertFailsWith<BusinessException> { petPersistenceAdapter.deleteAndPromoteWithinLock(target) }
+
+        assertEquals(PetErrorCode.NOT_FOUND, exception.errorCode)
     }
 
     private fun pet(

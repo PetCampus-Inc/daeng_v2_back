@@ -59,9 +59,8 @@ class PetPersistenceAdapter(
         lockUserPort.lockById(pet.userId)
         val activePets = petJpaRepository.findAllActiveByUserIdForUpdate(pet.userId).map { it.toDomain() }
         val target =
-            checkNotNull(activePets.find { it.id == pet.id }) {
-                "잠금 조회 결과에서 pet(${pet.id?.value})을 찾을 수 없습니다."
-            }
+            activePets.find { it.id == pet.id }
+                ?: throw BusinessException(PetErrorCode.NOT_FOUND)
         val wasRepresentative = target.isRepresentative
 
         target.delete()

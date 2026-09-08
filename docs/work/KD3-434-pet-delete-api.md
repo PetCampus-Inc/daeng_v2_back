@@ -1,4 +1,4 @@
-> 생성: 2026-09-02 19:24 · 최종 수정: 2026-09-08 13:40
+> 생성: 2026-09-02 19:24 · 최종 수정: 2026-09-08 15:40
 
 # KD3-434 pet 삭제 API 구축
 
@@ -54,9 +54,15 @@
 
 - `DeletePetUseCase`/`DeletePetService`/`DeletePetController`(`DELETE /api/v1/pets/{petId}`, 204) 추가. `SavePetPort`에 `deleteAndPromoteWithinLock(pet): Pet?` 추가, `PetPersistenceAdapter`에 구현.
 - 단위 테스트: `DeletePetServiceTest` 5건(대표견/비대표견 경로 분기, NOT_FOUND, 삭제된 pet, NOT_AUTHORIZED).
-- `PetPersistenceAdapterTest`에 4건 추가: 이름순 승격, 남은 pet 없을 때 대표견 없음, 승격 후 UNIQUE 제약 안 걸림, 비대표견 삭제는 기존 대표견에 영향 없음.
+- `PetPersistenceAdapterTest`에 5건 추가: 이름순 승격, 남은 pet 없을 때 대표견 없음, 승격 후 UNIQUE 제약 안 걸림, 비대표견 삭제는 기존 대표견에 영향 없음, 잠금 재조회 시점에 이미 삭제된 pet이면 NOT_FOUND(아래 "독립 리뷰 결과" 참고).
 - Testcontainers 동시성 테스트(`PetDeleteAndPromoteConcurrencyTest`) 신규: 대표견 삭제와 다른 pet의 `setRepresentativeWithinLock`을 동시에 실행해도 예외 없이 대표견 1건만 남고 삭제된 pet의 `representative_user_id`가 정상적으로 null임을 확인. 1회 실행에 바로 통과(flush-순서 버그 재현 없음).
-- 전체 빌드(`./gradlew build`) 162건 전부 통과(기존 152건 + 신규 10건), 실패·에러 0건.
+- 전체 빌드(`./gradlew build`) 163건 전부 통과(기존 152건 + 신규 11건), 실패·에러 0건.
+
+## 독립 리뷰 결과
+
+fresh subagent 리뷰(읽기 전용, 실제 코드·Testcontainers 포함 전체 빌드 직접 재실행 지시) 수행. 버그는 못 찾음 — 락 분기, flush 순서, `Pet.delete()`↔`PetMapper` 매핑, 컨트롤러 일관성 전부 코드로 재확인·테스트로 검증됨. 진짜 갭 1건 발견, 반영 완료:
+
+1. **락 재조회 실패 시 500(수정 완료)**: `setRepresentativeWithinLock`·`deleteAndPromoteWithinLock` 둘 다 락을 잡고 활성 pet을 재조회한 뒤 대상 pet을 못 찾으면(동시에 같은 pet을 지우는 요청이 겹치는 경우) `checkNotNull`이 `IllegalStateException`을 던졌는데, `GlobalExceptionHandler`에 이 예외 전용 핸들러가 없어 catch-all(500)로 떨어졌다. `registerWithinLimit`의 같은 종류 예외(`check()`)는 `CreatePetService`가 잡아서 `LIMIT_EXCEEDED`로 바꿔주는 선례가 있었는데, 이 두 메서드엔 그 처리가 없었던 것 — 434가 새로 만든 문제가 아니라 433에 이미 있던 갭을 434가 그대로 물려받은 것이었다. **수정**: 두 메서드 모두 `checkNotNull` 대신 `activePets.find { ... } ?: throw BusinessException(PetErrorCode.NOT_FOUND)`로 바꿔 404를 반환하도록 했다. `setRepresentativeWithinLock`은 433 소유라 433 브랜치에서 먼저 고치고 커밋·푸시한 뒤, 434를 그 위로 rebase해 반영받았다. 어댑터가 `BusinessException`을 직접 던지는 방식(서비스가 nullable을 받아 던지는 방식 대신)을 택한 이유: `deleteAndPromoteWithinLock`은 이미 `Pet?`을 "승격 대상 없음"이라는 다른 의미로 반환하고 있어 null을 재사용하면 "정상 삭제, 승격 대상 없음"과 "이미 없어져서 실패"를 구분할 수 없다 — 두 락 메서드가 같은 문제를 똑같은 방식으로 처리하도록 통일했다.
 
 ## 로컬 HTTP e2e 검증 결과
 
