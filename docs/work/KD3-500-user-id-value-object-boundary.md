@@ -1,4 +1,4 @@
-> 생성: 2026-09-09 17:30 · 최종 수정: 2026-09-09 18:30 (requireUserId 중복 제거 반영)
+> 생성: 2026-09-09 17:30 · 최종 수정: 2026-09-09 18:50 (독립 리뷰 완료, NOT_FOUND_USER 테스트 갭 보강)
 
 # KD3-500 pet 사용자 식별자 타입 경계 통일
 
@@ -12,7 +12,7 @@
 
 - 활성 workflow: `003-migration`
 - 현재 공통 단계: `4` (구현·검증 완료)
-- 다음 결정 또는 전환 조건: `requireUserId` 중복 제거까지 반영 완료 — 커밋·PR 준비 여부만 남음
+- 다음 결정 또는 전환 조건: 독립 리뷰·로컬 e2e·테스트 갭 보강까지 전부 완료 — PR 생성만 남음
 
 ## 작업 목표
 
@@ -51,6 +51,7 @@ pet 서비스에서 사용자 조회 결과의 내부 식별자를 원시 `Long`
 - 2026-09-09: 사용자가 출생 연도 허용 범위를 최근 30년 이내로 확정하고 구현을 지시했다.
 - 2026-09-09: 검토에서 helper 반환 타입만 바꾸고 즉시 `.value`를 쓰는 중간 상태는 유지하지 않으며, pet 식별자 경계를 `UserId`로 일관되게 전환하는 방향을 권고했다. 사용자가 작업 문서 선갱신을 지시했다.
 - 2026-09-09: `requireUserId` 중복이 pet 6곳 말고 auth `UserAgreementService`에도 동일하게 있다는 걸 확인 — 사용자가 "다음 단계로 고려할 만한 것들 전부 진행" 지시에 이 정리를 포함시켰다. 공유 컴포넌트는 `LoadUserPort`/`UserCode`/`UserId`/`AuthErrorCode`를 이미 소유한 `auth.application.service`에 두기로 했다 — `PetLockOperations`가 인프라에 안 닿는 포트 조합 헬퍼를 포트 아닌 평범한 `@Component`로 둔 것과 같은 근거(KD3-497)를 그대로 따른다. `operator fun invoke`로 만들어 호출부 문법(`requireUserId(command.userCode)`)이 기존과 동일하게 유지되도록 했다.
+- 2026-09-09: 독립 리뷰(fresh subagent)가 `DeletePetServiceTest`/`GetPetServiceTest`/`SetRepresentativeServiceTest`/`UpdatePetServiceTest` 4곳에 "사용자 없음(NOT_FOUND_USER)" 케이스 테스트가 없다는 걸 발견 — merge-base(`epic/KD3-404-pet-domain-migration` 최신 tip) 기준으로 이 브랜치 이전부터 있던 갭이라 이번 회귀는 아님을 확인했다. 필수는 아니라고 판단했으나, `RequireUserId` 배선을 이미 4곳 다 건드려놔서 보강 비용이 낮아 사용자가 지금 같이 채우도록 지시했다.
 
 ## 완료 확인 기준
 
@@ -68,6 +69,15 @@ pet 서비스에서 사용자 조회 결과의 내부 식별자를 원시 `Long`
 - `./gradlew test --tests "*.pet.*"` 통과(2026-09-09). pet 도메인·서비스·영속성·동시성 테스트의 UserId 전환 회귀가 없다.
 - `./gradlew ktlintCheck` 통과(2026-09-09).
 - `requireUserId` 공유 컴포넌트 추출 후 `./gradlew build`(ktlint, ArchUnit, 전체 테스트) 통과(2026-09-09) — pet 6개 서비스·auth `UserAgreementService`와 그 테스트 7개 전부 회귀 없음.
+- **독립 리뷰(fresh subagent, 2026-09-09)**: merge-base(`365134e`, epic 최신 tip)부터 전체 diff를 처음부터 읽고 `./gradlew clean build`를 직접 재실행해 검증(43초, 전체 통과). `UserId`↔`Long` 이중 wrap·언랩 누락 여부를 레포 전체 grep으로 확인(없음), `RequireUserId` 7개 호출부가 기존과 동일한 에러코드·예외로 동작하는지 확인, `validateBirthYear` 경계값(양끝 inclusive)·`reconstitute` 제외 일관성 확인, `HexagonalArchitectureTest`를 직접 실행해 ArchUnit 위반 없음을 확인(2초 통과), 안 쓰는 import·죽은 코드·신규 주석 없음을 확인. **로직 결함 발견 없음.** 유일한 발견 사항(테스트 커버리지 갭 4곳)은 위 "확정 사항"에 기록하고 즉시 반영함.
+- **로컬 MySQL 실제 HTTP e2e(2026-09-09)**: birthYear 검증만 실제 요청으로 확인(UserId 타입 전환은 API 계약에 영향 없어 e2e 대상 아님). 로컬 서버(`--spring.profiles.active=local`)에 테스트 사용자(`E2E500AA`)를 추가해 검증(검증 후 데이터 삭제):
+  - 등록 시 `birthYear = 현재연도-30`(최저 허용) → 201 확인
+  - 등록 시 `birthYear = 현재연도`(최고 허용) → 201 확인
+  - 등록 시 `birthYear = 현재연도-31`(범위 초과) → 400 `INVALID_INPUT_VALUE` 확인
+  - 등록 시 `birthYear = 현재연도+1`(미래) → 400 `INVALID_INPUT_VALUE` 확인
+  - 등록 시 `birthYear` 생략 → 201(null 허용) 확인
+  - PATCH로 범위 초과 `birthYear` 수정 시도 → 400 확인(update 경로도 동일하게 검증됨)
+- **NOT_FOUND_USER 테스트 보강(2026-09-09)**: `DeletePetServiceTest`/`GetPetServiceTest`/`SetRepresentativeServiceTest`/`UpdatePetServiceTest`의 `FakeLoadUserPort`를 `Long?`(nullable)로 바꿔 "사용자 없음" 시나리오를 표현할 수 있게 하고, 각각 `존재하지 않는 사용자면 NOT_FOUND_USER를 던진다` 테스트를 추가(`CreatePetServiceTest`/`GetPetsServiceTest`/`UserAgreementServiceTest`는 이미 있었음 — 이제 7곳 전부 커버). `./gradlew build` 재통과 확인.
 
 ## 작업 후 확인 목록
 
