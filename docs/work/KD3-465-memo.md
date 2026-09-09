@@ -1,4 +1,4 @@
-> 생성: 2026-09-08 11:00 · 최종 수정: 2026-09-09 18:30
+> 생성: 2026-09-08 11:00 · 최종 수정: 2026-09-09 19:00
 
 # KD3-465 — 메모 기능 이관 (자유메모 · 상담 체크리스트)
 
@@ -221,6 +221,17 @@ domain/memo/
 - [ ] **로컬 응답 대조 (사람 몫)**: `KEEP` 6개 엔드포인트 — 레거시 `v0` 응답의 `data` 내부 필드와 신규 `v1` 대조. 경로·엔벨로프·아래 `계약 parity`의 의도적 차이는 제외. 미실행(로컬 레거시 기동 필요).
 - [ ] **Notion API 명세 등록 (사람 몫)**: v1 memo/checklist 6개 엔드포인트 ([`docs/rules/notion-api-spec-sync.md`](../rules/notion-api-spec-sync.md)).
 - [ ] **배포 컨테이너 `TZ=Asia/Seoul` (사람 몫)**: `memoDate`가 KST 날짜로 나오려면 필요(KD3-495 전제).
+
+### 독립 리뷰 (2026-09-09, 컨텍스트 미공유 에이전트)
+
+작업 문서 + 커밋 범위(`ff71aaf..d88ab65`) 대조. **머지 가능 — 블로킹 없음.** 파리티(레거시 DTO 6종), 헥사고날 경계, 프론트 계약, 날짜 컨벤션, 인가 default-deny, 경로 충돌, upsert·flush 순서 전부 OK 확인.
+
+반영한 지적 (`e1686b6`):
+- `MemoErrorCode` KDoc 제거 (code-style §1)
+- `MemoPersistenceAdapter.save`가 사진만 수정/동일 content 재저장 시 `updated_at` 미갱신 → `memoDate`·정렬 stale. `save`에서 `updatedAt` 강제 touch
+- `resolvePhotos`가 전체 검증 전 tmp key를 순차 commit → 뒤 key 400 시 S3 orphan. prefix·중복 key를 commit 전 전량 검증, 중복 시 `MEMO_INVALID_PHOTO_KEY`(500 방지)
+
+후속/코멘트 수준 (미반영): memo가 media key 스킴을 문자열 복제(결합), `MemoPhotoJpaEntity.createdAt` 인라인 기본값(auditing 패턴과 미세 불일치).
 
 ### 계약 parity (003-migration §4)
 
