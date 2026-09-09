@@ -5,8 +5,13 @@ import com.petcampus.knockdog.domain.auth.adapter.outbound.persistence.UserJpaRe
 import com.petcampus.knockdog.domain.auth.domain.UserCode
 import com.petcampus.knockdog.domain.breed.adapter.outbound.persistence.BreedJpaEntity
 import com.petcampus.knockdog.domain.breed.adapter.outbound.persistence.BreedJpaRepository
+import com.petcampus.knockdog.domain.pet.application.port.input.CreatePetCommand
+import com.petcampus.knockdog.domain.pet.application.port.input.CreatePetUseCase
+import com.petcampus.knockdog.domain.pet.application.port.input.DeletePetCommand
+import com.petcampus.knockdog.domain.pet.application.port.input.DeletePetUseCase
+import com.petcampus.knockdog.domain.pet.application.port.input.SetRepresentativeCommand
+import com.petcampus.knockdog.domain.pet.application.port.input.SetRepresentativeUseCase
 import com.petcampus.knockdog.domain.pet.domain.Gender
-import com.petcampus.knockdog.domain.pet.domain.Pet
 import com.petcampus.knockdog.domain.pet.domain.Relationship
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -28,7 +33,13 @@ import kotlin.test.assertTrue
 @ActiveProfiles("testcontainers")
 class PetDeleteAndPromoteConcurrencyTest {
     @Autowired
-    private lateinit var petPersistenceAdapter: PetPersistenceAdapter
+    private lateinit var createPetUseCase: CreatePetUseCase
+
+    @Autowired
+    private lateinit var deletePetUseCase: DeletePetUseCase
+
+    @Autowired
+    private lateinit var setRepresentativeUseCase: SetRepresentativeUseCase
 
     @Autowired
     private lateinit var petJpaRepository: PetJpaRepository
@@ -40,12 +51,15 @@ class PetDeleteAndPromoteConcurrencyTest {
     private lateinit var breedJpaRepository: BreedJpaRepository
 
     private var userId: Long = 0
+    private var userCode: UserCode = UserCode.generate()
     private var breedId: Long = 0
 
     @BeforeEach
     fun setUp() {
-        val user = userJpaRepository.save(UserJpaEntity(userCode = UserCode.generate().value))
+        val code = UserCode.generate()
+        val user = userJpaRepository.save(UserJpaEntity(userCode = code.value))
         userId = requireNotNull(user.id)
+        userCode = code
 
         val breed =
             breedJpaRepository.save(
@@ -62,9 +76,9 @@ class PetDeleteAndPromoteConcurrencyTest {
 
     @Test
     fun `대표견 삭제와 다른 pet의 대표견 설정이 동시에 들어와도 대표견은 1건만 남는다`() {
-        val representative = petPersistenceAdapter.registerWithinLimit(newPet("가온"))
-        val other = petPersistenceAdapter.registerWithinLimit(newPet("나비"))
-        petPersistenceAdapter.registerWithinLimit(newPet("다롱"))
+        val representative = createPetUseCase.create(newCommand("가온")).pet
+        val other = createPetUseCase.create(newCommand("나비")).pet
+        createPetUseCase.create(newCommand("다롱"))
 
         val executor = Executors.newFixedThreadPool(2)
         val readyLatch = CountDownLatch(2)
@@ -74,13 +88,13 @@ class PetDeleteAndPromoteConcurrencyTest {
             executor.submit {
                 readyLatch.countDown()
                 startLatch.await()
-                petPersistenceAdapter.deleteAndPromoteWithinLock(representative)
+                deletePetUseCase.delete(DeletePetCommand(userCode, representative.id!!))
             }
         val setRepresentativeFuture =
             executor.submit {
                 readyLatch.countDown()
                 startLatch.await()
-                petPersistenceAdapter.setRepresentativeWithinLock(other)
+                setRepresentativeUseCase.setRepresentative(SetRepresentativeCommand(userCode, other.id!!))
             }
 
         readyLatch.await(10, TimeUnit.SECONDS)
@@ -99,9 +113,9 @@ class PetDeleteAndPromoteConcurrencyTest {
         assertEquals(null, reloadedRepresentative.representativeUserId)
     }
 
-    private fun newPet(name: String): Pet =
-        Pet.create(
-            userId = userId,
+    private fun newCommand(name: String) =
+        CreatePetCommand(
+            userCode = userCode,
             name = name,
             profileImage = null,
             relationship = Relationship.GUARDIAN,
@@ -111,7 +125,6 @@ class PetDeleteAndPromoteConcurrencyTest {
             birthYear = null,
             weight = 10.0,
             isNeutered = null,
-            isRepresentative = false,
         )
 
     companion object {

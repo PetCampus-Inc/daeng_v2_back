@@ -151,6 +151,121 @@ class PetTest {
         assertFalse(result.isRepresentative)
     }
 
+    @Test
+    fun `selectNextRepresentative는 후보 중 이름순으로 가장 앞선 pet을 고른다`() {
+        val candidates = listOf(pet(name = "다롱"), pet(name = "가온"), pet(name = "나비"))
+
+        val result = Pet.selectNextRepresentative(candidates)
+
+        assertEquals("가온", result?.name)
+    }
+
+    @Test
+    fun `selectNextRepresentative는 이미 대표견인 후보를 우선한다`() {
+        val candidates = listOf(pet(name = "가온"), pet(name = "나비", isRepresentative = true))
+
+        val result = Pet.selectNextRepresentative(candidates)
+
+        assertEquals("나비", result?.name)
+    }
+
+    @Test
+    fun `selectNextRepresentative는 후보가 없으면 null을 반환한다`() {
+        val result = Pet.selectNextRepresentative(emptyList())
+
+        assertNull(result)
+    }
+
+    @Test
+    fun `hasReachedActiveLimit은 활성 pet이 최대 마릿수 미만이면 false를 반환한다`() {
+        val activePets = List(4) { pet() }
+
+        assertFalse(Pet.hasReachedActiveLimit(activePets))
+    }
+
+    @Test
+    fun `hasReachedActiveLimit은 활성 pet이 최대 마릿수 이상이면 true를 반환한다`() {
+        val activePets = List(5) { pet() }
+
+        assertTrue(Pet.hasReachedActiveLimit(activePets))
+    }
+
+    @Test
+    fun `assignRepresentativeIfFirst는 활성 pet이 없으면 대표견으로 지정한다`() {
+        val result = pet(isRepresentative = false)
+
+        result.assignRepresentativeIfFirst(emptyList())
+
+        assertTrue(result.isRepresentative)
+    }
+
+    @Test
+    fun `assignRepresentativeIfFirst는 활성 pet이 있으면 대표견으로 지정하지 않는다`() {
+        val result = pet(isRepresentative = false)
+
+        result.assignRepresentativeIfFirst(listOf(pet(isRepresentative = true)))
+
+        assertFalse(result.isRepresentative)
+    }
+
+    @Test
+    fun `reassignRepresentative는 이미 대표견이면 null을 반환하고 아무것도 바꾸지 않는다`() {
+        val target = pet(isRepresentative = true)
+
+        val result = Pet.reassignRepresentative(target, listOf(target))
+
+        assertNull(result)
+        assertTrue(target.isRepresentative)
+    }
+
+    @Test
+    fun `reassignRepresentative는 기존 대표견을 해제하고 target을 대표견으로 지정한다`() {
+        val previousRepresentative = pet(name = "이전", isRepresentative = true)
+        val target = pet(name = "새로운", isRepresentative = false)
+
+        val result = Pet.reassignRepresentative(target, listOf(previousRepresentative, target))
+
+        assertEquals(listOf(previousRepresentative), result)
+        assertFalse(previousRepresentative.isRepresentative)
+        assertTrue(target.isRepresentative)
+    }
+
+    @Test
+    fun `reassignRepresentative는 기존 대표견이 없어도 target을 대표견으로 지정한다`() {
+        val target = pet(isRepresentative = false)
+
+        val result = Pet.reassignRepresentative(target, listOf(target))
+
+        assertEquals(emptyList(), result)
+        assertTrue(target.isRepresentative)
+    }
+
+    @Test
+    fun `promoteReplacement는 삭제된 pet이 대표견이 아니었으면 null을 반환한다`() {
+        val result = Pet.promoteReplacement(wasRepresentative = false, remainingActivePets = listOf(pet(name = "가온")))
+
+        assertNull(result)
+    }
+
+    @Test
+    fun `promoteReplacement는 삭제된 pet이 대표견이었으면 남은 pet 중 이름순으로 승격한다`() {
+        val first = pet(name = "가온")
+        val second = pet(name = "나비")
+
+        val result = Pet.promoteReplacement(wasRepresentative = true, remainingActivePets = listOf(second, first))
+
+        assertEquals("가온", result?.name)
+        assertTrue(first.isRepresentative)
+        assertFalse(second.isRepresentative)
+    }
+
+    @Test
+    fun `promoteReplacement는 삭제된 pet이 대표견이었어도 남은 pet이 없으면 null을 반환한다`() {
+        val result = Pet.promoteReplacement(wasRepresentative = true, remainingActivePets = emptyList())
+
+        assertNull(result)
+    }
+
     private fun pet(
         name: String = "호두",
         profileImage: String? = null,

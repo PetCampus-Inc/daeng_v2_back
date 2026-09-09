@@ -5,8 +5,11 @@ import com.petcampus.knockdog.domain.auth.adapter.outbound.persistence.UserJpaRe
 import com.petcampus.knockdog.domain.auth.domain.UserCode
 import com.petcampus.knockdog.domain.breed.adapter.outbound.persistence.BreedJpaEntity
 import com.petcampus.knockdog.domain.breed.adapter.outbound.persistence.BreedJpaRepository
+import com.petcampus.knockdog.domain.pet.application.port.input.CreatePetCommand
+import com.petcampus.knockdog.domain.pet.application.port.input.CreatePetUseCase
+import com.petcampus.knockdog.domain.pet.application.port.input.SetRepresentativeCommand
+import com.petcampus.knockdog.domain.pet.application.port.input.SetRepresentativeUseCase
 import com.petcampus.knockdog.domain.pet.domain.Gender
-import com.petcampus.knockdog.domain.pet.domain.Pet
 import com.petcampus.knockdog.domain.pet.domain.Relationship
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -29,7 +32,10 @@ import kotlin.test.assertTrue
 @ActiveProfiles("testcontainers")
 class PetSetRepresentativeConcurrencyTest {
     @Autowired
-    private lateinit var petPersistenceAdapter: PetPersistenceAdapter
+    private lateinit var createPetUseCase: CreatePetUseCase
+
+    @Autowired
+    private lateinit var setRepresentativeUseCase: SetRepresentativeUseCase
 
     @Autowired
     private lateinit var petJpaRepository: PetJpaRepository
@@ -41,12 +47,15 @@ class PetSetRepresentativeConcurrencyTest {
     private lateinit var breedJpaRepository: BreedJpaRepository
 
     private var userId: Long = 0
+    private var userCode: UserCode = UserCode.generate()
     private var breedId: Long = 0
 
     @BeforeEach
     fun setUp() {
-        val user = userJpaRepository.save(UserJpaEntity(userCode = UserCode.generate().value))
+        val code = UserCode.generate()
+        val user = userJpaRepository.save(UserJpaEntity(userCode = code.value))
         userId = requireNotNull(user.id)
+        userCode = code
 
         val breed =
             breedJpaRepository.save(
@@ -63,19 +72,18 @@ class PetSetRepresentativeConcurrencyTest {
 
     @Test
     fun `동일 사용자의 대표견 설정 요청 5건을 동시에 실행해도 대표견은 1건만 남는다`() {
-        val pets = List(5) { i -> petPersistenceAdapter.registerWithinLimit(newPet("pet-$i")) }
+        val petIds = List(5) { i -> createPetUseCase.create(newCommand("pet-$i")).pet.id!! }
 
-        val threadCount = pets.size
-        val executor = Executors.newFixedThreadPool(threadCount)
-        val readyLatch = CountDownLatch(threadCount)
+        val executor = Executors.newFixedThreadPool(petIds.size)
+        val readyLatch = CountDownLatch(petIds.size)
         val startLatch = CountDownLatch(1)
 
         val futures: List<Future<*>> =
-            pets.map { pet ->
+            petIds.map { petId ->
                 executor.submit {
                     readyLatch.countDown()
                     startLatch.await()
-                    petPersistenceAdapter.setRepresentativeWithinLock(pet)
+                    setRepresentativeUseCase.setRepresentative(SetRepresentativeCommand(userCode, petId))
                 }
             }
 
@@ -90,9 +98,9 @@ class PetSetRepresentativeConcurrencyTest {
         assertEquals(1, savedPets.count { it.representativeUserId != null })
     }
 
-    private fun newPet(name: String): Pet =
-        Pet.create(
-            userId = userId,
+    private fun newCommand(name: String) =
+        CreatePetCommand(
+            userCode = userCode,
             name = name,
             profileImage = null,
             relationship = Relationship.GUARDIAN,
@@ -102,7 +110,6 @@ class PetSetRepresentativeConcurrencyTest {
             birthYear = null,
             weight = 10.0,
             isNeutered = null,
-            isRepresentative = false,
         )
 
     companion object {

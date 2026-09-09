@@ -5,9 +5,13 @@ import com.petcampus.knockdog.domain.auth.adapter.outbound.persistence.UserJpaRe
 import com.petcampus.knockdog.domain.auth.domain.UserCode
 import com.petcampus.knockdog.domain.breed.adapter.outbound.persistence.BreedJpaEntity
 import com.petcampus.knockdog.domain.breed.adapter.outbound.persistence.BreedJpaRepository
+import com.petcampus.knockdog.domain.pet.application.PetErrorCode
+import com.petcampus.knockdog.domain.pet.application.port.input.CreatePetCommand
+import com.petcampus.knockdog.domain.pet.application.port.input.CreatePetUseCase
 import com.petcampus.knockdog.domain.pet.domain.Gender
 import com.petcampus.knockdog.domain.pet.domain.Pet
 import com.petcampus.knockdog.domain.pet.domain.Relationship
+import com.petcampus.knockdog.global.exception.BusinessException
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
@@ -30,6 +34,9 @@ import kotlin.test.assertFailsWith
 @ActiveProfiles("testcontainers")
 class PetRegistrationConcurrencyTest {
     @Autowired
+    private lateinit var createPetUseCase: CreatePetUseCase
+
+    @Autowired
     private lateinit var petPersistenceAdapter: PetPersistenceAdapter
 
     @Autowired
@@ -42,12 +49,15 @@ class PetRegistrationConcurrencyTest {
     private lateinit var breedJpaRepository: BreedJpaRepository
 
     private var userId: Long = 0
+    private var userCode: UserCode = UserCode.generate()
     private var breedId: Long = 0
 
     @BeforeEach
     fun setUp() {
-        val user = userJpaRepository.save(UserJpaEntity(userCode = UserCode.generate().value))
+        val code = UserCode.generate()
+        val user = userJpaRepository.save(UserJpaEntity(userCode = code.value))
         userId = requireNotNull(user.id)
+        userCode = code
 
         val breed =
             breedJpaRepository.save(
@@ -77,9 +87,10 @@ class PetRegistrationConcurrencyTest {
                 readyLatch.countDown()
                 startLatch.await()
                 try {
-                    petPersistenceAdapter.registerWithinLimit(newPet("concurrency-pet-$i"))
+                    createPetUseCase.create(newCommand("concurrency-pet-$i"))
                     successCount.incrementAndGet()
-                } catch (e: IllegalStateException) {
+                } catch (e: BusinessException) {
+                    if (e.errorCode != PetErrorCode.LIMIT_EXCEEDED) throw e
                     limitExceededCount.incrementAndGet()
                 } finally {
                     doneLatch.countDown()
@@ -102,7 +113,7 @@ class PetRegistrationConcurrencyTest {
 
     @Test
     fun `기존 4마리가 등록된 상태에서 신규 등록 3건을 동시에 실행하면 1건만 성공한다`() {
-        repeat(4) { i -> petPersistenceAdapter.registerWithinLimit(newPet("existing-pet-$i")) }
+        repeat(4) { i -> createPetUseCase.create(newCommand("existing-pet-$i")) }
 
         val threadCount = 3
         val executor = Executors.newFixedThreadPool(threadCount)
@@ -117,9 +128,10 @@ class PetRegistrationConcurrencyTest {
                 readyLatch.countDown()
                 startLatch.await()
                 try {
-                    petPersistenceAdapter.registerWithinLimit(newPet("race-pet-$i"))
+                    createPetUseCase.create(newCommand("race-pet-$i"))
                     successCount.incrementAndGet()
-                } catch (e: IllegalStateException) {
+                } catch (e: BusinessException) {
+                    if (e.errorCode != PetErrorCode.LIMIT_EXCEEDED) throw e
                     limitExceededCount.incrementAndGet()
                 } finally {
                     doneLatch.countDown()
@@ -148,6 +160,20 @@ class PetRegistrationConcurrencyTest {
             petPersistenceAdapter.save(newPet("second-representative").also { it.markAsRepresentative() })
         }
     }
+
+    private fun newCommand(name: String) =
+        CreatePetCommand(
+            userCode = userCode,
+            name = name,
+            profileImage = null,
+            relationship = Relationship.GUARDIAN,
+            relationshipText = null,
+            breedId = breedId,
+            gender = Gender.MALE,
+            birthYear = null,
+            weight = 10.0,
+            isNeutered = null,
+        )
 
     private fun newPet(name: String): Pet =
         Pet.create(

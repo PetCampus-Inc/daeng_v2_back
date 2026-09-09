@@ -90,6 +90,10 @@ class Pet private constructor(
         isRepresentative = false
     }
 
+    fun assignRepresentativeIfFirst(activePets: List<Pet>) {
+        if (activePets.isEmpty()) markAsRepresentative() else clearRepresentative()
+    }
+
     fun delete() {
         check(!isDeleted) { "이미 삭제된 pet입니다." }
         isRepresentative = false
@@ -98,6 +102,31 @@ class Pet private constructor(
 
     companion object {
         const val MAX_ACTIVE_COUNT = 5
+
+        fun selectNextRepresentative(candidates: List<Pet>): Pet? =
+            candidates.sortedWith(compareBy<Pet> { !it.isRepresentative }.thenBy { it.name }).firstOrNull()
+
+        fun hasReachedActiveLimit(activePets: List<Pet>): Boolean = activePets.size >= MAX_ACTIVE_COUNT
+
+        fun reassignRepresentative(
+            target: Pet,
+            activePets: List<Pet>,
+        ): List<Pet>? {
+            if (target.isRepresentative) return null
+
+            val previouslyRepresentative = activePets.filter { it.isRepresentative }
+            previouslyRepresentative.forEach { it.clearRepresentative() }
+            target.markAsRepresentative()
+            return previouslyRepresentative
+        }
+
+        fun promoteReplacement(
+            wasRepresentative: Boolean,
+            remainingActivePets: List<Pet>,
+        ): Pet? {
+            if (!wasRepresentative) return null
+            return selectNextRepresentative(remainingActivePets)?.apply { markAsRepresentative() }
+        }
 
         private val WEIGHT_RANGE = 1.0..99.0
         private const val NAME_MAX_LENGTH = 100

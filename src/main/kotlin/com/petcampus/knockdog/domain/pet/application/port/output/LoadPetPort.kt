@@ -7,4 +7,6 @@ interface LoadPetPort {
     fun findById(id: PetId): Pet?
 
     fun findAllActiveByUserId(userId: Long): List<Pet>
+
+    fun findAllActiveByUserIdForUpdate(userId: Long): List<Pet>
 }
