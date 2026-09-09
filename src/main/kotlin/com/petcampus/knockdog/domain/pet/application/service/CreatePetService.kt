@@ -24,7 +24,7 @@ class CreatePetService(
 ) : CreatePetUseCase {
     @Transactional
     override fun create(command: CreatePetCommand): CreatePetResult {
-        val userId = requireUserId(command.userCode).value
+        val userId = requireUserId(command.userCode)
         val breed = loadBreedPort.findById(command.breedId) ?: throw BusinessException(PetErrorCode.NOT_FOUND_BREED)
 
         val pet =

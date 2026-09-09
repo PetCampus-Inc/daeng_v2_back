@@ -90,7 +90,7 @@ class GetPetsServiceTest {
         isRepresentative: Boolean = false,
     ) = Pet.reconstitute(
         id = PetId(id),
-        userId = 1L,
+        userId = UserId(1L),
         name = name,
         profileImage = null,
         relationship = Relationship.GUARDIAN,
@@ -131,9 +131,9 @@ class GetPetsServiceTest {
     ) : LoadPetPort {
         override fun findById(id: PetId): Pet? = pets.find { it.id == id }
 
-        override fun findAllActiveByUserId(userId: Long): List<Pet> = pets
+        override fun findAllActiveByUserId(userId: UserId): List<Pet> = pets
 
-        override fun findAllActiveByUserIdForUpdate(userId: Long): List<Pet> = pets
+        override fun findAllActiveByUserIdForUpdate(userId: UserId): List<Pet> = pets
     }
 
     private class FakeLoadBreedPort(

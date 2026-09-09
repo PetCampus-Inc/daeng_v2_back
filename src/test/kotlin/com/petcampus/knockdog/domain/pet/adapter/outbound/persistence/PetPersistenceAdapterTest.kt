@@ -1,6 +1,7 @@
 package com.petcampus.knockdog.domain.pet.adapter.outbound.persistence
 
 import com.petcampus.knockdog.domain.auth.adapter.outbound.persistence.UserPersistenceAdapter
+import com.petcampus.knockdog.domain.auth.domain.UserId
 import com.petcampus.knockdog.domain.pet.domain.Gender
 import com.petcampus.knockdog.domain.pet.domain.Pet
 import com.petcampus.knockdog.domain.pet.domain.Relationship
@@ -45,7 +46,7 @@ class PetPersistenceAdapterTest(
         deleted.delete()
         petPersistenceAdapter.save(deleted)
 
-        val result = petPersistenceAdapter.findAllActiveByUserId(1L)
+        val result = petPersistenceAdapter.findAllActiveByUserId(UserId(1L))
 
         assertEquals(listOf("가온"), result.map { it.name })
     }
@@ -57,7 +58,7 @@ class PetPersistenceAdapterTest(
         deleted.delete()
         petPersistenceAdapter.save(deleted)
 
-        val result = petPersistenceAdapter.findAllActiveByUserIdForUpdate(1L)
+        val result = petPersistenceAdapter.findAllActiveByUserIdForUpdate(UserId(1L))
 
         assertEquals(listOf("가온"), result.map { it.name })
     }
@@ -67,7 +68,7 @@ class PetPersistenceAdapterTest(
         petPersistenceAdapter.save(pet(userId = 1L, name = "가온"))
         petPersistenceAdapter.save(pet(userId = 2L, name = "나비"))
 
-        val result = petPersistenceAdapter.findAllActiveByUserId(1L)
+        val result = petPersistenceAdapter.findAllActiveByUserId(UserId(1L))
 
         assertEquals(listOf("가온"), result.map { it.name })
     }
@@ -114,7 +115,7 @@ class PetPersistenceAdapterTest(
         isRepresentative: Boolean = false,
         name: String = "호두",
     ) = Pet.create(
-        userId = userId,
+        userId = UserId(userId),
         name = name,
         profileImage = null,
         relationship = Relationship.GUARDIAN,

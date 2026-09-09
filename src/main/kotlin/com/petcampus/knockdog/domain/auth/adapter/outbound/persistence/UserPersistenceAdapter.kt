@@ -21,7 +21,7 @@ class UserPersistenceAdapter(
 
     override fun findByCode(code: UserCode): User? = userJpaRepository.findByUserCode(code.value)?.toDomain()
 
-    override fun lockById(userId: Long) {
-        userJpaRepository.findByIdForUpdate(userId)
+    override fun lockById(userId: UserId) {
+        userJpaRepository.findByIdForUpdate(userId.value)
     }
 }

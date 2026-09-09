@@ -23,7 +23,7 @@ class GetPetsService(
 ) : GetPetsUseCase {
     @Transactional(readOnly = true)
     override fun getPets(command: GetPetsCommand): GetPetsResult {
-        val userId = requireUserId(command.userCode).value
+        val userId = requireUserId(command.userCode)
 
         val pets =
             loadPetPort

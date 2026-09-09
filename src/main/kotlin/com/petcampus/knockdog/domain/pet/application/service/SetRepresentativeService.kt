@@ -26,7 +26,7 @@ class SetRepresentativeService(
 ) : SetRepresentativeUseCase {
     @Transactional
     override fun setRepresentative(command: SetRepresentativeCommand): SetRepresentativeResult {
-        val userId = requireUserId(command.userCode).value
+        val userId = requireUserId(command.userCode)
         val pet =
             loadPetPort.findById(command.petId)?.takeIf { !it.isDeleted }
                 ?: throw BusinessException(PetErrorCode.NOT_FOUND)

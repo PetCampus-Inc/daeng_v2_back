@@ -1,11 +1,12 @@
 package com.petcampus.knockdog.domain.pet.domain
 
+import com.petcampus.knockdog.domain.auth.domain.UserId
 import java.time.LocalDateTime
 import java.time.Year
 
 class Pet private constructor(
     val id: PetId?,
-    val userId: Long,
+    val userId: UserId,
     name: String,
     profileImage: String?,
     relationship: Relationship,
@@ -136,7 +137,7 @@ class Pet private constructor(
         private const val RELATIONSHIP_TEXT_MAX_LENGTH = 100
 
         fun create(
-            userId: Long,
+            userId: UserId,
             name: String,
             profileImage: String?,
             relationship: Relationship,
@@ -174,7 +175,7 @@ class Pet private constructor(
 
         fun reconstitute(
             id: PetId,
-            userId: Long,
+            userId: UserId,
             name: String,
             profileImage: String?,
             relationship: Relationship,

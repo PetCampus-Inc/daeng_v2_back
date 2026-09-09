@@ -22,7 +22,7 @@ class GetPetService(
 ) : GetPetUseCase {
     @Transactional(readOnly = true)
     override fun getPet(command: GetPetCommand): GetPetResult {
-        val userId = requireUserId(command.userCode).value
+        val userId = requireUserId(command.userCode)
         val pet =
             loadPetPort.findById(command.petId)?.takeIf { !it.isDeleted }
                 ?: throw BusinessException(PetErrorCode.NOT_FOUND)

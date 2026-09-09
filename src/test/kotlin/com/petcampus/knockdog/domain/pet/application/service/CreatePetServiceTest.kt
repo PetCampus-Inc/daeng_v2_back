@@ -33,7 +33,7 @@ class CreatePetServiceTest {
         val result = service.create(command(breedId = 4L))
 
         assertEquals("골든 리트리버", result.breed.nameKo)
-        assertEquals(1L, result.pet.userId)
+        assertEquals(UserId(1L), result.pet.userId)
     }
 
     @Test
@@ -109,7 +109,7 @@ class CreatePetServiceTest {
     private fun existingPet() =
         Pet.reconstitute(
             id = PetId(1L),
-            userId = 1L,
+            userId = UserId(1L),
             name = "보리",
             profileImage = null,
             relationship = Relationship.GUARDIAN,
@@ -156,13 +156,13 @@ class CreatePetServiceTest {
     ) : LoadPetPort {
         override fun findById(id: PetId): Pet? = activePets.find { it.id == id }
 
-        override fun findAllActiveByUserId(userId: Long): List<Pet> = activePets
+        override fun findAllActiveByUserId(userId: UserId): List<Pet> = activePets
 
-        override fun findAllActiveByUserIdForUpdate(userId: Long): List<Pet> = activePets
+        override fun findAllActiveByUserIdForUpdate(userId: UserId): List<Pet> = activePets
     }
 
     private class NoopLockUserPort : LockUserPort {
-        override fun lockById(userId: Long) = Unit
+        override fun lockById(userId: UserId) = Unit
     }
 
     private class RecordingSavePetPort : SavePetPort {

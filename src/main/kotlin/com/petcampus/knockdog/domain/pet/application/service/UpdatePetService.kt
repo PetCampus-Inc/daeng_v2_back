@@ -25,7 +25,7 @@ class UpdatePetService(
 ) : UpdatePetUseCase {
     @Transactional
     override fun update(command: UpdatePetCommand): UpdatePetResult {
-        val userId = requireUserId(command.userCode).value
+        val userId = requireUserId(command.userCode)
         val pet =
             loadPetPort.findById(command.petId)?.takeIf { !it.isDeleted }
                 ?: throw BusinessException(PetErrorCode.NOT_FOUND)

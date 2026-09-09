@@ -1,5 +1,6 @@
 package com.petcampus.knockdog.domain.pet.domain
 
+import com.petcampus.knockdog.domain.auth.domain.UserId
 import java.time.Year
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -318,7 +319,7 @@ class PetTest {
         weight: Double = 10.0,
         isRepresentative: Boolean = false,
     ) = Pet.create(
-        userId = 1L,
+        userId = UserId(1L),
         name = name,
         profileImage = profileImage,
         relationship = relationship,

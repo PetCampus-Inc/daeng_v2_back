@@ -124,7 +124,7 @@ class SetRepresentativeServiceTest {
         isRepresentative: Boolean = false,
     ) = Pet.reconstitute(
         id = PetId(id),
-        userId = userId,
+        userId = UserId(userId),
         name = "호두$id",
         profileImage = null,
         relationship = Relationship.GUARDIAN,
@@ -164,9 +164,9 @@ class SetRepresentativeServiceTest {
     ) : LoadPetPort {
         override fun findById(id: PetId): Pet? = pet
 
-        override fun findAllActiveByUserId(userId: Long): List<Pet> = activePets
+        override fun findAllActiveByUserId(userId: UserId): List<Pet> = activePets
 
-        override fun findAllActiveByUserIdForUpdate(userId: Long): List<Pet> = activePets
+        override fun findAllActiveByUserIdForUpdate(userId: UserId): List<Pet> = activePets
     }
 
     private class FakeLoadBreedPort(
@@ -176,7 +176,7 @@ class SetRepresentativeServiceTest {
     }
 
     private class NoopLockUserPort : LockUserPort {
-        override fun lockById(userId: Long) = Unit
+        override fun lockById(userId: UserId) = Unit
     }
 
     private class RecordingSavePetPort : SavePetPort {
