@@ -1,6 +1,7 @@
 package com.petcampus.knockdog.domain.pet.application.service
 
 import com.petcampus.knockdog.domain.auth.application.port.output.LoadUserPort
+import com.petcampus.knockdog.domain.auth.application.service.RequireUserId
 import com.petcampus.knockdog.domain.auth.domain.AddressType
 import com.petcampus.knockdog.domain.auth.domain.User
 import com.petcampus.knockdog.domain.auth.domain.UserAddress
@@ -67,7 +68,7 @@ class GetPetServiceTest {
         pet: Pet?,
         breed: BreedSummary? = BreedSummary(4L, "골든 리트리버", null),
     ) = GetPetService(
-        loadUserPort = FakeLoadUserPort(userId = 1L),
+        requireUserId = RequireUserId(FakeLoadUserPort(userId = 1L)),
         loadPetPort = FakeLoadPetPort(pet),
         loadBreedPort = FakeLoadBreedPort(breed),
     )

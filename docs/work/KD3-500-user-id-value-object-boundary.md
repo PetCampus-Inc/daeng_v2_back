@@ -1,4 +1,4 @@
-> 생성: 2026-09-09 17:30 · 최종 수정: 2026-09-09 18:08
+> 생성: 2026-09-09 17:30 · 최종 수정: 2026-09-09 18:30 (requireUserId 중복 제거 반영)
 
 # KD3-500 pet 사용자 식별자 타입 경계 통일
 
@@ -12,7 +12,7 @@
 
 - 활성 workflow: `003-migration`
 - 현재 공통 단계: `4` (구현·검증 완료)
-- 다음 결정 또는 전환 조건: 사용자가 커밋을 지시함 — 커밋 후 `requireUserId` 중복 제거 등 후속 정리로 이어감
+- 다음 결정 또는 전환 조건: `requireUserId` 중복 제거까지 반영 완료 — 커밋·PR 준비 여부만 남음
 
 ## 작업 목표
 
@@ -28,6 +28,7 @@ pet 서비스에서 사용자 조회 결과의 내부 식별자를 원시 `Long`
 - `PetMapper`, `PetPersistenceAdapter`, JPA repository/entity가 요구하는 영속성 경계에서만 `UserId.value`를 전달한다.
 - pet 도메인·서비스·영속성 테스트 fixture를 `UserId` 기준으로 전환하고, 전체 빌드로 회귀를 검증한다.
 - `Pet.create`와 `Pet.update`에 출생 연도 범위 검증을 추가한다.
+- `requireUserId(userCode: UserCode): UserId` 중복(6개 pet 서비스 + auth `UserAgreementService`, 총 7곳에 토씨 하나 안 틀리고 복붙됨)을 `auth.application.service.RequireUserId` 공유 컴포넌트로 추출한다.
 
 ## 작업 제외 범위
 
@@ -49,6 +50,7 @@ pet 서비스에서 사용자 조회 결과의 내부 식별자를 원시 `Long`
 - 2026-09-09: 사용자가 앞선 JWT/principal 전환 작업을 취소하고, `requireUserId`의 `Long → UserId` 반환 전환만 진행하도록 지시했다.
 - 2026-09-09: 사용자가 출생 연도 허용 범위를 최근 30년 이내로 확정하고 구현을 지시했다.
 - 2026-09-09: 검토에서 helper 반환 타입만 바꾸고 즉시 `.value`를 쓰는 중간 상태는 유지하지 않으며, pet 식별자 경계를 `UserId`로 일관되게 전환하는 방향을 권고했다. 사용자가 작업 문서 선갱신을 지시했다.
+- 2026-09-09: `requireUserId` 중복이 pet 6곳 말고 auth `UserAgreementService`에도 동일하게 있다는 걸 확인 — 사용자가 "다음 단계로 고려할 만한 것들 전부 진행" 지시에 이 정리를 포함시켰다. 공유 컴포넌트는 `LoadUserPort`/`UserCode`/`UserId`/`AuthErrorCode`를 이미 소유한 `auth.application.service`에 두기로 했다 — `PetLockOperations`가 인프라에 안 닿는 포트 조합 헬퍼를 포트 아닌 평범한 `@Component`로 둔 것과 같은 근거(KD3-497)를 그대로 따른다. `operator fun invoke`로 만들어 호출부 문법(`requireUserId(command.userCode)`)이 기존과 동일하게 유지되도록 했다.
 
 ## 완료 확인 기준
 
@@ -58,12 +60,14 @@ pet 서비스에서 사용자 조회 결과의 내부 식별자를 원시 `Long`
 - JPA repository/entity는 기존 DB 스키마와 동일한 `Long` FK로 동작한다.
 - 전체 빌드가 통과한다.
 - 출생 연도의 최저·최고 허용값, 범위 초과, 미래값, null을 도메인 테스트로 검증한다.
+- `requireUserId` 중복 7곳(pet 6개, auth 1개)이 전부 `RequireUserId` 공유 컴포넌트를 쓴다.
 
 ### 검증 결과
 
 - `./gradlew test --tests "*.pet.domain.PetTest"` 통과(2026-09-09). 생성 시 최저·최고 허용값, 범위 초과, 미래값, null과 수정 시 범위 초과를 검증했다.
 - `./gradlew test --tests "*.pet.*"` 통과(2026-09-09). pet 도메인·서비스·영속성·동시성 테스트의 UserId 전환 회귀가 없다.
 - `./gradlew ktlintCheck` 통과(2026-09-09).
+- `requireUserId` 공유 컴포넌트 추출 후 `./gradlew build`(ktlint, ArchUnit, 전체 테스트) 통과(2026-09-09) — pet 6개 서비스·auth `UserAgreementService`와 그 테스트 7개 전부 회귀 없음.
 
 ## 작업 후 확인 목록
 
@@ -72,3 +76,7 @@ pet 서비스에서 사용자 조회 결과의 내부 식별자를 원시 `Long`
 | `docs/work/KD3-500-user-id-value-object-boundary.md` | 갱신 | 범위·결정·검증 결과 기록 |
 | `docs/domains/pet.md` | 갱신 | 출생 연도 허용 범위와 UserId 경계 변경을 장기 도메인 제약으로 기록(사용자 식별자 행 추가) |
 | `docs/inventory/api.md` | 확인했지만 변경 없음 | 공개 API 계약 변경 없음 |
+| `auth/application/service/RequireUserId.kt` | 신규 | `requireUserId` 중복 7곳을 대체하는 공유 컴포넌트 |
+| `auth/application/service/UserAgreementService.kt` | 갱신 | 자체 `requireUserId` 제거, `RequireUserId` 주입으로 전환 |
+| pet 서비스 6개 | 갱신 | 자체 `requireUserId` 제거, `RequireUserId` 주입으로 전환 |
+| 관련 테스트 7개 | 갱신 | `RequireUserId(Fake/StubLoadUserPort(...))`로 실제 컴포넌트에 Fake 포트를 감싸 주입 |

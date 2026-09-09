@@ -1,9 +1,6 @@
 package com.petcampus.knockdog.domain.pet.application.service
 
-import com.petcampus.knockdog.domain.auth.application.AuthErrorCode
-import com.petcampus.knockdog.domain.auth.application.port.output.LoadUserPort
-import com.petcampus.knockdog.domain.auth.domain.UserCode
-import com.petcampus.knockdog.domain.auth.domain.UserId
+import com.petcampus.knockdog.domain.auth.application.service.RequireUserId
 import com.petcampus.knockdog.domain.pet.application.port.input.GetPetsCommand
 import com.petcampus.knockdog.domain.pet.application.port.input.GetPetsResult
 import com.petcampus.knockdog.domain.pet.application.port.input.GetPetsUseCase
@@ -11,13 +8,12 @@ import com.petcampus.knockdog.domain.pet.application.port.input.PetWithBreed
 import com.petcampus.knockdog.domain.pet.application.port.output.LoadBreedPort
 import com.petcampus.knockdog.domain.pet.application.port.output.LoadPetPort
 import com.petcampus.knockdog.domain.pet.domain.Pet
-import com.petcampus.knockdog.global.exception.BusinessException
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
 @Service
 class GetPetsService(
-    private val loadUserPort: LoadUserPort,
+    private val requireUserId: RequireUserId,
     private val loadPetPort: LoadPetPort,
     private val loadBreedPort: LoadBreedPort,
 ) : GetPetsUseCase {
@@ -40,10 +36,5 @@ class GetPetsService(
             }
 
         return GetPetsResult(petsWithBreed)
-    }
-
-    private fun requireUserId(userCode: UserCode): UserId {
-        val user = loadUserPort.findByCode(userCode) ?: throw BusinessException(AuthErrorCode.NOT_FOUND_USER)
-        return requireNotNull(user.id) { "저장되지 않은 User입니다." }
     }
 }

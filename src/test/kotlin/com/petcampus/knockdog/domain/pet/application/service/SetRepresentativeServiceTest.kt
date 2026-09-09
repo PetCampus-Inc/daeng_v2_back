@@ -2,6 +2,7 @@ package com.petcampus.knockdog.domain.pet.application.service
 
 import com.petcampus.knockdog.domain.auth.application.port.output.LoadUserPort
 import com.petcampus.knockdog.domain.auth.application.port.output.LockUserPort
+import com.petcampus.knockdog.domain.auth.application.service.RequireUserId
 import com.petcampus.knockdog.domain.auth.domain.AddressType
 import com.petcampus.knockdog.domain.auth.domain.User
 import com.petcampus.knockdog.domain.auth.domain.UserAddress
@@ -109,7 +110,7 @@ class SetRepresentativeServiceTest {
         breed: BreedSummary? = BreedSummary(4L, "골든 리트리버", null),
         savePetPort: SavePetPort = RecordingSavePetPort(),
     ) = SetRepresentativeService(
-        loadUserPort = FakeLoadUserPort(userId = 1L),
+        requireUserId = RequireUserId(FakeLoadUserPort(userId = 1L)),
         loadPetPort = FakeLoadPetPort(pet, activePets),
         loadBreedPort = FakeLoadBreedPort(breed),
         savePetPort = savePetPort,
