@@ -1,4 +1,4 @@
-> 생성: 2026-09-09 17:30 · 최종 수정: 2026-09-09 18:50 (독립 리뷰 완료, NOT_FOUND_USER 테스트 갭 보강)
+> 생성: 2026-09-09 17:30 · 최종 수정: 2026-09-09 (PR 리뷰 반영: 범위·제외범위 정합성, 검증 근거 정정)
 
 # KD3-500 pet 사용자 식별자 타입 경계 통일
 
@@ -33,8 +33,10 @@ pet 서비스에서 사용자 조회 결과의 내부 식별자를 원시 `Long`
 ## 작업 제외 범위
 
 - JWT subject, Spring Security principal, access/refresh token, Redis refresh token 구조 변경
-- controller·command·포트의 공개 인터페이스 변경
+- controller·command의 공개 인터페이스 변경(HTTP 요청·응답 계약은 그대로 유지)
 - `UserId`를 auth 패키지 밖 shared kernel로 이동하는 패키지 재구성
+
+포트(`LoadPetPort`/`PetLockOperations`/`LockUserPort`)의 사용자 식별자 파라미터 타입(`Long` → `UserId`)은 위 "작업 범위"에 명시한 대로 이번 작업에 **포함**된다 — 포트도 "공개 인터페이스"이므로 제외 대상처럼 읽힐 수 있었던 이전 문구를 정정했다. 여기서 "포트·컨트롤러·커맨드의 공개 인터페이스를 안 바꾼다"는 건 HTTP 요청·응답 계약(controller/command)에 한정된 얘기였다.
 
 ## 방향 논의 및 결정 사항
 
@@ -65,19 +67,20 @@ pet 서비스에서 사용자 조회 결과의 내부 식별자를 원시 `Long`
 
 ### 검증 결과
 
-- `./gradlew test --tests "*.pet.domain.PetTest"` 통과(2026-09-09). 생성 시 최저·최고 허용값, 범위 초과, 미래값, null과 수정 시 범위 초과를 검증했다.
-- `./gradlew test --tests "*.pet.*"` 통과(2026-09-09). pet 도메인·서비스·영속성·동시성 테스트의 UserId 전환 회귀가 없다.
-- `./gradlew ktlintCheck` 통과(2026-09-09).
-- `requireUserId` 공유 컴포넌트 추출 후 `./gradlew build`(ktlint, ArchUnit, 전체 테스트) 통과(2026-09-09) — pet 6개 서비스·auth `UserAgreementService`와 그 테스트 7개 전부 회귀 없음.
-- **독립 리뷰(fresh subagent, 2026-09-09)**: merge-base(`365134e`, epic 최신 tip)부터 전체 diff를 처음부터 읽고 `./gradlew clean build`를 직접 재실행해 검증(43초, 전체 통과). `UserId`↔`Long` 이중 wrap·언랩 누락 여부를 레포 전체 grep으로 확인(없음), `RequireUserId` 7개 호출부가 기존과 동일한 에러코드·예외로 동작하는지 확인, `validateBirthYear` 경계값(양끝 inclusive)·`reconstitute` 제외 일관성 확인, `HexagonalArchitectureTest`를 직접 실행해 ArchUnit 위반 없음을 확인(2초 통과), 안 쓰는 import·죽은 코드·신규 주석 없음을 확인. **로직 결함 발견 없음.** 유일한 발견 사항(테스트 커버리지 갭 4곳)은 위 "확정 사항"에 기록하고 즉시 반영함.
-- **로컬 MySQL 실제 HTTP e2e(2026-09-09)**: birthYear 검증만 실제 요청으로 확인(UserId 타입 전환은 API 계약에 영향 없어 e2e 대상 아님). 로컬 서버(`--spring.profiles.active=local`)에 테스트 사용자(`E2E500AA`)를 추가해 검증(검증 후 데이터 삭제):
+**검증 가능성에 대한 안내**: 아래 항목 중 CI 링크가 있는 것(`./gradlew build`)은 PR 페이지에서 누구나 재확인할 수 있다. 나머지(로컬 개별 테스트 실행, 로컬 HTTP e2e, 독립 리뷰)는 이 세션이 로컬에서 직접 수행하고 그 결과를 여기 서술로 기록한 것으로, 로그·산출물이 저장소나 PR diff에 남지 않는다 — PR diff만으로는 확인 불가하다(코드 결함으로 단정할 근거도 아니고, 검증이 안 됐다는 뜻도 아니다. KD3-497 PR의 동일 지적에 대응한 것과 같은 방식). 재확인이 필요하면 각 항목에 적힌 커맨드로 직접 재실행할 수 있다.
+
+- `./gradlew build`(ktlint, ArchUnit, 전체 테스트) 통과(최종 커밋 `01023b3` 기준) — CI(`build`) 체크로 재확인 가능: https://github.com/PetCampus-Inc/daeng_v2_back/actions/runs/34336325557
+- (로컬 실행, PR diff만으로는 확인 불가) `./gradlew test --tests "*.pet.domain.PetTest"` — 생성 시 최저·최고 허용값, 범위 초과, 미래값, null과 수정 시 범위 초과를 검증했다.
+- (로컬 실행, PR diff만으로는 확인 불가) `./gradlew test --tests "*.pet.*"` — pet 도메인·서비스·영속성·동시성 테스트의 UserId 전환 회귀가 없음을 확인했다.
+- **독립 리뷰(fresh subagent, 2026-09-09, PR diff만으로는 확인 불가 — 서브에이전트 실행 결과라 로그가 저장소에 안 남음)**: merge-base(`365134e`, epic 최신 tip)부터 전체 diff를 처음부터 읽고 `./gradlew clean build`를 직접 재실행해 검증(43초, 전체 통과). `UserId`↔`Long` 이중 wrap·언랩 누락 여부를 레포 전체 grep으로 확인(없음), `RequireUserId` 7개 호출부가 기존과 동일한 에러코드·예외로 동작하는지 확인, `validateBirthYear` 경계값(양끝 inclusive)·`reconstitute` 제외 일관성 확인, `HexagonalArchitectureTest`를 직접 실행해 ArchUnit 위반 없음을 확인(2초 통과), 안 쓰는 import·죽은 코드·신규 주석 없음을 확인. **로직 결함 발견 없음.** 유일한 발견 사항(테스트 커버리지 갭 4곳)은 위 "확정 사항"에 기록하고 즉시 반영함.
+- **로컬 MySQL 실제 HTTP e2e(2026-09-09, 로컬 실행·재현 가능하나 저장된 로그·산출물 없음)**: birthYear 검증만 실제 요청으로 확인(UserId 타입 전환은 API 계약에 영향 없어 e2e 대상 아님). 로컬 서버(`--spring.profiles.active=local`)에 테스트 사용자(`E2E500AA`)를 추가해 검증(검증 후 데이터 삭제):
   - 등록 시 `birthYear = 현재연도-30`(최저 허용) → 201 확인
   - 등록 시 `birthYear = 현재연도`(최고 허용) → 201 확인
   - 등록 시 `birthYear = 현재연도-31`(범위 초과) → 400 `INVALID_INPUT_VALUE` 확인
   - 등록 시 `birthYear = 현재연도+1`(미래) → 400 `INVALID_INPUT_VALUE` 확인
   - 등록 시 `birthYear` 생략 → 201(null 허용) 확인
   - PATCH로 범위 초과 `birthYear` 수정 시도 → 400 확인(update 경로도 동일하게 검증됨)
-- **NOT_FOUND_USER 테스트 보강(2026-09-09)**: `DeletePetServiceTest`/`GetPetServiceTest`/`SetRepresentativeServiceTest`/`UpdatePetServiceTest`의 `FakeLoadUserPort`를 `Long?`(nullable)로 바꿔 "사용자 없음" 시나리오를 표현할 수 있게 하고, 각각 `존재하지 않는 사용자면 NOT_FOUND_USER를 던진다` 테스트를 추가(`CreatePetServiceTest`/`GetPetsServiceTest`/`UserAgreementServiceTest`는 이미 있었음 — 이제 7곳 전부 커버). `./gradlew build` 재통과 확인.
+- **NOT_FOUND_USER 테스트 보강(2026-09-09)**: `DeletePetServiceTest`/`GetPetServiceTest`/`SetRepresentativeServiceTest`/`UpdatePetServiceTest`의 `FakeLoadUserPort`를 `Long?`(nullable)로 바꿔 "사용자 없음" 시나리오를 표현할 수 있게 하고, 각각 `존재하지 않는 사용자면 NOT_FOUND_USER를 던진다` 테스트를 추가(`CreatePetServiceTest`/`GetPetsServiceTest`/`UserAgreementServiceTest`는 이미 있었음 — 이제 7곳 전부 커버). 이 항목은 실제 테스트 코드가 diff에 포함돼 있어 PR diff에서 직접 확인 가능하다 — `./gradlew build` CI 통과(위 링크)가 이 테스트들의 실행 근거다.
 
 ## 작업 후 확인 목록
 
