@@ -3,6 +3,7 @@ package com.petcampus.knockdog.domain.pet.application.service
 import com.petcampus.knockdog.domain.auth.application.AuthErrorCode
 import com.petcampus.knockdog.domain.auth.application.port.output.LoadUserPort
 import com.petcampus.knockdog.domain.auth.domain.UserCode
+import com.petcampus.knockdog.domain.auth.domain.UserId
 import com.petcampus.knockdog.domain.pet.application.PetErrorCode
 import com.petcampus.knockdog.domain.pet.application.port.input.GetPetCommand
 import com.petcampus.knockdog.domain.pet.application.port.input.GetPetResult
@@ -21,7 +22,7 @@ class GetPetService(
 ) : GetPetUseCase {
     @Transactional(readOnly = true)
     override fun getPet(command: GetPetCommand): GetPetResult {
-        val userId = requireUserId(command.userCode)
+        val userId = requireUserId(command.userCode).value
         val pet =
             loadPetPort.findById(command.petId)?.takeIf { !it.isDeleted }
                 ?: throw BusinessException(PetErrorCode.NOT_FOUND)
@@ -35,8 +36,8 @@ class GetPetService(
         return GetPetResult(pet, breed)
     }
 
-    private fun requireUserId(userCode: UserCode): Long {
+    private fun requireUserId(userCode: UserCode): UserId {
         val user = loadUserPort.findByCode(userCode) ?: throw BusinessException(AuthErrorCode.NOT_FOUND_USER)
-        return requireNotNull(user.id) { "저장되지 않은 User입니다." }.value
+        return requireNotNull(user.id) { "저장되지 않은 User입니다." }
     }
 }

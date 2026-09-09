@@ -3,6 +3,7 @@ package com.petcampus.knockdog.domain.pet.application.service
 import com.petcampus.knockdog.domain.auth.application.AuthErrorCode
 import com.petcampus.knockdog.domain.auth.application.port.output.LoadUserPort
 import com.petcampus.knockdog.domain.auth.domain.UserCode
+import com.petcampus.knockdog.domain.auth.domain.UserId
 import com.petcampus.knockdog.domain.pet.application.PetErrorCode
 import com.petcampus.knockdog.domain.pet.application.port.input.CreatePetCommand
 import com.petcampus.knockdog.domain.pet.application.port.input.CreatePetResult
@@ -23,7 +24,7 @@ class CreatePetService(
 ) : CreatePetUseCase {
     @Transactional
     override fun create(command: CreatePetCommand): CreatePetResult {
-        val userId = requireUserId(command.userCode)
+        val userId = requireUserId(command.userCode).value
         val breed = loadBreedPort.findById(command.breedId) ?: throw BusinessException(PetErrorCode.NOT_FOUND_BREED)
 
         val pet =
@@ -51,8 +52,8 @@ class CreatePetService(
         return CreatePetResult(saved, breed)
     }
 
-    private fun requireUserId(userCode: UserCode): Long {
+    private fun requireUserId(userCode: UserCode): UserId {
         val user = loadUserPort.findByCode(userCode) ?: throw BusinessException(AuthErrorCode.NOT_FOUND_USER)
-        return requireNotNull(user.id) { "저장되지 않은 User입니다." }.value
+        return requireNotNull(user.id) { "저장되지 않은 User입니다." }
     }
 }
