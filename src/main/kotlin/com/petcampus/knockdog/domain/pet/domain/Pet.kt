@@ -120,6 +120,14 @@ class Pet private constructor(
             return previouslyRepresentative
         }
 
+        fun promoteReplacement(
+            wasRepresentative: Boolean,
+            remainingActivePets: List<Pet>,
+        ): Pet? {
+            if (!wasRepresentative) return null
+            return selectNextRepresentative(remainingActivePets)?.apply { markAsRepresentative() }
+        }
+
         private val WEIGHT_RANGE = 1.0..99.0
         private const val NAME_MAX_LENGTH = 100
         private const val PROFILE_IMAGE_MAX_LENGTH = 500

@@ -43,12 +43,9 @@ class DeletePetService(
             target.delete()
             savePetPort.saveAndFlush(target)
 
-            if (wasRepresentative) {
-                Pet
-                    .selectNextRepresentative(activePets.filter { it.id != target.id })
-                    ?.apply { markAsRepresentative() }
-                    ?.let { savePetPort.save(it) }
-            }
+            Pet
+                .promoteReplacement(wasRepresentative, activePets.filter { it.id != target.id })
+                ?.let { savePetPort.save(it) }
         }
     }
 

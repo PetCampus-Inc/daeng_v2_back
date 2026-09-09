@@ -95,6 +95,10 @@
   - `Pet.kt`에 세 함수 모두 순수 도메인 단위 테스트 추가(`PetTest.kt`), 서비스 테스트는 기존 assertion 그대로 통과(동작 동일함을 재확인)
   - 더 근본적인 지적(활성 pet 컬렉션에 대한 불변식은 원래 Aggregate Root가 책임져야 하고, 지금 `LockUserPort` 락은 그 경계를 수동으로 흉내 내고 있다는 점)은 "동작 변경 없음" 범위를 넘는 별도 설계 논의라 이번 티켓에서는 다루지 않고 후속 과제로만 남김
   - `./gradlew build` 재통과 확인(ktlint + 전체 테스트, 실패·에러 0건)
+- **독립 리뷰(fresh subagent, 2026-09-09, DDD 초점)**: 위 보강 이후 DDD 관점으로만 다시 검토를 돌렸다. 발견 사항 3건.
+  1. **반영**: `DeletePetService`에 같은 유형의 raw 조건문이 하나 더 남아있었음(`if (wasRepresentative) { Pet.selectNextRepresentative(...)... }`) — `selectNextRepresentative`(순정 선정)만 1차 리팩터링에서 도메인으로 옮겼고, "삭제된 pet이 대표견이었을 때만 승격한다"는 판단 자체는 서비스에 남아있던 것. `Pet.promoteReplacement(wasRepresentative, remainingActivePets): Pet?` 신설로 마저 추출, `DeletePetService`는 반환값을 저장만 함. `PetTest.kt`에 순수 도메인 테스트 3건 추가, `./gradlew build` 재통과 확인.
+  2. **반려**: `reassignRepresentative`의 `List<Pet>?` 반환이 "도메인 사실이 아니라 저장 트리거용 구현 디테일"이라며 nullable 없이 "바뀐 pet 통합 리스트"로 바꾸자는 제안 — `representative_user_id` UNIQUE 제약 때문에 기존 대표견 해제분(`saveAndFlush`)과 신규 대표견 지정(`save`)은 저장 순서·방식이 원래 달라야 해서, 리스트로 통일해도 호출부는 결국 다시 나눠 처리해야 함(코드가 나아지지 않음). "이미 대표견이라 아무 변화 없음"도 멱등성을 표현하는 실제 도메인 사실로 판단해 현재 형태 유지.
+  3. **후속 과제로 더 구체화**: `PetLockOperations`가 `users` 행을 잠그는 게 pet과 무관한 사용자 프로필 쓰기(`UserPersistenceAdapter.save`)와 불필요하게 직렬화될 수 있다는 지적 — 근거 있는 문제이나 KD3-497 이전부터 있던 구조를 그대로 옮긴 것이라 이번 범위는 아님. 리뷰어 제안대로 "Aggregate Root 재설계" 대신 **pet 컬렉션 전용 락 리소스(예: `user_pet_locks(user_id)` 행이나 MySQL named lock)로 교체**하는 더 작고 구체적인 개선안으로 후속 과제 문구를 갱신함(막연한 "Aggregate 도입 검토"보다 실행 가능한 형태로).
 
 ## 완료 확인 기준
 
@@ -113,10 +117,10 @@
 | `SavePetPort.kt` | 갱신 | `saveAndFlush` 추가, `registerWithinLimit`/`setRepresentativeWithinLock`/`deleteAndPromoteWithinLock` 제거 |
 | `LoadPetPort.kt` | 갱신 | `findAllActiveByUserIdForUpdate` 추가 |
 | `PetPersistenceAdapter.kt` | 갱신 | 순수 I/O만 남김 |
-| `Pet.kt` | 갱신 | `selectNextRepresentative`/`hasReachedActiveLimit`/`reassignRepresentative` companion 함수, `assignRepresentativeIfFirst` 인스턴스 메서드 추가 |
+| `Pet.kt` | 갱신 | `selectNextRepresentative`/`hasReachedActiveLimit`/`reassignRepresentative`/`promoteReplacement` companion 함수, `assignRepresentativeIfFirst` 인스턴스 메서드 추가 |
 | `PetLockOperations.kt` | 신규 | 락+재조회 공유 헬퍼 |
 | `CreatePetService.kt`/`SetRepresentativeService.kt`/`DeletePetService.kt` | 갱신 | 판단 로직 이동, 오케스트레이션 재작성, `errorCode` 관련 개선 반영 |
-| `PetTest.kt` | 갱신 | `selectNextRepresentative`/`hasReachedActiveLimit`/`assignRepresentativeIfFirst`/`reassignRepresentative` 순수 테스트 추가 |
+| `PetTest.kt` | 갱신 | `selectNextRepresentative`/`hasReachedActiveLimit`/`assignRepresentativeIfFirst`/`reassignRepresentative`/`promoteReplacement` 순수 테스트 추가 |
 | `PetPersistenceAdapterTest.kt` | 갱신 | 이동된 비즈니스 로직 테스트 삭제, 순수 I/O 테스트만 남김 |
 | `PetRegistrationConcurrencyTest.kt`/`PetSetRepresentativeConcurrencyTest.kt`/`PetDeleteAndPromoteConcurrencyTest.kt` | 갱신 | 서비스(유스케이스) 계층 호출로 전환 |
 | `CreatePetServiceTest.kt`/`UpdatePetServiceTest.kt`/`SetRepresentativeServiceTest.kt`/`GetPetServiceTest.kt`/`DeletePetServiceTest.kt` | 갱신 | `errorCode` 단언 추가 |

@@ -240,6 +240,32 @@ class PetTest {
         assertTrue(target.isRepresentative)
     }
 
+    @Test
+    fun `promoteReplacement는 삭제된 pet이 대표견이 아니었으면 null을 반환한다`() {
+        val result = Pet.promoteReplacement(wasRepresentative = false, remainingActivePets = listOf(pet(name = "가온")))
+
+        assertNull(result)
+    }
+
+    @Test
+    fun `promoteReplacement는 삭제된 pet이 대표견이었으면 남은 pet 중 이름순으로 승격한다`() {
+        val first = pet(name = "가온")
+        val second = pet(name = "나비")
+
+        val result = Pet.promoteReplacement(wasRepresentative = true, remainingActivePets = listOf(second, first))
+
+        assertEquals("가온", result?.name)
+        assertTrue(first.isRepresentative)
+        assertFalse(second.isRepresentative)
+    }
+
+    @Test
+    fun `promoteReplacement는 삭제된 pet이 대표견이었어도 남은 pet이 없으면 null을 반환한다`() {
+        val result = Pet.promoteReplacement(wasRepresentative = true, remainingActivePets = emptyList())
+
+        assertNull(result)
+    }
+
     private fun pet(
         name: String = "호두",
         profileImage: String? = null,
