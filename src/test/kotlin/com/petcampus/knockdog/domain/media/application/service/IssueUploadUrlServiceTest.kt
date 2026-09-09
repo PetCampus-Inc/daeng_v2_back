@@ -66,7 +66,7 @@ class IssueUploadUrlServiceTest {
 
         val exception =
             assertFailsWith<BusinessException> {
-                service.issue(IssueUploadUrlCommand(userCode = "A1B2C3D4", purpose = "MEMO_ATTACHMENT", contentType = "image/webp"))
+                service.issue(IssueUploadUrlCommand(userCode = "A1B2C3D4", purpose = "ALBUM_PHOTO", contentType = "image/webp"))
             }
 
         assertEquals("MEDIA_UNSUPPORTED_PURPOSE", exception.errorCode.code)

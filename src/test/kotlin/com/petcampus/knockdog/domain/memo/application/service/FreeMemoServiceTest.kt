@@ -2,7 +2,9 @@ package com.petcampus.knockdog.domain.memo.application.service
 
 import com.petcampus.knockdog.domain.memo.application.MemoErrorCode
 import com.petcampus.knockdog.domain.memo.application.port.input.SaveFreeMemoCommand
+import com.petcampus.knockdog.domain.memo.application.port.output.CommittedPhoto
 import com.petcampus.knockdog.domain.memo.application.port.output.LoadFreeMemoPort
+import com.petcampus.knockdog.domain.memo.application.port.output.MemoPhotoStoragePort
 import com.petcampus.knockdog.domain.memo.application.port.output.MemoSummary
 import com.petcampus.knockdog.domain.memo.application.port.output.SaveFreeMemoPort
 import com.petcampus.knockdog.domain.memo.domain.FreeMemo
@@ -43,7 +45,19 @@ class FreeMemoServiceTest {
         }
     }
 
-    private fun service(port: FakeMemoPort = FakeMemoPort()) = FreeMemoService(port, port)
+    private class FakePhotoStorage : MemoPhotoStoragePort {
+        override fun commitUploaded(
+            userCode: String,
+            uploadedKey: String,
+        ) = CommittedPhoto("memo/$userCode/" + uploadedKey.substringAfterLast('/'))
+
+        override fun viewUrlFor(objectKey: String) = "https://cdn/$objectKey"
+    }
+
+    private fun service(
+        port: FakeMemoPort = FakeMemoPort(),
+        storage: MemoPhotoStoragePort = FakePhotoStorage(),
+    ) = FreeMemoService(port, port, storage)
 
     @Test
     fun `메모가 없으면 content null, photos 빈 리스트`() {
@@ -85,5 +99,47 @@ class FreeMemoServiceTest {
         assertEquals(1, list.size)
         assertEquals("place-1", list[0].shopId)
         assertEquals(LocalDate.of(2026, 9, 8), list[0].memoDate)
+    }
+
+    @Test
+    fun `save는 tmp key를 commit해 영구 key로 저장하고 GET에서 url을 채운다`() {
+        val svc = service()
+        svc.save(SaveFreeMemoCommand("A1B2C3D4", "place-1", "m", listOf("tmp/A1B2C3D4/MEMO_ATTACHMENT/u.webp")))
+
+        val view = svc.get("A1B2C3D4", "place-1")
+
+        assertEquals(1, view.photos.size)
+        assertEquals("memo/A1B2C3D4/u.webp", view.photos[0].key)
+        assertEquals("https://cdn/memo/A1B2C3D4/u.webp", view.photos[0].url)
+    }
+
+    @Test
+    fun `이미 영구인 내 memo 소유 key는 그대로 유지된다`() {
+        val svc = service()
+        svc.save(SaveFreeMemoCommand("A1B2C3D4", "p", null, listOf("memo/A1B2C3D4/kept.webp")))
+
+        assertEquals("memo/A1B2C3D4/kept.webp", svc.get("A1B2C3D4", "p").photos[0].key)
+    }
+
+    @Test
+    fun `남의 네임스페이스 key는 MEMO_INVALID_PHOTO_KEY`() {
+        val exception =
+            assertFailsWith<BusinessException> {
+                service().save(SaveFreeMemoCommand("A1B2C3D4", "p", null, listOf("memo/OTHER999/x.webp")))
+            }
+
+        assertEquals(MemoErrorCode.INVALID_PHOTO_KEY, exception.errorCode)
+    }
+
+    @Test
+    fun `사진 6장이면 MEMO_TOO_MANY_PHOTOS`() {
+        val keys = (1..6).map { "tmp/A1B2C3D4/MEMO_ATTACHMENT/$it.webp" }
+
+        val exception =
+            assertFailsWith<BusinessException> {
+                service().save(SaveFreeMemoCommand("A1B2C3D4", "p", null, keys))
+            }
+
+        assertEquals(MemoErrorCode.TOO_MANY_PHOTOS, exception.errorCode)
     }
 }

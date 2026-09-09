@@ -1,14 +1,19 @@
 package com.petcampus.knockdog.domain.memo.adapter.inbound.web
 
+import com.fasterxml.jackson.databind.ObjectMapper
 import com.petcampus.knockdog.domain.auth.application.port.output.TokenPort
 import com.petcampus.knockdog.domain.auth.domain.UserCode
+import com.petcampus.knockdog.domain.media.adapter.inbound.web.MediaEndpointsTest
+import org.hamcrest.Matchers.startsWith
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc
 import org.springframework.boot.test.context.SpringBootTest
+import org.springframework.context.annotation.Import
 import org.springframework.http.MediaType
 import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get
+import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
@@ -17,6 +22,7 @@ import org.springframework.transaction.annotation.Transactional
 @SpringBootTest
 @AutoConfigureMockMvc
 @Transactional
+@Import(MediaEndpointsTest.FakeStorageConfig::class)
 class MemoEndpointsTest {
     @Autowired
     private lateinit var mockMvc: MockMvc
@@ -85,5 +91,36 @@ class MemoEndpointsTest {
             .andExpect(status().isOk)
             .andExpect(jsonPath("$.data.memos[0].shopId").value("place-1"))
             .andExpect(jsonPath("$.data.memos[0].memoDate").exists())
+    }
+
+    @Test
+    fun `PUT에 tmp photoKey를 주면 commit되어 GET에서 photos가 채워진다`() {
+        val uploadResponse =
+            mockMvc
+                .perform(
+                    post("/api/v1/media/upload-urls")
+                        .header("Authorization", bearer())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""{"purpose":"MEMO_ATTACHMENT","contentType":"image/webp"}"""),
+                ).andReturn()
+                .response
+                .contentAsString
+        val tmpKey = ObjectMapper().readTree(uploadResponse).at("/data/key").asText()
+
+        mockMvc
+            .perform(
+                put("/api/v1/memos/place-1")
+                    .header("Authorization", bearer())
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("""{"content":"사진메모","photoKeys":["$tmpKey"]}"""),
+            ).andExpect(status().isOk)
+            .andExpect(jsonPath("$.data.photos.length()").value(1))
+            .andExpect(jsonPath("$.data.photos[0].key").value(startsWith("memo/A1B2C3D4/")))
+            .andExpect(jsonPath("$.data.photos[0].url").exists())
+
+        mockMvc
+            .perform(get("/api/v1/memos/place-1").header("Authorization", bearer()))
+            .andExpect(jsonPath("$.data.photos.length()").value(1))
+            .andExpect(jsonPath("$.data.photos[0].key").value(startsWith("memo/A1B2C3D4/")))
     }
 }
