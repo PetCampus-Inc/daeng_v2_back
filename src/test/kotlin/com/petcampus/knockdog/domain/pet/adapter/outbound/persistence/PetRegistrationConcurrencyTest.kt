@@ -62,7 +62,7 @@ class PetRegistrationConcurrencyTest {
         val breed =
             breedJpaRepository.save(
                 BreedJpaEntity(
-                    displayOrder = (1..1_000_000).random(),
+                    displayOrder = nextDisplayOrder(),
                     fciStandardNumber = null,
                     nameEn = "Concurrency Test Breed",
                     nameKo = "동시성 테스트 견종",
@@ -195,5 +195,9 @@ class PetRegistrationConcurrencyTest {
         @ServiceConnection
         @JvmStatic
         val mysql: MySQLContainer<*> = MySQLContainer("mysql:8.0")
+
+        private val displayOrderSequence = AtomicInteger(1_000_000)
+
+        private fun nextDisplayOrder(): Int = displayOrderSequence.incrementAndGet()
     }
 }

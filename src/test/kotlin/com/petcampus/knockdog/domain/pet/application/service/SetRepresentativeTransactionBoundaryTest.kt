@@ -20,6 +20,7 @@ import org.springframework.test.context.ActiveProfiles
 import org.testcontainers.containers.MySQLContainer
 import org.testcontainers.junit.jupiter.Container
 import org.testcontainers.junit.jupiter.Testcontainers
+import java.util.concurrent.atomic.AtomicInteger
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 
@@ -51,7 +52,7 @@ class SetRepresentativeTransactionBoundaryTest {
         val breed =
             breedJpaRepository.save(
                 BreedJpaEntity(
-                    displayOrder = (1..1_000_000).random(),
+                    displayOrder = nextDisplayOrder(),
                     fciStandardNumber = null,
                     nameEn = "Transaction Boundary Test Breed",
                     nameKo = "트랜잭션 경계 테스트 견종",
@@ -99,5 +100,9 @@ class SetRepresentativeTransactionBoundaryTest {
         @ServiceConnection
         @JvmStatic
         val mysql: MySQLContainer<*> = MySQLContainer("mysql:8.0")
+
+        private val displayOrderSequence = AtomicInteger(1_000_000)
+
+        private fun nextDisplayOrder(): Int = displayOrderSequence.incrementAndGet()
     }
 }

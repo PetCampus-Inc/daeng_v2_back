@@ -25,6 +25,7 @@ import org.testcontainers.junit.jupiter.Testcontainers
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicInteger
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
@@ -64,7 +65,7 @@ class PetDeleteAndPromoteConcurrencyTest {
         val breed =
             breedJpaRepository.save(
                 BreedJpaEntity(
-                    displayOrder = (1..1_000_000).random(),
+                    displayOrder = nextDisplayOrder(),
                     fciStandardNumber = null,
                     nameEn = "Delete Concurrency Test Breed",
                     nameKo = "삭제 동시성 테스트 견종",
@@ -132,5 +133,9 @@ class PetDeleteAndPromoteConcurrencyTest {
         @ServiceConnection
         @JvmStatic
         val mysql: MySQLContainer<*> = MySQLContainer("mysql:8.0")
+
+        private val displayOrderSequence = AtomicInteger(1_000_000)
+
+        private fun nextDisplayOrder(): Int = displayOrderSequence.incrementAndGet()
     }
 }
