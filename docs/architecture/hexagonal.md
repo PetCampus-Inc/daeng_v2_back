@@ -1,4 +1,4 @@
-> 생성: 2026-07-28 16:30 · 최종 수정: 2026-08-31 23:10
+> 생성: 2026-07-28 16:30 · 최종 수정: 2026-09-07 13:10
 
 # 헥사고날 아키텍처 구조
 
@@ -34,16 +34,16 @@ kindergarten처럼 DB가 아니라 **Redis가 주 저장소인 도메인**은 `a
 
 ## 3. ArchUnit 규칙 (4원칙)
 
-[`HexagonalArchitectureTest.kt`](../../src/test/kotlin/com/petcampus/knockdog/HexagonalArchitectureTest.kt)에 정의되어 있고, 4원칙 모두 전 도메인에 공통 적용된다.
+[`HexagonalArchitectureTest.kt`](../../src/test/kotlin/com/petcampus/knockdog/HexagonalArchitectureTest.kt)에 정의되어 있고, 4개 규칙 모두 전 도메인에 공통 적용된다.
 
 | # | 규칙 | 대상 |
 |---|---|---|
 | 1 | `application` → `adapter` 의존 금지 | 전 도메인 |
 | 2 | `application` → `jakarta.persistence` 의존 금지 | 전 도메인 |
 | 3 | `domain` → `application`/`adapter` 의존 금지 | 전 도메인 |
-| 4 | 순수 도메인(`domain.<도메인>.domain`) → `org.springframework.*`/`jakarta.persistence.*` 의존 금지 | 전 도메인 — `resideInAnyPackage("com.petcampus.knockdog.domain.*.domain..")` 와일드카드로 모든 도메인에 자동 적용됨 |
+| 4 | 순수 도메인(`domain.<도메인>.domain`) → `org.springframework.*`/`jakarta.persistence.*` 의존 금지 | 전 도메인 (`domain.*.domain..` 와일드카드) |
 
-새 도메인을 정석형으로 만들 때 별도로 등록할 것은 없다 — 규칙 4는 와일드카드라 `domain/` 패키지를 정석형 위치에 두기만 하면 자동으로 강제된다.
+규칙 4는 `resideInAnyPackage("com.petcampus.knockdog.domain.*.domain..")` 와일드카드로 모든 도메인의 `domain` 패키지를 자동 포함한다 — 새 도메인을 추가해도 별도 등록이 필요 없다.
 
 ## 4. 참고
 
