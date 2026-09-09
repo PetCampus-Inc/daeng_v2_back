@@ -1,4 +1,4 @@
-> 생성: 2026-08-02 13:45 · 최종 수정: 2026-09-02 15:30
+> 생성: 2026-08-02 13:45 · 최종 수정: 2026-09-09 18:15
 
 # 데이터 인벤토리
 
@@ -71,14 +71,14 @@
 | MySQL | `school_pet_membership` | 유치원 반려견 연결 내역 | owner/pet/school | owner-member | `REDESIGN` | `미착수` | 반려견-유치원 연결 후보 | owner-member 또는 pet-school 슬라이스 | 승인 상태, 보호자 관계, 초대 이력 |
 | MySQL | `attendance_record` | 알림장 | attendance | attendance | `REDESIGN` | `미착수` | 알림장/출석 기록 후보 | attendance 슬라이스 | 작성자 권한, 반려견/유치원 관계, 발송 상태 |
 | MySQL | `attendance_record_note_template` | 알림장 템플릿 | attendance | attendance | `REDESIGN` | `미착수` | 알림장 템플릿 후보 | attendance-template 슬라이스 | 유치원별 템플릿 소유권, 삭제 정책 |
-| MySQL | `free_memo` | 자유메모 | memo | memo | `REDESIGN` | `미착수` | 유치원/사용자 메모 후보 | memo 슬라이스 | user_id 의미, 대상 school/pet 연결 여부 |
-| MySQL | `free_memo_photo` | 자유메모 사진 | memo/media | memo | `REDESIGN` | `미착수` | 자유메모 첨부 이미지 후보 | memo 슬라이스 | S3 key 소유권, 정렬, 삭제 정책 |
-| MySQL | `checklist_template` | 체크리스트 템플릿 | checklist | checklist | `REDESIGN` | `미착수` | 체크리스트 템플릿 후보 | checklist 슬라이스 | 템플릿 버전, 유치원별 소유 여부 |
-| MySQL | `checklist_section` | 체크리스트 섹션 | checklist | checklist | `REDESIGN` | `미착수` | 체크리스트 섹션 후보 | checklist 슬라이스 | 정렬 순서, 템플릿 삭제 시 처리 |
-| MySQL | `checklist_question` | 체크리스트 질문 | checklist | checklist | `REDESIGN` | `미착수` | 체크리스트 질문 후보 | checklist 슬라이스 | 질문 타입, 필수 여부, 정렬 |
-| MySQL | `question_option` | 체크리스트 질문 옵션 | checklist | checklist | `REDESIGN` | `미착수` | 체크리스트 선택지 후보 | checklist 슬라이스 | 단일/다중 선택, 정렬 |
-| MySQL | `checklist_submission` | 체크리스트 제출 내역 | checklist | checklist | `REDESIGN` | `미착수` | 체크리스트 제출 이력 후보 | checklist 슬라이스 | 제출자, 템플릿 버전 스냅샷 필요 여부 |
-| MySQL | `checklist_answer` | 체크리스트 답변 | checklist | checklist | `REDESIGN` | `미착수` | 체크리스트 답변 후보 | checklist 슬라이스 | 답변 타입별 저장 방식 |
+| MySQL | `free_memo` | 자유메모 | memo | memo | `REDESIGN` | `완료` | → 신규 `memos`(V10) | [`KD3-465`](../work/KD3-465-memo.md) | `(user_code, target_id)` 유니크 1행 upsert. `user_code`=토큰 subject. 레거시 "매 저장 새 row + 히스토리" 폐기 |
+| MySQL | `free_memo_photo` | 자유메모 사진 | memo/media | memo | `REDESIGN` | `완료` | → 신규 `memo_photos`(V11) | [`KD3-465`](../work/KD3-465-memo.md) | 저장마다 전량 교체(하드 삭제). `object_key`=media commit 후 영구 key. 재편집 시 S3 orphan 정리 주체 미결 |
+| MySQL | `checklist_template` | 체크리스트 템플릿 | memo | memo | `DROP` | `완료` | 미이관 — `resources/checklists/registration.ko-KR.json` 정적 리소스 | [`KD3-465`](../work/KD3-465-memo.md) | 관리자 편집·유치원별 템플릿 계획 없음(YAGNI) |
+| MySQL | `checklist_section` | 체크리스트 섹션 | memo | memo | `DROP` | `완료` | 미이관 — 정적 리소스 | [`KD3-465`](../work/KD3-465-memo.md) | - |
+| MySQL | `checklist_question` | 체크리스트 질문 | memo | memo | `DROP` | `완료` | 미이관 — 정적 리소스 | [`KD3-465`](../work/KD3-465-memo.md) | 실사용 타입은 TRI_STATE·INTEGER 2종뿐 |
+| MySQL | `question_option` | 체크리스트 질문 옵션 | memo | memo | `DROP` | `완료` | 미이관 — 미사용(옵션형 문항 없음) | [`KD3-465`](../work/KD3-465-memo.md) | - |
+| MySQL | `checklist_submission` | 체크리스트 제출 내역 | memo | memo | `REDESIGN` | `완료` | → 신규 `checklist_submissions`(V12) | [`KD3-465`](../work/KD3-465-memo.md) | `(user_code, target_id)` 1행 upsert(전체 교체). `template_version` 보존 |
+| MySQL | `checklist_answer` | 체크리스트 답변 | memo | memo | `REDESIGN` | `완료` | → `checklist_submissions.answers` JSON에 통합 | [`KD3-465`](../work/KD3-465-memo.md) | 폴리모픽 4컬럼 → `{questionCode: value}` JSON. `value` 항상 문자열 |
 | MySQL | `user_agreement` | (초안 없음) | auth/user | auth/user | `REDESIGN` | `완료` | **신규 서버에서 `user_agreements`로 확정**([`KD3-258`](../work/KD3-258-user-social-auth.md) V2). `(user_id, term_type)` unique, append-only라 `BaseEntity` 공통 컬럼 없이 `agreed_at`만 둔다 — 재제출해도 최초 동의 시각이 보존된다 | 확정됨 | 약관 버전 관리 필요 여부(현재 버전 개념 없음). 탈퇴 시 동의 이력 보존/삭제 정책 |
 | MySQL | `notification_preference` | (초안 없음) | notification | notification | `REDESIGN` | `미착수` | 사용자 알림 수신 설정 후보. `user_id` PK, `push_enabled` | notification 슬라이스 | `user_notification_setting`과 중복 개념인지 확정하고 하나로 통합 |
 | MySQL | `push_device` | (초안 없음) | notification | notification | `REDESIGN` | `미착수` | 푸시 기기 등록 후보. provider/platform/token, 동일 유저·플랫폼 재등록 시 기존 활성 기기 비활성화(QA3-205) | notification 슬라이스 | 토큰 회전, 만료 기기 정리 주기, 로그아웃 시 처리 |
@@ -110,12 +110,12 @@
 
 | 위험 | 관련 객체 | 확인 방향 |
 |---|---|---|
-| 탈퇴/삭제가 여러 도메인 데이터에 전파됨 | `user`, `social_user`, `pet`, `user_address`, `school_pet_membership`, `attendance_record`, `free_memo`, `checklist_submission` | auth/user 슬라이스에서 전체 삭제를 직접 구현하지 않고, 도메인별 보존/익명화 정책을 먼저 정한다 |
+| 탈퇴/삭제가 여러 도메인 데이터에 전파됨 | `user`, `social_user`, `pet`, `user_address`, `school_pet_membership`, `attendance_record`, `memos`, `memo_photos`, `checklist_submissions` | auth/user 슬라이스에서 전체 삭제를 직접 구현하지 않고, 도메인별 보존/익명화 정책을 먼저 정한다. memo/checklist는 `user_code` 보유(KD3-465) — 탈퇴 시 정리 정책 미정 |
 | 원장 권한 판단이 여러 기능의 선행 조건이 됨 | `tb_user_school_role`, `tb_school`, `user` | owner/authz 소유 포트를 만들고 다른 도메인은 직접 테이블을 수정하지 않는다 |
 | 반려견-유치원 연결이 보호자, 반려견, 유치원을 동시에 묶음 | `school_pet_membership`, `school_invite`, `pet`, `user`, `tb_school` | owner-member 슬라이스에서 상태값과 unique 기준을 먼저 확정한다 |
 | 유치원 프로필과 Redis/외부 검색 데이터 역할이 겹침 | `tb_school`, `tb_school_profile`, `tb_school_profile_option` | 신규 DB 저장 데이터와 Redis 캐시/검색 데이터의 출처를 분리한다 |
-| 이미지 데이터가 DB와 S3 수명주기를 함께 가짐 | `tb_school_profile_image`, `tb_school_price_image`, `free_memo_photo` | DB 삭제와 S3 object 삭제/보존/정렬 정책을 함께 정한다 |
-| 체크리스트 템플릿 변경이 과거 제출 답변에 영향 | `checklist_template`, `checklist_submission`, `checklist_answer` | 제출 시 템플릿 버전 스냅샷 필요 여부를 확정한다 |
+| 이미지 데이터가 DB와 S3 수명주기를 함께 가짐 | `tb_school_profile_image`, `tb_school_price_image`, `memo_photos` | DB 삭제와 S3 object 삭제/보존/정렬 정책을 함께 정한다. `memo_photos`는 재편집 시 row만 정리, S3 orphan 정리 주체 미결(KD3-465) |
+| 체크리스트 템플릿 변경이 과거 제출 답변에 영향 | `resources/checklists/*.json`, `checklist_submissions` | KD3-465: 제출에 `template_version` 저장. 템플릿은 정적 리소스 1개(`version:"1"`), 변경 시 신규 파일 + 마이그레이션 정책은 그때 정한다 |
 | 사업자/대표자/주소 정보에 개인정보와 검증 이력이 포함됨 | `tb_owner_verification`, `tb_school_business_registration`, `tb_school` | 보존 기간, 마스킹, 철회 후 접근 정책을 정한다 |
 | 알림 설정이 두 테이블로 갈라져 있음 | `user_notification_setting`, `notification_preference` | 어느 쪽이 진실인지 먼저 정하고 신규 서버에서는 하나만 만든다 |
 | 푸시 발송이 알림함과 다른 수명주기를 가짐 | `notification`, `notification_outbox`, `push_device` | outbox 유지 여부와 재시도/만료 정책을 알림함 보존 정책과 함께 정한다 |

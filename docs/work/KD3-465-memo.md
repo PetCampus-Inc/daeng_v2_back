@@ -1,4 +1,4 @@
-> 생성: 2026-09-08 11:00 · 최종 수정: 2026-09-09 16:00
+> 생성: 2026-09-08 11:00 · 최종 수정: 2026-09-09 18:30
 
 # KD3-465 — 메모 기능 이관 (자유메모 · 상담 체크리스트)
 
@@ -11,8 +11,8 @@
 ## 현재 제어점
 
 - 활성 workflow: `003-migration` (+ `005-new-feature` 일부 — 화면지시서 기반 신규 UX 요소가 있어 두 유형 조건을 함께 적용)
-- 현재 공통 단계: `3`(구현). 계획·계약 결정 C1~C15 사용자 승인 완료(2026-09-08~09), Q1~Q5는 프론트 대조로 해소. Q6(로컬 응답 대조)은 검증(4) 단계 항목.
-- 다음 결정 또는 전환 조건: `## 구현 순서`대로 진행 → `./gradlew build` green → Q6 로컬 대조 → PR(`feat/KD3-465-memo` → `epic/KD3-272-kindergarten-features`).
+- 현재 공통 단계: `5`(독립 리뷰·PR·문서 동기화). 구현(3) 완료 — `## 구현 순서` A·B·C·D 전부, `./gradlew ktlintCheck test` green(ArchUnit 포함). 문서 동기화 완료(`docs/domains/memo.md` 신설, 인벤토리 3건 갱신).
+- 다음 결정 또는 전환 조건: 독립 리뷰 → PR(`feat/KD3-465-memo` → `epic/KD3-272-kindergarten-features`). 사람 몫: Q6 로컬 응답 대조, Notion 명세 등록, 배포 컨테이너 `TZ=Asia/Seoul` 확인, 프론트 v1 전환.
 - 베이스: `epic/KD3-272-kindergarten-features` = `origin/dev`(`ff71aaf`). 유치원 스키마 + media(S3, KD3-478) + 응답 날짜포맷 컨벤션(KD3-495) 전부 포함. KD3-478은 dev에 squash 머지돼서 예전에 epic에 직접 머지했던 커밋은 제거하고 dev 기준으로 다시 맞췄다.
 
 ## 작업 목표
@@ -209,16 +209,18 @@ domain/memo/
 
 ## 완료 확인 기준
 
-- [ ] `GET /api/v1/memos/{targetId}`: 인증 없으면 401, 메모 없으면 200 + `{content:null, photos:[]}`, 있으면 content·photos 반환 — 서비스·컨트롤러 테스트.
-- [ ] `PUT /api/v1/memos/{targetId}`: 신규 생성 / 기존 교체 모두 동작, `content` 2000자 초과 400(`MemoErrorCode`), `(user_code,target_id)` 유니크 보장 — 서비스 테스트 + 통합 테스트.
-- [ ] `GET /api/v1/memos`: 내가 저장한 (유치원당 1건) 메모 목록, `{ shopId, content, memoDate }`, 정렬 기준 명시(예: `updated_at` 내림차순) — 서비스 테스트.
-- [ ] `GET /api/v1/checklists/template`: 정적 리소스에서 5섹션·13문항(12 TRI_STATE + 1 INTEGER) 반환, 문항 ID가 레거시·프론트 하드코딩 목록과 일치, 인증 필요 — 테스트 + 리소스 파일 검증.
-- [ ] `PUT /api/v1/checklists/{targetId}`: 모르는 questionId 400, TRI_STATE 값 검증, INTEGER 범위(0~500) 검증, upsert 전체 교체 — 서비스 테스트.
-- [ ] `GET /api/v1/checklists/{targetId}`: 저장 없으면 200 + `{sections:[]}`, 있으면 템플릿 순서대로 섹션·문항·값, `value` 항상 문자열 — 서비스 테스트.
-- [ ] `HexagonalArchitectureTest` 통과 (`memo.domain` 와일드카드 포함 확인).
-- [ ] `./gradlew build` green — ktlint + ArchUnit + 전체 테스트.
-- [ ] **로컬 응답 대조 (사람 몫 가능성)**: `KEEP` 6개 엔드포인트 — 레거시 `v0` 응답 형태(raw DTO / `BasicInfoResponseDto`)와 신규 `v1`(`Response<T>`)의 `data` 내부 필드가 기능적으로 동일한지 대조. 경로·엔벨로프 차이는 의도된 재설계(C1). 대조 결과·차이·허용 근거를 여기 기록.
+- [x] `GET /api/v1/memos/{targetId}`: 인증 없으면 401, 메모 없으면 200 + `{content:null, photos:[]}`, 있으면 content·photos 반환 — `MemoEndpointsTest`, `FreeMemoServiceTest`.
+- [x] `PUT /api/v1/memos/{targetId}`: 신규 생성 / 기존 교체, `content` 2000자 초과 400(`MEMO_CONTENT_TOO_LONG`), `(user_code,target_id)` 유니크 — `MemoPersistenceAdapterTest`, `MemoEndpointsTest`.
+- [x] `GET /api/v1/memos`: 유치원당 1건, `{shopId, content, memoDate}`, `updated_at` 내림차순 — `MemoPersistenceAdapterTest`, `FreeMemoServiceTest`.
+- [x] 사진: tmp key는 media commit해 `memo/{userCode}/` 영구화, 소유 아닌 key 400(`MEMO_INVALID_PHOTO_KEY`), 6장 400(`MEMO_TOO_MANY_PHOTOS`), 저장마다 전량 교체 — `FreeMemoServiceTest`, `MemoPersistenceAdapterTest`, `MemoEndpointsTest`. `MediaPurpose.MEMO_ATTACHMENT` — `MediaPurposeTest`, `MediaEndpointsTest`.
+- [x] `GET /api/v1/checklists/template`: 5섹션·13문항, 문항 ID가 레거시·프론트 목록과 일치, 인증 필요 — `ChecklistTemplateResourceAdapterTest`, `ChecklistEndpointsTest`.
+- [x] `PUT /api/v1/checklists/{targetId}`: 모르는 questionId 400(`MEMO_INVALID_CHECKLIST_ANSWER`), TRI_STATE·INTEGER(0~500) 검증, 전체 교체 — `ChecklistServiceTest`, `ChecklistEndpointsTest`.
+- [x] `GET /api/v1/checklists/{targetId}`: 저장 없으면 200 + `{sections:[]}`, 템플릿 순서대로, `value` 항상 문자열 — `ChecklistServiceTest`, `ChecklistEndpointsTest`.
+- [x] `HexagonalArchitectureTest` 통과 — `memo.domain` 와일드카드 포함. 도메인 모델이 `MemoErrorCode`에 의존하지 않도록 값 검증을 `require`(도메인) + `BusinessException`(서비스)로 분리.
+- [x] `./gradlew ktlintCheck test` green — ArchUnit + 전체 테스트(155건).
+- [ ] **로컬 응답 대조 (사람 몫)**: `KEEP` 6개 엔드포인트 — 레거시 `v0` 응답의 `data` 내부 필드와 신규 `v1` 대조. 경로·엔벨로프·아래 `계약 parity`의 의도적 차이는 제외. 미실행(로컬 레거시 기동 필요).
 - [ ] **Notion API 명세 등록 (사람 몫)**: v1 memo/checklist 6개 엔드포인트 ([`docs/rules/notion-api-spec-sync.md`](../rules/notion-api-spec-sync.md)).
+- [ ] **배포 컨테이너 `TZ=Asia/Seoul` (사람 몫)**: `memoDate`가 KST 날짜로 나오려면 필요(KD3-495 전제).
 
 ### 계약 parity (003-migration §4)
 
@@ -230,13 +232,14 @@ domain/memo/
 
 | 문서 | 판정 | 결과 |
 |---|---|---|
-| `docs/domains/memo.md` | 신설 | 새 도메인 — 경계·불변식(1유저 1유치원 1메모/1체크리스트, user_code 소유, 템플릿 정적, 문항 ID 불변), v1 엔드포인트 매핑, 스키마 3테이블, 체크리스트 템플릿 위치·버전 규칙, media 의존(사진 commit/download 위임) |
-| `docs/inventory/api.md` | 갱신 | L247~253 memo 6개 행: 진척 `미착수`→`진행중`, `대상 버전` `v1`, 근거에 KD3-465 링크. `GET /memo/list`(L252)는 `DROP` 유지 |
-| `docs/inventory/database.md` | 갱신 | `free_memo`/`free_memo_photo` 행 + `checklist_*` 관련 행: 진척 `진행중`, 신규 스키마(`memos` V10 / `memo_photos` V11 / `checklist_submissions` V12) 요지, 미결(`user_id 의미`→`user_code`, `question_option`/`checklist_template` 등 미이관) 반영. 탈퇴 전파 표(L113)·이미지 수명주기 표(L117)에 신규 테이블명 갱신 |
-| `docs/inventory/integrations.md` | 갱신 | S3 행: 사용 위치에 `memo` 도메인 추가(media 포트 위임), memo 첨부 key 규칙(`memo/{targetId}/{userCode}/`), orphan 정리 미결 명시 |
-| `docs/architecture/hexagonal.md` | 확인 | §3 규칙 4 문구는 KD3-478이 이미 정정 — 변경 없음 예상 |
-| `docs/service.md` | 확인 필요 | §5 흐름도가 원장 중심이라 보호자 유치원 탐색(메모·체크리스트·북마크·비교) 노드가 없음. 별도 브랜치 추가 여부는 사용자 확인 (repo-wide 문서라 fast dev PR 대상일 수 있음) |
-| `docs/conventions/api-contract.md` | 확인, 변경 없음 | 응답 날짜포맷 규약은 KD3-495(`§2`)로 이미 dev에 있음 — memo는 `LocalDate`만 쓰면 준수(C6). memo 자체는 새 판단 기준 없음(템플릿 위치·JSON 저장은 `domains/memo.md`) |
-| `docs/adr/` | 해당 없음 | 되돌리기 어렵거나 여러 도메인에 걸친 신규 결정 없음 — 버전·컷오버는 ADR 0011/0012 기존 결정을 그대로 적용 |
-| Flyway migration | 신규 | `V10__create_memo_tables.sql` (번호는 착수 시점 확인) |
+| `docs/domains/memo.md` | 신설함 | 경계·불변식, v1 6개 엔드포인트 매핑, 스키마(`memos` V10 / `memo_photos` V11 / `checklist_submissions` V12 + 정적 템플릿), 구조, media 의존, 레거시 대비 의도적 차이 |
+| `docs/inventory/api.md` | 갱신함 | memo 6개 행: 진척 `미착수`→`완료`, `대상 버전` `v0`→`v1`, 근거에 신규 경로·KD3-465 링크·의도적 차이. `GET /memo/list`는 `DROP` 유지(KD3-465 확인 추가). 최종 수정 시각 갱신 |
+| `docs/inventory/database.md` | 갱신함 | `free_memo`/`free_memo_photo`·`checklist_submission`/`checklist_answer` → `완료`(신규 테이블 매핑). `checklist_template`/`section`/`question`/`question_option` → `DROP`(정적 리소스). 소유 도메인 `checklist`→`memo`. 위험 표 L113·L117·L118 신규 테이블명·미결로 갱신 |
+| `docs/inventory/integrations.md` | 갱신함 | S3 행: 사용 위치·신규 방향에 memo 소비 이관(KD3-465, `MediaMemoPhotoStorageAdapter`, `MediaPurpose.MEMO_ATTACHMENT` → `memo/{userCode}/`), orphan 정리 미결 명시 |
+| `docs/domains/media.md` | 갱신함 | §1 업로드 purpose 행에 `MEMO_ATTACHMENT`(→ `memo/{userCode}/{filename}`) 추가 |
+| `docs/architecture/hexagonal.md` | 확인, 변경 없음 | 규칙 4 와일드카드로 `memo.domain` 자동 포함 — 문구 stale 아님 |
+| `docs/service.md` | 확인, 변경 없음 | §5 흐름도는 원장 중심이고 보호자 탐색 경험(메모·체크리스트·북마크·비교) 노드가 없음. 이 티켓에서 추가하지 않음 — 유치원 부가 기능 슬라이스가 다 들어온 뒤 한 번에 반영 여부 판단(별도) |
+| `docs/conventions/api-contract.md` | 확인, 변경 없음 | 날짜포맷 규약은 KD3-495(`§2`)로 이미 dev에 존재 — memo는 `LocalDate`만 씀(C6). memo 전용 판단 기준(템플릿 위치·JSON 저장)은 `domains/memo.md` |
+| `docs/adr/` | 해당 없음 | 신규 결정 없음 — 버전·컷오버는 ADR 0011/0012 그대로 적용. `MediaPurpose` 확장·슬라이스 분해는 이 문서·`domains/memo.md`에 기록 |
+| Flyway migration | 신규 | `V10__create_memos.sql`, `V11__create_memo_photos.sql`, `V12__create_checklist_submissions.sql` |
 | Notion API 명세 | 미완(사람 몫) | v1 memo/checklist 6개 엔드포인트 |
