@@ -1,4 +1,4 @@
-> 생성: 2026-09-09 · 최종 수정: 2026-09-09 (PR 리뷰 반영: 범위 문구·검증 근거 정정)
+> 생성: 2026-09-09 · 최종 수정: 2026-09-09 (PR 리뷰 반영: 작업 범위·검증 근거 정정, epic 브랜치에서 재반영)
 
 # KD3-497 pet 도메인 락 로직 리치 도메인 모델로 재배치
 
@@ -12,7 +12,7 @@
 ## 현재 제어점
 
 - 활성 workflow: `003-migration`
-- 현재 공통 단계: `5`(독립 리뷰·문서 동기화 완료, PR #25 생성 완료)
+- 현재 공통 단계: `5`(독립 리뷰 수행·문서 동기화·PR #25 생성 — 과정과 결과는 아래 "구현 및 검증 결과"에 상세 기록. 독립 리뷰는 이 세션이 로컬에서 수행한 서브에이전트 실행 결과라 PR diff·저장소에 로그가 안 남음 — PR diff만으로 재확인 불가, 아래 각 항목 참고)
 - 다음 결정 또는 전환 조건: PR 리뷰·머지 대기
 
 ## 작업 목표
@@ -23,7 +23,7 @@
 
 - `SavePetPort`에 `saveAndFlush(pet): Pet` 추가(`entityManager.flush()`를 감싼 프리미티브)
 - `LoadPetPort`에 `findAllActiveByUserIdForUpdate(userId): List<Pet>` 추가(잠금 재조회를 포트로 노출)
-- `Pet.kt` companion에 `selectNextRepresentative(candidates: List<Pet>): Pet?` 순수 함수 추가
+- `Pet.kt` companion에 도메인 함수 5개 추가: `selectNextRepresentative(candidates: List<Pet>): Pet?`, `hasReachedActiveLimit(activePets: List<Pet>): Boolean`, `assignRepresentativeIfFirst(activePets: List<Pet>)`(인스턴스 메서드), `reassignRepresentative(target: Pet, activePets: List<Pet>): List<Pet>?`, `promoteReplacement(wasRepresentative: Boolean, remainingActivePets: List<Pet>): Pet?` — 뒤 4개는 최초 계획엔 없었고, 독립 리뷰가 "`selectNextRepresentative`만 도메인으로 옮기고 같은 성격의 다른 규칙은 서비스에 raw 조건문으로 남아있다"고 지적해 구현 중 범위에 추가됐다(상세 경위는 아래 "구현 및 검증 결과" 참고)
 - 락 패턴("users 행 잠그고 활성 pet 재조회")을 공유하는 `PetLockOperations` 헬퍼 추가
 - `CreatePetService`/`SetRepresentativeService`/`DeletePetService`가 판단 로직을 직접 갖고 `PetLockOperations`·`Pet.selectNextRepresentative`·`SavePetPort`를 오케스트레이션하도록 재작성
 - `PetPersistenceAdapter`에서 `registerWithinLimit`/`setRepresentativeWithinLock`/`deleteAndPromoteWithinLock` 제거 — 순수 I/O(`save`/`saveAndFlush`/조회)만 남김
@@ -91,7 +91,7 @@
   - 모든 pet을 순차 삭제해 마지막(대표견) 삭제 시에도 에러 없이 빈 목록으로 정상 처리됨(승격 대상 없음 케이스) 확인
   - 인증 없는 요청 401, 존재하지 않는 `petId` 조회 404 `PET-404-1` 확인
   - 리팩터링 전(KD3-431~434 e2e 기록)과 동일한 응답 코드·바디 형태로, 동작 회귀 없음을 실제 요청으로 확인
-- **독립 리뷰(fresh subagent, 2026-09-09)**: 전체 diff를 처음부터 읽고 Testcontainers 동시성 테스트까지 직접 재실행해 검증. `flush()+clear()` 수정이 트랜잭션 내 다른 코드(락 이후 `save`/`saveAndFlush`, breed/user 조회)에 stale JPA 엔티티·지연 로딩 문제를 일으키지 않음을 별도로 확인(모든 포트가 순수 도메인 객체만 반환, `save()`는 항상 락 이후 새 `getReference`를 사용). 로직 버그는 발견되지 않음. 발견 사항 1건(테스트 커버리지 갭): 구 `PetPersistenceAdapterTest`에 있던 "잠금 재조회 시점에 이미 삭제된 pet이면 500이 아니라 NOT_FOUND" 테스트가 로직 이동 후 서비스 레벨에 재배치되지 않고 누락됨 — `DeletePetServiceTest`/`SetRepresentativeServiceTest`에 동일 시나리오 테스트를 추가해 반영(2026-09-09, `./gradlew build` 재통과 확인). 그 외 사소한 flush 횟수 차이 2건(구 코드는 대표견 해제 루프 후 1회 flush, 새 코드는 루프 안에서 매번 flush 등)은 낙관적 락 무결성에 영향 없어 그대로 둠.
+- **독립 리뷰(fresh subagent, 2026-09-09, PR diff만으로는 확인 불가 — 서브에이전트 실행 결과라 로그가 저장소에 안 남음)**: 전체 diff를 처음부터 읽고 Testcontainers 동시성 테스트까지 직접 재실행해 검증. `flush()+clear()` 수정이 트랜잭션 내 다른 코드(락 이후 `save`/`saveAndFlush`, breed/user 조회)에 stale JPA 엔티티·지연 로딩 문제를 일으키지 않음을 별도로 확인(모든 포트가 순수 도메인 객체만 반환, `save()`는 항상 락 이후 새 `getReference`를 사용). 로직 버그는 발견되지 않음. 발견 사항 1건(테스트 커버리지 갭): 구 `PetPersistenceAdapterTest`에 있던 "잠금 재조회 시점에 이미 삭제된 pet이면 500이 아니라 NOT_FOUND" 테스트가 로직 이동 후 서비스 레벨에 재배치되지 않고 누락됨 — `DeletePetServiceTest`/`SetRepresentativeServiceTest`에 동일 시나리오 테스트를 추가해 반영(2026-09-09, `./gradlew build` 재통과 확인). 그 외 사소한 flush 횟수 차이 2건(구 코드는 대표견 해제 루프 후 1회 flush, 새 코드는 루프 안에서 매번 flush 등)은 낙관적 락 무결성에 영향 없어 그대로 둠.
 - **DDD 적용 범위 보강(2026-09-09, 사용자 지적으로 추가 반영)**: 독립 리뷰 이후 사용자가 "`selectNextRepresentative`만 도메인으로 옮기고 같은 성격의 다른 두 규칙(최대 마릿수 체크, 최초 등록 대표견 자동 지정, 대표견 교체)은 서비스에 raw 조건문으로 남아있는 게 일관성이 없다"고 지적 — 타당한 지적으로 확인하고 같은 패턴(여러 `Pet`에 걸친 판단 = Domain Service 성격)으로 마저 추출했다.
   - `Pet.hasReachedActiveLimit(activePets): Boolean` 신설 — `CreatePetService`의 `activePets.size >= Pet.MAX_ACTIVE_COUNT` raw 비교를 대체
   - `Pet.assignRepresentativeIfFirst(activePets)` 인스턴스 메서드 신설 — `CreatePetService`의 `if (activePets.isEmpty()) markAsRepresentative() else clearRepresentative()`를 대체
@@ -99,7 +99,7 @@
   - `Pet.kt`에 세 함수 모두 순수 도메인 단위 테스트 추가(`PetTest.kt`), 서비스 테스트는 기존 assertion 그대로 통과(동작 동일함을 재확인)
   - 더 근본적인 지적(활성 pet 컬렉션에 대한 불변식은 원래 Aggregate Root가 책임져야 하고, 지금 `LockUserPort` 락은 그 경계를 수동으로 흉내 내고 있다는 점)은 "동작 변경 없음" 범위를 넘는 별도 설계 논의라 이번 티켓에서는 다루지 않고 후속 과제로만 남김
   - `./gradlew build` 재통과 확인(ktlint + 전체 테스트, 실패·에러 0건)
-- **독립 리뷰(fresh subagent, 2026-09-09, DDD 초점)**: 위 보강 이후 DDD 관점으로만 다시 검토를 돌렸다. 발견 사항 3건.
+- **독립 리뷰(fresh subagent, 2026-09-09, DDD 초점, PR diff만으로는 확인 불가 — 서브에이전트 실행 결과라 로그가 저장소에 안 남음)**: 위 보강 이후 DDD 관점으로만 다시 검토를 돌렸다. 발견 사항 3건.
   1. **반영**: `DeletePetService`에 같은 유형의 raw 조건문이 하나 더 남아있었음(`if (wasRepresentative) { Pet.selectNextRepresentative(...)... }`) — `selectNextRepresentative`(순정 선정)만 1차 리팩터링에서 도메인으로 옮겼고, "삭제된 pet이 대표견이었을 때만 승격한다"는 판단 자체는 서비스에 남아있던 것. `Pet.promoteReplacement(wasRepresentative, remainingActivePets): Pet?` 신설로 마저 추출, `DeletePetService`는 반환값을 저장만 함. `PetTest.kt`에 순수 도메인 테스트 3건 추가, `./gradlew build` 재통과 확인.
   2. **반려**: `reassignRepresentative`의 `List<Pet>?` 반환이 "도메인 사실이 아니라 저장 트리거용 구현 디테일"이라며 nullable 없이 "바뀐 pet 통합 리스트"로 바꾸자는 제안 — `representative_user_id` UNIQUE 제약 때문에 기존 대표견 해제분(`saveAndFlush`)과 신규 대표견 지정(`save`)은 저장 순서·방식이 원래 달라야 해서, 리스트로 통일해도 호출부는 결국 다시 나눠 처리해야 함(코드가 나아지지 않음). "이미 대표견이라 아무 변화 없음"도 멱등성을 표현하는 실제 도메인 사실로 판단해 현재 형태 유지.
   3. **후속 과제로 더 구체화**: `PetLockOperations`가 `users` 행을 잠그는 게 pet과 무관한 사용자 프로필 쓰기(`UserPersistenceAdapter.save`)와 불필요하게 직렬화될 수 있다는 지적 — 근거 있는 문제이나 KD3-497 이전부터 있던 구조를 그대로 옮긴 것이라 이번 범위는 아님. 리뷰어 제안대로 "Aggregate Root 재설계" 대신 **pet 컬렉션 전용 락 리소스(예: `user_pet_locks(user_id)` 행이나 MySQL named lock)로 교체**하는 더 작고 구체적인 개선안으로 후속 과제 문구를 갱신함(막연한 "Aggregate 도입 검토"보다 실행 가능한 형태로).
@@ -111,7 +111,7 @@
 - [x] 동시성 테스트 3개가 서비스 계층을 통해 실행되고, 기존과 동일한 안전성(스퓨리어스 없음, 유일성 보장)을 증명한다. (리팩터링 과정에서 발견한 실제 동시성 버그 포함 — 위 "구현 및 검증 결과" 참고)
 - [x] `CreatePetServiceTest`/`UpdatePetServiceTest`/`SetRepresentativeServiceTest`/`GetPetServiceTest`/`DeletePetServiceTest`가 전부 `errorCode`까지 단언한다.
 - [x] 전체 빌드(`./gradlew build`)가 리팩터링 전과 동일하거나 그 이상의 테스트 건수로 통과한다(실패·에러 0건).
-- [x] 독립 리뷰(fresh subagent)와 로컬 HTTP e2e로 API 동작이 리팩터링 전후 동일함을 확인한다.
+- [x] 독립 리뷰(fresh subagent)와 로컬 HTTP e2e로 API 동작이 리팩터링 전후 동일함을 확인한다(둘 다 PR diff만으로는 확인 불가 — 로그가 저장소에 안 남음, 위 "구현 및 검증 결과"의 재현 방법 참고).
 
 ## 작업 후 확인 목록
 
