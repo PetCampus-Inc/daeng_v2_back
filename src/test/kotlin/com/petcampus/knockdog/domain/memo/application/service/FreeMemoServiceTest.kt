@@ -132,6 +132,23 @@ class FreeMemoServiceTest {
     }
 
     @Test
+    fun `photoKeys에 중복 key가 있으면 MEMO_INVALID_PHOTO_KEY`() {
+        val exception =
+            assertFailsWith<BusinessException> {
+                service().save(
+                    SaveFreeMemoCommand(
+                        "A1B2C3D4",
+                        "p",
+                        null,
+                        listOf("memo/A1B2C3D4/x.webp", "memo/A1B2C3D4/x.webp"),
+                    ),
+                )
+            }
+
+        assertEquals(MemoErrorCode.INVALID_PHOTO_KEY, exception.errorCode)
+    }
+
+    @Test
     fun `사진 6장이면 MEMO_TOO_MANY_PHOTOS`() {
         val keys = (1..6).map { "tmp/A1B2C3D4/MEMO_ATTACHMENT/$it.webp" }
 

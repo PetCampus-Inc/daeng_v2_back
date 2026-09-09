@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.petcampus.knockdog.domain.auth.application.port.output.TokenPort
 import com.petcampus.knockdog.domain.auth.domain.UserCode
 import com.petcampus.knockdog.domain.media.adapter.inbound.web.MediaEndpointsTest
+import org.hamcrest.Matchers.matchesPattern
 import org.hamcrest.Matchers.startsWith
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
@@ -90,7 +91,7 @@ class MemoEndpointsTest {
             .perform(get("/api/v1/memos").header("Authorization", bearer()))
             .andExpect(status().isOk)
             .andExpect(jsonPath("$.data.memos[0].shopId").value("place-1"))
-            .andExpect(jsonPath("$.data.memos[0].memoDate").exists())
+            .andExpect(jsonPath("$.data.memos[0].memoDate", matchesPattern("\\d{4}-\\d{2}-\\d{2}")))
     }
 
     @Test

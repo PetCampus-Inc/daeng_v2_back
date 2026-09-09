@@ -69,12 +69,19 @@ class FreeMemoService(
     ): List<MemoPhoto> {
         val temporaryPrefix = "tmp/$userCode/"
         val ownedPrefix = "memo/$userCode/"
+
+        val hasForeignKey = photoKeys.any { !it.startsWith(temporaryPrefix) && !it.startsWith(ownedPrefix) }
+        val hasDuplicateKey = photoKeys.toSet().size != photoKeys.size
+        if (hasForeignKey || hasDuplicateKey) {
+            throw BusinessException(MemoErrorCode.INVALID_PHOTO_KEY)
+        }
+
         return photoKeys.mapIndexed { index, key ->
             val objectKey =
-                when {
-                    key.startsWith(temporaryPrefix) -> memoPhotoStoragePort.commitUploaded(userCode, key).objectKey
-                    key.startsWith(ownedPrefix) -> key
-                    else -> throw BusinessException(MemoErrorCode.INVALID_PHOTO_KEY)
+                if (key.startsWith(temporaryPrefix)) {
+                    memoPhotoStoragePort.commitUploaded(userCode, key).objectKey
+                } else {
+                    key
                 }
             MemoPhoto(objectKey = objectKey, sortOrder = index)
         }

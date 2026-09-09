@@ -3,11 +3,6 @@ package com.petcampus.knockdog.domain.memo.application
 import com.petcampus.knockdog.global.exception.ErrorCode
 import org.springframework.http.HttpStatus
 
-/**
- * memo 도메인 전용 에러. 레거시(`knockdog_server`)의 `CHECKLIST_*` 문자열은 프론트가 `data.success`와
- * `data.message`만 보고 분기하지 않아 그대로 계승하지 않는다 (docs/conventions/error-handling.md §1,
- * docs/work/KD3-465-memo.md C3).
- */
 enum class MemoErrorCode(
     override val status: HttpStatus,
     override val code: String,

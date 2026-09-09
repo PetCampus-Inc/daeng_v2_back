@@ -8,6 +8,7 @@ import com.petcampus.knockdog.domain.memo.domain.MemoId
 import com.petcampus.knockdog.domain.memo.domain.MemoPhoto
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
+import java.time.LocalDateTime
 
 @Component
 class MemoPersistenceAdapter(
@@ -31,7 +32,10 @@ class MemoPersistenceAdapter(
     override fun save(memo: FreeMemo): FreeMemo {
         val entity =
             memo.id?.let { memoId ->
-                memoJpaRepository.findById(memoId.value).orElseThrow().apply { content = memo.content }
+                memoJpaRepository.findById(memoId.value).orElseThrow().apply {
+                    content = memo.content
+                    updatedAt = LocalDateTime.now()
+                }
             } ?: MemoJpaEntity(userCode = memo.userCode, targetId = memo.targetId, content = memo.content)
         val savedRoot = memoJpaRepository.save(entity)
         val rootId = requireNotNull(savedRoot.id)
