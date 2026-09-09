@@ -1,4 +1,4 @@
-> 생성: 2026-08-02 13:45 · 최종 수정: 2026-09-07 23:10
+> 생성: 2026-08-02 13:45 · 최종 수정: 2026-09-09
 
 # API 인벤토리
 
@@ -54,11 +54,11 @@
 
 | 완료 | 진행중 | 미착수 | 해당없음 |
 |---:|---:|---:|---:|
-| 7 | 3 | 112 | 137 |
+| 7 | 10 | 105 | 137 |
 
 완료 7개 — auth 도메인: `v1` 2개(`oidc-verifications`, `users`)와 `v0` 유지 5개(`login`, `refresh`, `logout`, 약관 동의 제출·조회, [`KD3-258`](../work/KD3-258-user-social-auth.md)).
 
-진행중 3개 — kindergarten 도메인: `main/{id}`, `basic/{id}`, `{id}/pricing`. 신규 서버는 `v0`를 만들지 않는다(ADR 0012) — `v1` 3개(`summary`/`detail`/`pricing`)로 구현은 끝났지만 로컬 응답 대조·시딩 데이터 검증이 아직 안 끝나 `완료`가 아니라 `진행중`이다([`KD3-413`](../work/KD3-413-kindergarten-static-lookup.md)). `v0`는 컷오버까지 레거시 서버가 계속 제공한다.
+진행중 10개 — kindergarten 도메인 3개(`main/{id}`, `basic/{id}`, `{id}/pricing`)와 pet 도메인 7개(`pet/list`, `pet/register`, `pet/remove/{petId}`, `pet/representative/{petId}`, `pet/update/{petId}`, `pet/{petId}`, `breed-catalog`). 신규 서버는 `v0`를 만들지 않는다(ADR 0012) — kindergarten `v1` 3개(`summary`/`detail`/`pricing`)와 pet `v1` 6개(`pet/list`~`pet/{petId}`에 대응하는 `GET /api/v1/pets` 등)는 구현이 끝났지만, kindergarten은 로컬 응답 대조·시딩 데이터 검증이([`KD3-413`](../work/KD3-413-kindergarten-static-lookup.md)), pet은 프론트가 `v1`로 전환하기 전까지 레거시 `v0`를 계속 제공해야 하는 정책이 남아 있어 `완료`가 아니라 `진행중`이다([`KD3-431`](../work/KD3-431-pet-profile-create-update-api.md)~[`KD3-434`](../work/KD3-434-pet-delete-api.md)). `breed-catalog`만 `v1` 구현 자체가 아직 진행 중이다([`KD3-418`](../work/KD3-418-breed-catalog-v1-api.md)). `v0`는 두 도메인 모두 컷오버까지 레거시 서버가 계속 제공한다.
 
 ## 6. 인벤토리
 

@@ -1,4 +1,4 @@
-> 생성: 2026-09-02 19:24 · 최종 수정: 2026-09-08 10:05
+> 생성: 2026-09-02 19:24 · 최종 수정: 2026-09-09
 
 # KD3-431 pet 프로필 생성·수정 API 구축
 
@@ -104,7 +104,7 @@
 
 ## 검증 결과
 
-- **`./gradlew build`(2026-09-04, `weight` non-null 정정 반영 후 재실행)**: ktlint, 컴파일, 전체 테스트, ArchUnit 통과. `CreatePetServiceTest` 4건, `UpdatePetServiceTest` 8건(생략 유지, nullable 필드 명시적 null 지우기, `weight` 명시적 null 거부, 미존재/삭제된 pet, 소유권 위반, 미존재 breed, A의 자동 제거, E의 거부 케이스 포함) 통과, 기존 pet·breed 테스트 전부 회귀 없이 통과.
+- **`./gradlew build`(2026-09-04, `weight` non-null 정정 반영 후 재실행, 로컬 실행 기록 — 이 시점 구체적 테스트 건수는 PR diff만으로 재현·검증 불가)**: ktlint, 컴파일, 전체 테스트, ArchUnit 통과. `CreatePetServiceTest` 4건, `UpdatePetServiceTest` 8건(생략 유지, nullable 필드 명시적 null 지우기, `weight` 명시적 null 거부, 미존재/삭제된 pet, 소유권 위반, 미존재 breed, A의 자동 제거, E의 거부 케이스 포함) 통과, 기존 pet·breed 테스트 전부 회귀 없이 통과. **재확인 가능한 근거**: PR #17 최종 병합 커밋(`5980e90`) 기준 CI `build` 체크 통과 — https://github.com/PetCampus-Inc/daeng_v2_back/actions/runs/34175235481
 - **로컬 MySQL 실제 HTTP 엔드투엔드 검증 (2026-09-04, `weight` non-null 정정 이전 설계 기준)**:
   - 인증 없이 `POST`/`PATCH` 호출 → 401 `UNAUTHORIZED_REQUEST` 확인
   - 정상 생성(`relationship=ETC`) → 201, `breedNameKo`가 실제 breed 조회로 조합됨, 최초 등록이라 `isRepresentative=true` 확인(KD3-430 로직이 API 계층까지 정상 연결됨)
