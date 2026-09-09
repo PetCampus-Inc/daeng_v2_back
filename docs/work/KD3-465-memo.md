@@ -1,20 +1,19 @@
-> 생성: 2026-09-08 11:00 · 최종 수정: 2026-09-08 16:10
+> 생성: 2026-09-08 11:00 · 최종 수정: 2026-09-09 16:00
 
 # KD3-465 — 메모 기능 이관 (자유메모 · 상담 체크리스트)
 
 | 항목 | 값 |
 |---|---|
 | Jira | `KD3-465` (하위 작업) |
-| 브랜치 | 3슬라이스로 분리: `feat/KD3-465-free-memo` · `feat/KD3-465-memo-photos` · `feat/KD3-465-checklist` (전부 `epic/KD3-272-kindergarten-features` 기준). 아래 `## 슬라이스 분해` 참고 |
-| 상위 에픽 | `KD3-403`(Epic, [리팩토링] daeng_v1_back → daeng_v2_back). 중간 작업 `KD3-272`(Task, 유치원 도메인 마이그레이션) — git 브랜치는 `epic/KD3-272-kindergarten-features` (스키마 이관분 `epic/KD3-272-kindergarten-schema`는 이미 dev에 머지됨. 이 브랜치는 그 위에 얹는 유치원 부가 기능용) |
+| 브랜치 | `feat/KD3-465-memo` (단일 브랜치 · 단일 PR). 자유메모/사진/체크리스트를 한 브랜치에 구현하고 아래 `## 구현 순서`대로 커밋을 나눈다 |
+| 상위 에픽 | `KD3-403`(Epic, [리팩토링] daeng_v1_back → daeng_v2_back). 중간 작업 `KD3-272`(Task, 유치원 도메인 마이그레이션) — git 브랜치 `epic/KD3-272-kindergarten-features` |
 
 ## 현재 제어점
 
 - 활성 workflow: `003-migration` (+ `005-new-feature` 일부 — 화면지시서 기반 신규 UX 요소가 있어 두 유형 조건을 함께 적용)
-- 현재 공통 단계: `2`(계획 승인·작업 문서 생성) — 이 문서는 **초안**이다. 아래 `미결 질문`이 닫히고 사용자 승인이 기록되면 3단계(구현)로 전환한다.
-- 다음 결정 또는 전환 조건: ① 전체 계획 사용자 승인 (Q1~Q5는 2026-09-08 프론트 대조로 해소, Q6은 검증 단계 항목) ② 승인 후 슬라이스 1(`feat/KD3-465-free-memo`)부터 구현 착수.
-- 이 문서는 3슬라이스 공통 **우산 설계 문서**다. 슬라이스별 구현·검증 결과는 아래 `## 슬라이스 분해`의 각 항목에 이어 기록한다 (별도 work 문서를 만들지 않는다).
-- 베이스: `epic/KD3-272-kindergarten-features`. 이 브랜치는 `dev`(유치원 스키마 포함) + `feat/KD3-478-s3-infra-image-upload`(media 도메인 = S3 인프라)를 머지한 상태다. KD3-478이 `dev`에 독립 머지되면 그 머지 커밋은 자연히 흡수된다.
+- 현재 공통 단계: `3`(구현). 계획·계약 결정 C1~C15 사용자 승인 완료(2026-09-08~09), Q1~Q5는 프론트 대조로 해소. Q6(로컬 응답 대조)은 검증(4) 단계 항목.
+- 다음 결정 또는 전환 조건: `## 구현 순서`대로 진행 → `./gradlew build` green → Q6 로컬 대조 → PR(`feat/KD3-465-memo` → `epic/KD3-272-kindergarten-features`).
+- 베이스: `epic/KD3-272-kindergarten-features` = `origin/dev`(`ff71aaf`). 유치원 스키마 + media(S3, KD3-478) + 응답 날짜포맷 컨벤션(KD3-495) 전부 포함. KD3-478은 dev에 squash 머지돼서 예전에 epic에 직접 머지했던 커밋은 제거하고 dev 기준으로 다시 맞췄다.
 
 ## 작업 목표
 
@@ -115,7 +114,7 @@ domain/memo/
 | C3 | 오류 | `domain/memo/application/MemoErrorCode.kt` enum 신규 ([`error-handling.md`](../conventions/error-handling.md)). `code` 문자열은 레거시(`CHECKLIST_*`)와 맞추지 않는다 — 프론트가 `data.success`(boolean)/`data.message`만 보고 `code`로 분기하지 않음(프론트 `answers.tsx`·`getMemo.ts`·`questions.tsx` 대조) |
 | C4 | 자유메모 upsert | `(user_code, target_id)` 유니크 1행. `PUT`이 없으면 생성 / 있으면 content(+사진) 교체. **레거시의 "매 저장 새 row + 히스토리" 폐기** (히스토리 노출하던 `GET /memo/list`는 `DROP`) |
 | C5 | 자유메모 빈 상태 | `GET`에서 200 + `{ content: null, photos: [] }` (레거시 parity) |
-| C6 | 날짜 필드 | 단건 조회(`GET /api/v1/memos/{targetId}`)에는 날짜 필드 **없음** (프론트 `MemoResponse`가 `content`·`photos`만 읽음). 목록(`GET /api/v1/memos`)의 `memoDate`는 **ISO date `YYYY-MM-DD`로 유지** — 프론트 `entities/kindergarten/model/mappers.ts`가 `memoDate.replace(/-/g, '.')`로 표시 포맷을 만들므로 대시 구분자 필수. 레거시 `getFreeMemoShopsList`의 `LocalDate.toString()`과 동일. (전체 서버 날짜 포맷 통일은 이 티켓 범위 밖 — 아래 참고) |
+| C6 | 날짜 필드 | 단건 조회(`GET /api/v1/memos/{targetId}`)에는 날짜 필드 **없음** (프론트 `MemoResponse`가 `content`·`photos`만 읽음). 목록(`GET /api/v1/memos`)의 `memoDate`는 도메인/DTO에서 `LocalDate` 타입으로 두면 전역 컨벤션(KD3-495, `api-contract.md §2`)이 `"2026-09-08"`로 직렬화 — 수동 포맷팅 없음. 프론트 `entities/kindergarten/model/mappers.ts`가 `.replace(/-/g, '.')`로 표시 포맷을 만들므로 대시 ISO가 그대로 맞다. `memoDate`의 원본은 `memos.updated_at`의 날짜 부분 |
 | C7 | 체크리스트 답변 저장 | `PUT` = 전체 교체 (제출된 answers가 그 submission의 전부, 빠진 문항은 삭제). required 검증 없음 (템플릿에 `required:true` 문항이 없음) — 부분 제출 허용 |
 | C8 | 체크리스트 답변 `value` 타입 | 응답에서 **항상 문자열**. 레거시는 INTEGER를 숫자로 내려 프론트 타입(`value: string`)과 어긋났음 — 의도적 교정 |
 | C9 | 체크리스트 빈 상태 | `GET`에서 200 + `{ sections: [] }`. **레거시는 `fail("CHECKLIST_NOT_FOUND")` 실패 응답을 내려 프론트가 throw함 — 의도적 교정** |
@@ -141,19 +140,20 @@ domain/memo/
 
 - 저장(`PUT`) 응답 body는 프론트가 읽지 않는다(대조 결과) — RESTful 관례상 갱신된 표현을 반환하되, 프론트는 저장 후 쿼리 무효화로 재조회한다.
 
-## 슬라이스 분해
+## 구현 순서
 
-3개 PR로 나눠 `epic/KD3-272-kindergarten-features`에 올린다. 전부 `Refs: KD3-465`.
+단일 브랜치 `feat/KD3-465-memo` → 단일 PR (`epic/KD3-272-kindergarten-features`). 아래 순서로 커밋을 나눈다. `Refs: KD3-465`.
 
-| # | 브랜치 | 범위 | Flyway | media 의존 | 선행 | 상태 |
-|---|---|---|---|---|---|---|
-| 1 | `feat/KD3-465-free-memo` | `GET`·`PUT /api/v1/memos/{targetId}`(사진 제외, `photos`는 항상 `[]`), `GET /api/v1/memos`. `memos` 테이블, `FreeMemo` 애그리게잇, `MemoErrorCode` 신설, persistence 어댑터. 이 설계 문서 포함 | `V10__create_memos.sql` | 없음 | — | 착수 전 (브랜치 생성됨) |
-| 2 | `feat/KD3-465-memo-photos` | 슬라이스 1의 `GET`/`PUT`에 `photos`/`photoKeys` 추가. `memo_photos` 테이블, `MemoPhoto`, `MemoPhotoStoragePort` + `MediaMemoPhotoStorageAdapter`(media `CommitObjectUseCase`·`IssueDownloadUrlUseCase` 위임) | `V12__create_memo_photos.sql` | 있음 | **슬라이스 1 머지** | 착수 전 |
-| 3 | `feat/KD3-465-checklist` | `GET /api/v1/checklists/template`, `GET`·`PUT /api/v1/checklists/{targetId}`. `checklist_submissions` 테이블, `ChecklistSubmission` 애그리게잇, `ChecklistTemplate` VO, `LoadChecklistTemplatePort` + 리소스 어댑터, `resources/checklists/registration.ko-KR.json` | `V11__create_checklist_submissions.sql` | 없음 | 슬라이스 1과 독립(병렬 가능), `MemoErrorCode`만 공유 | 착수 전 |
+| 커밋 묶음 | 범위 | Flyway |
+|---|---|---|
+| A. 자유메모 도메인 + 조회/저장 | `domain/memo/` 정석형 스캐폴딩, `FreeMemo` 애그리게잇, `MemoErrorCode` 신설, persistence 어댑터. `GET`·`PUT /api/v1/memos/{targetId}`(텍스트만), `GET /api/v1/memos`. SecurityConfig 경로 규칙 | `V10__create_memos.sql` |
+| B. 메모 사진 | `memo_photos` 테이블, `MemoPhoto`(FreeMemo 애그리게잇에 편입), `MemoPhotoStoragePort` + `MediaMemoPhotoStorageAdapter`(media `CommitObjectUseCase`·`IssueDownloadUrlUseCase` 위임). `GET`/`PUT`에 `photos`/`photoKeys` 연결 | `V11__create_memo_photos.sql` |
+| C. 상담 체크리스트 | `ChecklistSubmission` 애그리게잇, `ChecklistTemplate` VO, `LoadChecklistTemplatePort` + 리소스 어댑터, `resources/checklists/registration.ko-KR.json`. `GET /api/v1/checklists/template`, `GET`·`PUT /api/v1/checklists/{targetId}` | `V12__create_checklist_submissions.sql` |
+| D. 문서 동기화 | `docs/domains/memo.md` 신설, `inventory/api.md`·`database.md` 갱신 (아래 `작업 후 확인 목록`) |
 
-- **머지 순서**: 1 → 3 → 2. Flyway 버전은 정수 오름차순이라, 각 PR의 `V__` 번호는 머지 직전에 epic에 이미 들어간 마이그레이션 기준으로 확정한다(위 번호는 잠정).
-- **공유 파일**: `MemoErrorCode.kt`(먼저 머지되는 슬라이스가 생성, 다음이 코드 추가), `domain/memo` 패키지. 컨트롤러는 유스케이스별 분리라 안 겹침. ArchUnit은 `domain.*.domain..` 와일드카드라 등록 불필요.
-- `feat/A` → `epic` squash merge, `epic` → `dev` 일반 merge (git.md §2).
+- 베이스가 이제 `dev`라 Flyway 번호는 `V10`부터 확정(dev 최신이 `V9`). A→B→C 순.
+- `MemoErrorCode.kt`는 A에서 생성, B·C에서 코드 추가. 컨트롤러는 유스케이스별 분리(hexagonal.md §1). ArchUnit은 `domain.*.domain..` 와일드카드라 `memo.domain` 자동 포함(등록 불필요, KD3-478 확인).
+- PR: `feat/KD3-465-memo` → `epic/KD3-272-kindergarten-features` (squash merge). `epic` → `dev`는 일반 merge (git.md §2).
 
 ## 작업 제외 범위
 
@@ -205,7 +205,7 @@ domain/memo/
 - 2026-09-07 — epic 브랜치 `epic/KD3-272-kindergarten-features` 생성, KD3-478 media 머지 지시.
 - 2026-09-08 — v1 경로 초안 승인 ("v1 경로 좋아"). 크로스 도메인(C14 검증 안 함), 템플릿 정적 서빙+JSON 저장(C7·C10), 인증 전면(C12), ErrorCode(C3)·성공응답(C2) 컨벤션 확인, 도메인 구조 7a 승인.
 - 2026-09-08 — 사진 첨부 이 티켓 포함(C15), Q2/Q4/Q5 프론트 대조 지시.
-- (대기) — 전체 계획 승인 (프론트 대조 반영본 검토 후).
+- 2026-09-09 — 3-PR 분리안 철회, **단일 브랜치 `feat/KD3-465-memo` + 단일 PR**로 전체(자유메모+사진+체크리스트) 구현 후 PR ("2번이지"). 베이스는 최신 `dev`(media·날짜컨벤션 포함).
 
 ## 완료 확인 기준
 
@@ -232,11 +232,11 @@ domain/memo/
 |---|---|---|
 | `docs/domains/memo.md` | 신설 | 새 도메인 — 경계·불변식(1유저 1유치원 1메모/1체크리스트, user_code 소유, 템플릿 정적, 문항 ID 불변), v1 엔드포인트 매핑, 스키마 3테이블, 체크리스트 템플릿 위치·버전 규칙, media 의존(사진 commit/download 위임) |
 | `docs/inventory/api.md` | 갱신 | L247~253 memo 6개 행: 진척 `미착수`→`진행중`, `대상 버전` `v1`, 근거에 KD3-465 링크. `GET /memo/list`(L252)는 `DROP` 유지 |
-| `docs/inventory/database.md` | 갱신 | `free_memo`/`free_memo_photo` 행: 진척 `진행중`, 신규 스키마(`memos`/`memo_photos`/`checklist_submissions`) 요지, `checklist_*` 관련 미결(`user_id 의미`→`user_code로 확정` 등) 반영. 탈퇴 전파 표(L113)·이미지 수명주기 표(L117)에 신규 테이블명 갱신 |
+| `docs/inventory/database.md` | 갱신 | `free_memo`/`free_memo_photo` 행 + `checklist_*` 관련 행: 진척 `진행중`, 신규 스키마(`memos` V10 / `memo_photos` V11 / `checklist_submissions` V12) 요지, 미결(`user_id 의미`→`user_code`, `question_option`/`checklist_template` 등 미이관) 반영. 탈퇴 전파 표(L113)·이미지 수명주기 표(L117)에 신규 테이블명 갱신 |
 | `docs/inventory/integrations.md` | 갱신 | S3 행: 사용 위치에 `memo` 도메인 추가(media 포트 위임), memo 첨부 key 규칙(`memo/{targetId}/{userCode}/`), orphan 정리 미결 명시 |
 | `docs/architecture/hexagonal.md` | 확인 | §3 규칙 4 문구는 KD3-478이 이미 정정 — 변경 없음 예상 |
 | `docs/service.md` | 확인 필요 | §5 흐름도가 원장 중심이라 보호자 유치원 탐색(메모·체크리스트·북마크·비교) 노드가 없음. 별도 브랜치 추가 여부는 사용자 확인 (repo-wide 문서라 fast dev PR 대상일 수 있음) |
-| `docs/conventions/api-contract.md` | 별건 검토 | 응답 timestamp 포맷 통일(ISO-8601, 표시 포맷은 프론트) 규칙 추가 후보 — repo-wide 컨벤션이라 memo 티켓과 분리해 fast dev PR로. memo 자체는 새 판단 기준 없음(템플릿 위치·JSON 저장은 `domains/memo.md`) |
+| `docs/conventions/api-contract.md` | 확인, 변경 없음 | 응답 날짜포맷 규약은 KD3-495(`§2`)로 이미 dev에 있음 — memo는 `LocalDate`만 쓰면 준수(C6). memo 자체는 새 판단 기준 없음(템플릿 위치·JSON 저장은 `domains/memo.md`) |
 | `docs/adr/` | 해당 없음 | 되돌리기 어렵거나 여러 도메인에 걸친 신규 결정 없음 — 버전·컷오버는 ADR 0011/0012 기존 결정을 그대로 적용 |
 | Flyway migration | 신규 | `V10__create_memo_tables.sql` (번호는 착수 시점 확인) |
 | Notion API 명세 | 미완(사람 몫) | v1 memo/checklist 6개 엔드포인트 |
