@@ -1,4 +1,4 @@
-> 생성: 2026-09-07 12:22 · 최종 수정: 2026-09-09 10:15
+> 생성: 2026-09-07 12:22 · 최종 수정: 2026-09-09 11:00
 
 # KD3-478 — S3 인프라 기본 설정 및 범용 이미지 업로드 기능 이관
 
@@ -13,7 +13,7 @@
 - 활성 workflow: `003-migration`
 - 현재 공통 단계: `5` 완료 → 머지 진행. `feat/KD3-478` → `epic/KD3-477-s3-migration` squash merge 완료([PR #19](https://github.com/PetCampus-Inc/daeng_v2_back/pull/19), `5642bc9`). `epic/KD3-477-s3-migration` → `dev` 일반 merge PR: [PR #26](https://github.com/PetCampus-Inc/daeng_v2_back/pull/26) (dev 최신 KD3-495 반영, `operations.md` 헤더 충돌만 해소).
   - 리뷰: 1차 구현 + B안 재구현 각각 독립 서브에이전트 "no material findings". CodeRabbit 1차 Major 2건은 `abd5a09`에서 반영. Docstring Coverage 경고는 AGENTS.md 충돌로 무시.
-- 다음 결정 또는 전환 조건: PR #26 머지 → `epic/KD3-477-s3-migration` 삭제. 머지 후 사람 몫: ① 로컬 S3 스모크 대조 ② Notion API 명세 등록 → 완료되면 Jira KD3-478·KD3-477 `완료`. ③ 프론트 v1 전환은 별도.
+- 다음 결정 또는 전환 조건: PR #26 머지 → `epic/KD3-477-s3-migration` 삭제. 머지 후 사람 몫: ① 로컬 S3 스모크 대조 → 완료되면 Jira KD3-478·KD3-477 `완료`. ② 프론트 v1 전환은 별도. (Notion API 명세 3건은 등록 완료 — 아래 확인 목록)
 - KD3-477(s3 마이그레이션)은 이 하위작업 하나로 종료 — 도메인별 S3 소비 이관은 각 도메인 epic 소관이라 KD3-477 아래로 더 들어오지 않는다.
 
 ## 작업 목표
@@ -156,7 +156,7 @@ domain/media/
 - [ ] 단위 테스트: 각 서비스 + `ObjectStoragePort` fake. presigned URL 생성은 실제 `S3Presigner`로 오프라인 검증(`S3ObjectStorageAdapterTest` — 버킷·key·TTL·서명 포함 확인).
 - [ ] `./gradlew build` green — ktlint(main/test/script) + ArchUnit + 전체 테스트.
 - [ ] **로컬 S3 스모크 대조 (사람 몫)**: `S3ObjectStorageAdapter`의 `copy`/`delete`/`exists`는 실제 S3 왕복이라 자동 테스트에서 제외됨. 로컬 자격증명 + 개발용 버킷으로 upload presign → PUT → commit(copy+delete) → download presign → GET 한 사이클을 대조하고 결과를 여기 남긴다. (003-migration §4 "로컬 대조" 방식)
-- [ ] **Notion API 명세 등록 (사람 몫)**: v1 media 3개 엔드포인트.
+- [x] **Notion API 명세 등록**: `도메인 = media`(옵션 신규 추가), `BE 개발 = 진행 중`. `notion-api-spec-sync.md` §3 템플릿으로 3건 생성 — 이미지 업로드 URL 발급(`POST /api/v1/media/upload-urls`), 이미지 다운로드 URL 발급(`POST /api/v1/media/download-urls`), 이미지 확정(`POST /api/v1/media/commits`).
 
 ### 계약 parity (003-migration §4)
 
@@ -172,7 +172,7 @@ domain/media/
 | `docs/inventory/operations.md` | 갱신 | `S3(운영 제공)` 행 신설 — 레거시 자격증명 방식, 신규 서버 필요 env(`AWS_S3_REGION`/`AWS_S3_BUCKET`/자격증명)·IAM 권한, 전용 버킷 신설 시 절차(키 불필요·IAM ARN 추가·`aws s3 sync`), 배포 파이프라인 종속. 자격증명 값 미기재 |
 | `docs/domains/media.md` | 신설 | 새 도메인 — 경계·불변식(key 네임스페이스, content-type, commit 소유권, 다운로드 인가), v1 엔드포인트 매핑, 구조, 도메인별 소비와의 관계 |
 | `docs/architecture/hexagonal.md` | 갱신 | §3의 "규칙 4는 현재 auth만 등록됨 / 새 도메인 추가 시 등록 필요" 문구가 stale — 실제 테스트는 `domain.*.domain..` 와일드카드라 전 도메인 자동 포함. 표·설명 정정 (repo-wide 참고 문서라 fast dev PR 대상일 수 있음 — 아래 PR 노트) |
-| Notion API 명세 | 미완(사람 몫) | v1 media 3개 엔드포인트 등록 (`docs/rules/notion-api-spec-sync.md`) |
+| Notion API 명세 | 갱신 | v1 media 3개 엔드포인트 등록 완료 (`도메인` select에 `media` 옵션 추가). `notion-api-spec-sync.md` §3 템플릿 준수, `BE 개발 = 진행 중` |
 | `docs/conventions/*` | 해당 없음 | 새 판단 기준 없음. content-type 허용 목록·key 규칙은 `media` 도메인 한정이라 `domains/media.md`에 둠 |
 | `docs/adr/` | 해당 없음 | 되돌리기 어렵거나 여러 도메인에 걸친 신규 결정 없음 — SDK v2 선택, `media` 명명 등은 이 문서에 기록 |
 | `build.gradle.kts` | 갱신 | AWS SDK v2 BOM `2.30.0` + `s3` + `url-connection-client`. 문서 아님, PR 포함 |
