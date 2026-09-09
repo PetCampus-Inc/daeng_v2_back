@@ -28,3 +28,11 @@ oauth:
       web: ${OAUTH_GOOGLE_CLIENT_ID_WEB:}
       ios: ${OAUTH_GOOGLE_CLIENT_ID_IOS:}
       android: ${OAUTH_GOOGLE_CLIENT_ID_ANDROID:}
+
+aws:
+  s3:
+    region: ${AWS_S3_REGION:ap-northeast-2}
+    bucket: ${AWS_S3_BUCKET:kindergarten-image-bucket}
+    presign:
+      upload-ttl: ${AWS_S3_PRESIGN_UPLOAD_TTL:10m}
+      download-ttl: ${AWS_S3_PRESIGN_DOWNLOAD_TTL:5m}
