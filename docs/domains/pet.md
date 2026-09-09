@@ -30,7 +30,7 @@
 
 | 항목 | 현재 결정 |
 |---|---|
-| 필드 | `name`·`profileImage`·`relationship`(+`relationshipText`)·`breedId`·`gender`·`birthYear`(연도만)·`weight`·`isNeutered`. 레거시(`daeng_v1_back`의 `pet/model/Pet.java`) 대조로 확정했다 |
+| 필드 | `name`·`profileImage`·`relationship`(+`relationshipText`)·`breedId`·`gender`·`birthYear`(연도만, 입력 시 현재 연도 기준 최근 30년 이내)·`weight`·`isNeutered`. 레거시(`daeng_v1_back`의 `pet/model/Pet.java`) 대조로 확정했다 |
 | 문자열 필드 길이·blank 검증 | `name`은 blank 불가·100자 이하(`pets.name` `VARCHAR(100)`), `profileImage`는 500자 이하(`pets.profile_image` `VARCHAR(500)`), `relationshipText`는 100자 이하(`pets.relationship_text` `VARCHAR(100)`)를 `Pet.create`/`Pet.update`가 검증한다 — DB 컬럼 길이를 그대로 상한으로 쓴다. 이 검증이 없으면 blank `name`이 그대로 저장되거나(DB `NOT NULL`은 빈 문자열을 막지 못함) 컬럼 길이 초과 시 `DataIntegrityViolationException`이 `GlobalExceptionHandler`의 catch-all(500)로 떨어진다(KD3-431 구현 완료 후 발견해 정정). `profileImage`가 빈 문자열(`""`)일 때 유효한 값으로 볼지는 결정하지 않았다 |
 | `relationship` | 보호자와의 관계 8종 고정값 Kotlin enum: `MOTHER`(엄마)·`FATHER`(아빠)·`EONNI`(언니)·`NUNA`(누나)·`OPPA`(오빠)·`HYUNG`(형)·`GUARDIAN`(보호자)·`ETC`(기타). 손윗형제 4종(언니/누나/오빠/형)은 "손윗형제의 성별 × 화자(보호자)의 성별" 조합이라 영어로 정확히 대응되는 단어가 없어 로마자 표기를 그대로 쓴다(레거시는 `ELDER_SISTER`/`OLDER_SISTER`처럼 억지로 영어 대응시켜 의미가 왜곡돼 있었다). `breed`(FCI 참조 데이터, 385건, 자체 메타데이터 보유)와 달리 참조 테이블로 두지 않는다 — 값이 고정이고 늘리려면 코드 배포가 필요하기 때문. `relationshipText`는 `ETC`일 때만 필수이고, 그 외에는 반드시 NULL이어야 한다(양방향 도메인 검증) — `relationship`을 `ETC`가 아닌 값으로 바꾸면 기존 `relationshipText`는 자동으로 지워진다(레거시는 필드를 지우는 경로 자체가 없어 값이 영구히 남는 결함이 있었다) |
 | `weight` | 컬럼 타입은 DOUBLE(반려동물 체중은 소수점 단위가 실제로 의미 있어 확장성을 열어둠), 컬럼은 **NOT NULL**. 현재 기획(1~99 정수)에 맞춰 범위와 "소수점 없음"을 검증한다. 생성 시 필수이며(레거시 등록 API와 동일) **수정 후에도 절대 지울 수 없다** — `profileImage`/`birthYear`/`isNeutered`와 달리 PATCH로도 null을 허용하지 않는 유일한 nullable-후보 필드다 |

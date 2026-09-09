@@ -1,4 +1,4 @@
-> 생성: 2026-09-09 17:30 · 최종 수정: 2026-09-09 17:30
+> 생성: 2026-09-09 17:30 · 최종 수정: 2026-09-09 17:40
 
 # KD3-500 pet 사용자 식별자 타입 경계 정리
 
@@ -18,10 +18,13 @@
 
 pet 서비스에서 사용자 조회 결과의 내부 식별자를 원시 `Long`으로 즉시 풀지 않고 `UserId`로 유지한다. 실제 pet 포트가 `Long`을 요구하는 경계에서만 `.value`를 꺼낸다.
 
+반려견 출생 연도는 값이 입력된 경우 현재 연도 기준 최근 30년 이내로 제한한다.
+
 ## 작업 범위
 
 - `CreatePetService`, `UpdatePetService`, `GetPetService`, `GetPetsService`, `SetRepresentativeService`, `DeletePetService`의 `requireUserId` 반환 타입을 `UserId`로 변경한다.
 - 각 서비스의 pet 포트 호출 직전에만 `UserId.value`를 전달한다.
+- `Pet.create`와 `Pet.update`에 출생 연도 범위 검증을 추가한다.
 
 ## 작업 제외 범위
 
@@ -35,21 +38,28 @@ pet 서비스에서 사용자 조회 결과의 내부 식별자를 원시 `Long`
 
 - `UserId`는 현재 `Long`을 감싸지만, 사용자 식별자라는 타입 정보를 서비스 내부에서 유지한다.
 - JPA·pet 포트가 현재 `Long`을 요구하므로 해당 경계에서만 `.value`를 사용한다.
+- `birthYear`는 nullable이지만 값이 있으면 `현재 연도 - 30` 이상, 현재 연도 이하여야 한다.
 
 ### 사용자 승인 기록
 
 - 2026-09-09: 사용자가 앞선 JWT/principal 전환 작업을 취소하고, `requireUserId`의 `Long → UserId` 반환 전환만 진행하도록 지시했다.
+- 2026-09-09: 사용자가 출생 연도 허용 범위를 최근 30년 이내로 확정하고 구현을 지시했다.
 
 ## 완료 확인 기준
 
 - 6개 pet 서비스의 `requireUserId`가 `UserId`를 반환한다.
 - pet 포트 호출은 동일한 `Long` 값을 전달한다.
 - pet application service 테스트가 통과한다.
+- 출생 연도의 최저·최고 허용값, 범위 초과, 미래값, null을 도메인 테스트로 검증한다.
+
+### 검증 결과
+
+- `./gradlew test --tests "*.pet.domain.PetTest"` 통과(2026-09-09). 생성 시 최저·최고 허용값, 범위 초과, 미래값, null과 수정 시 범위 초과를 검증했다.
 
 ## 작업 후 확인 목록
 
 | 대상 | 판정 | 근거 |
 |---|---|---|
 | `docs/work/KD3-500-user-id-value-object-boundary.md` | 갱신 | 범위·결정·검증 결과 기록 |
-| `docs/domains/pet.md` | 확인했지만 변경 없음 | 장기 구조와 포트 타입은 바뀌지 않음 |
+| `docs/domains/pet.md` | 갱신 | 출생 연도 허용 범위를 장기 도메인 제약으로 기록 |
 | `docs/inventory/api.md` | 확인했지만 변경 없음 | 공개 API 계약 변경 없음 |

@@ -1,5 +1,6 @@
 package com.petcampus.knockdog.domain.pet.domain
 
+import java.time.Year
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -97,6 +98,48 @@ class PetTest {
     @Test
     fun `weight에 소수점이 있으면 생성에 실패한다`() {
         assertFailsWith<IllegalArgumentException> { pet(weight = 45.5) }
+    }
+
+    @Test
+    fun `birthYear가 최근 30년 이내면 생성된다`() {
+        val currentYear = Year.now().value
+
+        pet(birthYear = currentYear - 30)
+        pet(birthYear = currentYear)
+    }
+
+    @Test
+    fun `birthYear가 최근 30년보다 오래되면 생성에 실패한다`() {
+        assertFailsWith<IllegalArgumentException> { pet(birthYear = Year.now().value - 31) }
+    }
+
+    @Test
+    fun `birthYear가 미래면 생성에 실패한다`() {
+        assertFailsWith<IllegalArgumentException> { pet(birthYear = Year.now().value + 1) }
+    }
+
+    @Test
+    fun `birthYear가 없으면 생성된다`() {
+        pet(birthYear = null)
+    }
+
+    @Test
+    fun `수정 시 birthYear가 최근 30년보다 오래되면 실패한다`() {
+        val pet = pet()
+
+        assertFailsWith<IllegalArgumentException> {
+            pet.update(
+                name = pet.name,
+                profileImage = pet.profileImage,
+                relationship = pet.relationship,
+                relationshipText = pet.relationshipText,
+                breedId = pet.breedId,
+                gender = pet.gender,
+                birthYear = Year.now().value - 31,
+                weight = pet.weight,
+                isNeutered = pet.isNeutered,
+            )
+        }
     }
 
     @Test
@@ -271,6 +314,7 @@ class PetTest {
         profileImage: String? = null,
         relationship: Relationship = Relationship.GUARDIAN,
         relationshipText: String? = null,
+        birthYear: Int? = 2020,
         weight: Double = 10.0,
         isRepresentative: Boolean = false,
     ) = Pet.create(
@@ -281,7 +325,7 @@ class PetTest {
         relationshipText = relationshipText,
         breedId = 1L,
         gender = Gender.MALE,
-        birthYear = 2020,
+        birthYear = birthYear,
         weight = weight,
         isNeutered = null,
         isRepresentative = isRepresentative,
