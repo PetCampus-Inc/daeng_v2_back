@@ -63,7 +63,7 @@ class UserAgreementServiceTest {
     private fun service(
         loadUser: LoadUserPort = StubLoadUserPort(user()),
         agreements: FakeAgreementPort = FakeAgreementPort(),
-    ) = UserAgreementService(loadUser, agreements, agreements)
+    ) = UserAgreementService(RequireUserId(loadUser), agreements, agreements)
 
     @Test
     fun `필수 약관에 모두 동의하면 저장된다`() {

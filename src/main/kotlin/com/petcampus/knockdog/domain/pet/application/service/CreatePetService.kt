@@ -1,0 +1,51 @@
+package com.petcampus.knockdog.domain.pet.application.service
+
+import com.petcampus.knockdog.domain.auth.application.service.RequireUserId
+import com.petcampus.knockdog.domain.pet.application.PetErrorCode
+import com.petcampus.knockdog.domain.pet.application.port.input.CreatePetCommand
+import com.petcampus.knockdog.domain.pet.application.port.input.CreatePetResult
+import com.petcampus.knockdog.domain.pet.application.port.input.CreatePetUseCase
+import com.petcampus.knockdog.domain.pet.application.port.output.LoadBreedPort
+import com.petcampus.knockdog.domain.pet.application.port.output.SavePetPort
+import com.petcampus.knockdog.domain.pet.domain.Pet
+import com.petcampus.knockdog.global.exception.BusinessException
+import org.springframework.stereotype.Service
+import org.springframework.transaction.annotation.Transactional
+
+@Service
+class CreatePetService(
+    private val requireUserId: RequireUserId,
+    private val loadBreedPort: LoadBreedPort,
+    private val savePetPort: SavePetPort,
+    private val petLockOperations: PetLockOperations,
+) : CreatePetUseCase {
+    @Transactional
+    override fun create(command: CreatePetCommand): CreatePetResult {
+        val userId = requireUserId(command.userCode)
+        val breed = loadBreedPort.findById(command.breedId) ?: throw BusinessException(PetErrorCode.NOT_FOUND_BREED)
+
+        val pet =
+            Pet.create(
+                userId = userId,
+                name = command.name,
+                profileImage = command.profileImage,
+                relationship = command.relationship,
+                relationshipText = command.relationshipText,
+                breedId = command.breedId,
+                gender = command.gender,
+                birthYear = command.birthYear,
+                weight = command.weight,
+                isNeutered = command.isNeutered,
+                isRepresentative = false,
+            )
+
+        val saved =
+            petLockOperations.withLockedActivePets(userId) { activePets ->
+                if (Pet.hasReachedActiveLimit(activePets)) throw BusinessException(PetErrorCode.LIMIT_EXCEEDED)
+                pet.assignRepresentativeIfFirst(activePets)
+                savePetPort.save(pet)
+            }
+
+        return CreatePetResult(saved, breed)
+    }
+}

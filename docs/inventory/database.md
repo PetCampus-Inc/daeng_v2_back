@@ -1,4 +1,4 @@
-> 생성: 2026-08-02 13:45 · 최종 수정: 2026-09-02 15:30
+> 생성: 2026-08-02 13:45 · 최종 수정: 2026-09-09
 
 # 데이터 인벤토리
 
@@ -55,7 +55,8 @@
 | MySQL | `withdraw_reason` | 탈퇴 사유 | auth/user | auth/user | `REDESIGN` | `미착수` | 탈퇴 이력/사유 데이터 후보 | auth/user 슬라이스 | 보존 기간, 개인정보 삭제 정책 |
 | MySQL | `user_address` | 사용자 주소 | user/mypage | user/mypage | `REDESIGN` | `완료` | 사용자 저장 주소 후보. address 검색/좌표 변환 API와 별도 | mypage/address 슬라이스 (`POST /api/v0/mypage/address`) | HOME 주소 필수 여부, 좌표 저장 여부, 주소 타입 |
 | MySQL | `user_notification_setting` | user_notification_setting | user/notification | notification | `REDESIGN` | `미착수` | 사용자 알림 설정 후보. 레거시는 KD3-287에서 이 테이블을 건드리지 않고 `notification_preference`를 새로 만들어 두 개가 공존한다 | notification 슬라이스 | 두 테이블 중 어느 쪽이 진실인지 확정하고 신규 서버에서는 하나로 합친다 |
-| MySQL | `pet` | 반려견 | pet | pet | `REDESIGN` | `미착수` | 반려견 핵심 데이터 후보 | pet 슬라이스 | 보호자 관계, 대표 반려견, 삭제 정책 |
+| MySQL | `pet` | 반려견 | pet | pet | `REDESIGN` | `진행중` | 반려견 핵심 데이터 후보 | pet 슬라이스 ([`KD3-430`](../work/KD3-430-pet-domain-foundation-schema.md)) | HTTP API·유스케이스 구현 완료(KD3-431~434: `CreatePetController`/`GetPetController`/`GetPetsController`/`UpdatePetController`/`SetRepresentativeController`/`DeletePetController`와 대응 서비스), 기존 데이터 backfill 미착수 |
+| MySQL | `pets` | (초안 없음) | pet | pet | `REDESIGN` | `진행중` | 신규 스키마. 소유자·breed_id는 다른 도메인 애그리게잇에 대한 느슨한 참조(FK 제약 없음). 대표견 단일성은 `representative_user_id`(nullable, UNIQUE) 컬럼으로 DB가 보장 | pet 슬라이스 ([`KD3-430`](../work/KD3-430-pet-domain-foundation-schema.md)) | 활성 pet 0건 상태의 동시 등록(첫 pet 경쟁) 시 최대 5마리 보장은 `PetRegistrationConcurrencyTest`(Testcontainers MySQL)로 검증 완료(KD3-430, KD3-497에서 유스케이스 경유로 재검증) |
 | MySQL | `tb_breed` | 견종 | pet/reference | pet | `DROP` | `해당없음` | 레거시가 KD3-370에서 `breed_catalog`를 신설해 대체했고 프론트도 `GET /api/v0/breed-catalog`로 이전 | - | 잔존 참조가 없는지 확인 후 삭제. 기준 데이터는 `breed_catalog`로 단일화 |
 | MySQL | `bookmark` | 북마크 | bookmark | bookmark/comparison | `REDESIGN` | `미착수` | 사용자-유치원 북마크 후보 | bookmark 슬라이스 | target이 school 고정인지, 중복 unique |
 | MySQL | `comparison_history` | 비교 내역 | comparison | bookmark/comparison | `DEFER` | `미착수` | 유치원 비교 이력 후보 | comparison 슬라이스 | 기능 유지 여부, 보존 기간 |
@@ -88,7 +89,7 @@
 | MySQL | `album_photo_favorite` | (초안 없음) | album | album/media | `REDESIGN` | `미착수` | 보호자 사진 즐겨찾기 후보. 사진·사용자 unique | album 슬라이스 | 연결 해제된 보호자의 즐겨찾기 보존 여부 |
 | MySQL | `attendance_checkinout` | (초안 없음) | attendance | attendance | `REDESIGN` | `미착수` | 등·하원 체크 상태 후보. pet/school/`school_pet_membership` FK, `attendance_date` 기준 unique | attendance 슬라이스 | `attendance_record`(알림장)와의 책임 분리, 취소 허용 범위 |
 | MySQL | `attendance_checkinout_event` | (초안 없음) | attendance | attendance | `REDESIGN` | `미착수` | 등·하원 이벤트 이력 후보. event_type과 occurred_at | attendance 슬라이스 | 이벤트 소싱 수준으로 유지할지, 보존 기간 |
-| MySQL | `breed_catalog` | (초안 없음) | pet/reference | pet | `REDESIGN` | `미착수` | 견종 기준 데이터 후보. CSV(385행) 시드, `display_order`는 제품이 정한 표시 순서 | pet 슬라이스 | 시드 갱신 주체와 주기. `tb_breed`를 대체하므로 둘을 함께 두지 않는다 |
+| MySQL | `breeds` | (초안 없음) | pet/reference | pet | `REDESIGN` | `진행중` | 신규 기준 테이블. v1 UTF-8 시드 385행을 Flyway로 적용하며, `display_order`는 제품이 정한 표시 순서 | pet 슬라이스 ([`KD3-418`](../work/KD3-418-breed-catalog-v1-api.md)) | 시드 갱신 주체와 주기. 레거시 `tb_breed`와 `breed_catalog`를 대체하며, 빈 MySQL DB 적용 검증 필요 |
 | MySQL | `idempotency_key` | (초안 없음) | global | global/infra | `DEFER` | `미착수` | 멱등 요청 응답 저장 후보. `(user_id, operation, idempotency_key)` unique, `expires_at` 만료 | 알림장 발송 등 재시도 위험 슬라이스 | 신규 서버에서 DB 기반으로 갈지 Redis로 갈지, 만료 청소 주체 |
 | MySQL | `kg_change_report` | (초안 없음) | kindergarten | kindergarten | `DEFER` | `미착수` | 유치원 정보 변경 제보 후보 | kindergarten 슬라이스 | 기능 유지 여부, 승인 운영 주체 |
 | MySQL | `kg_change_evidence` | (초안 없음) | kindergarten/media | kindergarten | `DEFER` | `미착수` | 변경 제보 증빙 이미지 후보. S3 key와 `sha256` unique로 중복 차단 | kindergarten 슬라이스 | 기능 유지 여부, S3 보존 정책 |

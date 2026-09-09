@@ -1,6 +1,7 @@
 package com.petcampus.knockdog.global.exception
 
 import com.petcampus.knockdog.global.response.Response
+import org.springframework.dao.OptimisticLockingFailureException
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.http.converter.HttpMessageNotReadableException
@@ -9,6 +10,7 @@ import org.springframework.web.bind.MissingRequestCookieException
 import org.springframework.web.bind.MissingServletRequestParameterException
 import org.springframework.web.bind.annotation.ExceptionHandler
 import org.springframework.web.bind.annotation.RestControllerAdvice
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException
 
 @RestControllerAdvice
 class GlobalExceptionHandler {
@@ -40,15 +42,23 @@ class GlobalExceptionHandler {
             .status(HttpStatus.BAD_REQUEST)
             .body(Response.error(CommonErrorCode.INVALID_INPUT_VALUE, e.message))
 
-    /**
-     * 필수 쿠키 누락. 인증 토큰을 쿠키로 받는 API(`/api/v1/auth/login`, `/refresh`, `POST /api/v1/users`)를
-     * 쿠키 없이 호출하면 발생한다. 클라이언트 실수이므로 500이 아니라 400으로 내린다.
-     */
+    @ExceptionHandler(MethodArgumentTypeMismatchException::class)
+    fun handleTypeMismatch(e: MethodArgumentTypeMismatchException): ResponseEntity<Response<Unit>> =
+        ResponseEntity
+            .status(HttpStatus.BAD_REQUEST)
+            .body(Response.error(CommonErrorCode.INVALID_INPUT_VALUE, "요청 경로 또는 파라미터 값이 올바르지 않습니다."))
+
     @ExceptionHandler(MissingRequestCookieException::class)
     fun handleMissingCookie(e: MissingRequestCookieException): ResponseEntity<Response<Unit>> =
         ResponseEntity
             .status(HttpStatus.BAD_REQUEST)
             .body(Response.error(CommonErrorCode.INVALID_INPUT_VALUE, e.message))
+
+    @ExceptionHandler(OptimisticLockingFailureException::class)
+    fun handleOptimisticLockingFailure(e: OptimisticLockingFailureException): ResponseEntity<Response<Unit>> =
+        ResponseEntity
+            .status(HttpStatus.CONFLICT)
+            .body(Response.error(CommonErrorCode.RESOURCE_CONFLICT))
 
     @ExceptionHandler(HttpRequestMethodNotSupportedException::class)
     fun handleMethodNotSupported(e: HttpRequestMethodNotSupportedException): ResponseEntity<Response<Unit>> =
