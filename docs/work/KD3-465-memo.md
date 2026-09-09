@@ -11,8 +11,8 @@
 ## 현재 제어점
 
 - 활성 workflow: `003-migration` (+ `005-new-feature` 일부 — 화면지시서 기반 신규 UX 요소가 있어 두 유형 조건을 함께 적용)
-- 현재 공통 단계: `5`(독립 리뷰·PR·문서 동기화). 구현(3) 완료 — `## 구현 순서` A·B·C·D 전부, `./gradlew ktlintCheck test` green(ArchUnit 포함). 문서 동기화 완료(`docs/domains/memo.md` 신설, 인벤토리 3건 갱신).
-- 다음 결정 또는 전환 조건: 독립 리뷰 → PR(`feat/KD3-465-memo` → `epic/KD3-272-kindergarten-features`). 사람 몫: Q6 로컬 응답 대조, Notion 명세 등록, 배포 컨테이너 `TZ=Asia/Seoul` 확인, 프론트 v1 전환.
+- 현재 공통 단계: `5`(독립 리뷰·PR·문서 동기화). 구현(3) 완료 — `## 구현 순서` A·B·C·D 전부, `./gradlew clean build` green(ArchUnit 포함). 문서 동기화 완료. [PR #27](https://github.com/PetCampus-Inc/daeng_v2_back/pull/27) (`feat/KD3-465-memo` → `epic/KD3-272-kindergarten-features`) 생성.
+- 다음 결정 또는 전환 조건: 리뷰(CodeRabbit + 사람) 반영 → 머지. 사람 몫: Q6 로컬 응답 대조, Notion 명세 등록, 배포 컨테이너 `TZ=Asia/Seoul` 확인, 프론트 v1 전환.
 - 베이스: `epic/KD3-272-kindergarten-features` = `origin/dev`(`ff71aaf`). 유치원 스키마 + media(S3, KD3-478) + 응답 날짜포맷 컨벤션(KD3-495) 전부 포함. KD3-478은 dev에 squash 머지돼서 예전에 epic에 직접 머지했던 커밋은 제거하고 dev 기준으로 다시 맞췄다.
 
 ## 작업 목표
