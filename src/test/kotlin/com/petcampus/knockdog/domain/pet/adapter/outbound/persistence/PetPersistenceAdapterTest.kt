@@ -13,11 +13,6 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 
-/**
- * 순수 I/O 계층 테스트. 대표견 선정·최대 마릿수 등 비즈니스 판단 로직은
- * KD3-497에서 서비스·도메인 계층으로 옮겨져 각각 [PetTest]·서비스 단위
- * 테스트가 검증한다 — 여기서는 영속성(저장·조회·낙관적 락)만 확인한다.
- */
 @DataJpaTest
 @Import(PetPersistenceAdapter::class, UserPersistenceAdapter::class)
 class PetPersistenceAdapterTest(

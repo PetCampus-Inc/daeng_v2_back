@@ -29,11 +29,6 @@ import java.util.concurrent.atomic.AtomicInteger
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 
-/**
- * KD3-497부터 등록 로직은 CreatePetService(유스케이스)에 있다 — 실제 프로덕션
- * 요청 경로 전체(소유권 검증 포함)의 동시성 안전성을 증명하기 위해 어댑터가
- * 아니라 유스케이스를 통해 동시 요청을 실행한다.
- */
 @Testcontainers
 @SpringBootTest
 @ActiveProfiles("testcontainers")
