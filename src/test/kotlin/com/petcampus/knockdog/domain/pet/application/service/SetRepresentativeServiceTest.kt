@@ -1,11 +1,13 @@
 package com.petcampus.knockdog.domain.pet.application.service
 
 import com.petcampus.knockdog.domain.auth.application.port.output.LoadUserPort
+import com.petcampus.knockdog.domain.auth.application.port.output.LockUserPort
 import com.petcampus.knockdog.domain.auth.domain.AddressType
 import com.petcampus.knockdog.domain.auth.domain.User
 import com.petcampus.knockdog.domain.auth.domain.UserAddress
 import com.petcampus.knockdog.domain.auth.domain.UserCode
 import com.petcampus.knockdog.domain.auth.domain.UserId
+import com.petcampus.knockdog.domain.pet.application.PetErrorCode
 import com.petcampus.knockdog.domain.pet.application.port.input.SetRepresentativeCommand
 import com.petcampus.knockdog.domain.pet.application.port.output.BreedSummary
 import com.petcampus.knockdog.domain.pet.application.port.output.LoadBreedPort
@@ -17,7 +19,9 @@ import com.petcampus.knockdog.domain.pet.domain.PetId
 import com.petcampus.knockdog.domain.pet.domain.Relationship
 import com.petcampus.knockdog.global.exception.BusinessException
 import kotlin.test.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class SetRepresentativeServiceTest {
@@ -25,68 +29,103 @@ class SetRepresentativeServiceTest {
     fun `대표견이 아니던 pet을 대표견으로 설정한다`() {
         val pet = pet(isRepresentative = false)
         val savePetPort = RecordingSavePetPort()
-        val service = service(pet = pet, savePetPort = savePetPort)
+        val service = service(pet = pet, activePets = listOf(pet), savePetPort = savePetPort)
 
         val result = service.setRepresentative(command(petId = pet.id!!))
 
         assertTrue(result.pet.isRepresentative)
-        assertTrue(savePetPort.setRepresentativeWithinLockCalled)
+        assertTrue(savePetPort.saveCalled)
     }
 
     @Test
-    fun `이미 대표견인 pet을 다시 설정해도 대표견 상태를 유지한다`() {
+    fun `기존 대표견을 해제하고 다른 pet을 새 대표견으로 지정한다`() {
+        val previousRepresentative = pet(id = 1L, isRepresentative = true)
+        val target = pet(id = 2L, isRepresentative = false)
+        val savePetPort = RecordingSavePetPort()
+        val service = service(pet = target, activePets = listOf(previousRepresentative, target), savePetPort = savePetPort)
+
+        val result = service.setRepresentative(command(petId = target.id!!))
+
+        assertTrue(result.pet.isRepresentative)
+        assertFalse(previousRepresentative.isRepresentative)
+        assertTrue(savePetPort.saveAndFlushCalled)
+    }
+
+    @Test
+    fun `이미 대표견인 pet을 다시 설정해도 대표견 상태를 유지하고 저장하지 않는다`() {
         val pet = pet(isRepresentative = true)
-        val service = service(pet = pet)
+        val savePetPort = RecordingSavePetPort()
+        val service = service(pet = pet, activePets = listOf(pet), savePetPort = savePetPort)
 
         val result = service.setRepresentative(command(petId = pet.id!!))
 
         assertTrue(result.pet.isRepresentative)
+        assertFalse(savePetPort.saveCalled)
     }
 
     @Test
     fun `존재하지 않는 pet이면 NOT_FOUND를 던진다`() {
-        val service = service(pet = null)
+        val service = service(pet = null, activePets = emptyList())
 
-        assertFailsWith<BusinessException> { service.setRepresentative(command(petId = PetId(1L))) }
+        val exception = assertFailsWith<BusinessException> { service.setRepresentative(command(petId = PetId(1L))) }
+
+        assertEquals(PetErrorCode.NOT_FOUND, exception.errorCode)
     }
 
     @Test
     fun `삭제된 pet이면 NOT_FOUND를 던진다`() {
         val pet = pet()
         pet.delete()
-        val service = service(pet = pet)
+        val service = service(pet = pet, activePets = emptyList())
 
-        assertFailsWith<BusinessException> { service.setRepresentative(command(petId = pet.id!!)) }
+        val exception = assertFailsWith<BusinessException> { service.setRepresentative(command(petId = pet.id!!)) }
+
+        assertEquals(PetErrorCode.NOT_FOUND, exception.errorCode)
+    }
+
+    @Test
+    fun `잠금 재조회 시점에 이미 삭제된 pet이면 NOT_FOUND를 던진다`() {
+        val pet = pet(id = 1L)
+        val service = service(pet = pet, activePets = emptyList())
+
+        val exception = assertFailsWith<BusinessException> { service.setRepresentative(command(petId = pet.id!!)) }
+
+        assertEquals(PetErrorCode.NOT_FOUND, exception.errorCode)
     }
 
     @Test
     fun `다른 사용자의 pet이면 NOT_AUTHORIZED를 던진다`() {
         val pet = pet(userId = 999L)
-        val service = service(pet = pet)
+        val service = service(pet = pet, activePets = listOf(pet))
 
-        assertFailsWith<BusinessException> { service.setRepresentative(command(petId = pet.id!!)) }
+        val exception = assertFailsWith<BusinessException> { service.setRepresentative(command(petId = pet.id!!)) }
+
+        assertEquals(PetErrorCode.NOT_AUTHORIZED, exception.errorCode)
     }
 
     private fun service(
         pet: Pet?,
+        activePets: List<Pet>,
         breed: BreedSummary? = BreedSummary(4L, "골든 리트리버", null),
         savePetPort: SavePetPort = RecordingSavePetPort(),
     ) = SetRepresentativeService(
         loadUserPort = FakeLoadUserPort(userId = 1L),
-        loadPetPort = FakeLoadPetPort(pet),
+        loadPetPort = FakeLoadPetPort(pet, activePets),
         loadBreedPort = FakeLoadBreedPort(breed),
         savePetPort = savePetPort,
+        petLockOperations = PetLockOperations(NoopLockUserPort(), FakeLoadPetPort(pet, activePets)),
     )
 
     private fun command(petId: PetId) = SetRepresentativeCommand(userCode = UserCode("ABCD1234"), petId = petId)
 
     private fun pet(
+        id: Long = 1L,
         userId: Long = 1L,
         isRepresentative: Boolean = false,
     ) = Pet.reconstitute(
-        id = PetId(1L),
+        id = PetId(id),
         userId = userId,
-        name = "호두",
+        name = "호두$id",
         profileImage = null,
         relationship = Relationship.GUARDIAN,
         relationshipText = null,
@@ -121,10 +160,13 @@ class SetRepresentativeServiceTest {
 
     private class FakeLoadPetPort(
         private val pet: Pet?,
+        private val activePets: List<Pet>,
     ) : LoadPetPort {
         override fun findById(id: PetId): Pet? = pet
 
-        override fun findAllActiveByUserId(userId: Long): List<Pet> = emptyList()
+        override fun findAllActiveByUserId(userId: Long): List<Pet> = activePets
+
+        override fun findAllActiveByUserIdForUpdate(userId: Long): List<Pet> = activePets
     }
 
     private class FakeLoadBreedPort(
@@ -133,20 +175,24 @@ class SetRepresentativeServiceTest {
         override fun findById(breedId: Long): BreedSummary? = breed
     }
 
+    private class NoopLockUserPort : LockUserPort {
+        override fun lockById(userId: Long) = Unit
+    }
+
     private class RecordingSavePetPort : SavePetPort {
-        var setRepresentativeWithinLockCalled = false
+        var saveCalled = false
+            private set
+        var saveAndFlushCalled = false
             private set
 
-        override fun registerWithinLimit(pet: Pet): Pet = pet
-
-        override fun save(pet: Pet): Pet = pet
-
-        override fun setRepresentativeWithinLock(pet: Pet): Pet {
-            setRepresentativeWithinLockCalled = true
-            if (!pet.isRepresentative) pet.markAsRepresentative()
+        override fun save(pet: Pet): Pet {
+            saveCalled = true
             return pet
         }
 
-        override fun deleteAndPromoteWithinLock(pet: Pet): Pet? = null
+        override fun saveAndFlush(pet: Pet): Pet {
+            saveAndFlushCalled = true
+            return pet
+        }
     }
 }

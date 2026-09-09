@@ -19,6 +19,7 @@ class CreatePetService(
     private val loadUserPort: LoadUserPort,
     private val loadBreedPort: LoadBreedPort,
     private val savePetPort: SavePetPort,
+    private val petLockOperations: PetLockOperations,
 ) : CreatePetUseCase {
     @Transactional
     override fun create(command: CreatePetCommand): CreatePetResult {
@@ -41,10 +42,10 @@ class CreatePetService(
             )
 
         val saved =
-            try {
-                savePetPort.registerWithinLimit(pet)
-            } catch (e: IllegalStateException) {
-                throw BusinessException(PetErrorCode.LIMIT_EXCEEDED)
+            petLockOperations.withLockedActivePets(userId) { activePets ->
+                if (Pet.hasReachedActiveLimit(activePets)) throw BusinessException(PetErrorCode.LIMIT_EXCEEDED)
+                pet.assignRepresentativeIfFirst(activePets)
+                savePetPort.save(pet)
             }
 
         return CreatePetResult(saved, breed)

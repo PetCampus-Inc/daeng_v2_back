@@ -8,6 +8,7 @@ import com.petcampus.knockdog.domain.pet.application.port.input.DeletePetCommand
 import com.petcampus.knockdog.domain.pet.application.port.input.DeletePetUseCase
 import com.petcampus.knockdog.domain.pet.application.port.output.LoadPetPort
 import com.petcampus.knockdog.domain.pet.application.port.output.SavePetPort
+import com.petcampus.knockdog.domain.pet.domain.Pet
 import com.petcampus.knockdog.global.exception.BusinessException
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -17,6 +18,7 @@ class DeletePetService(
     private val loadUserPort: LoadUserPort,
     private val loadPetPort: LoadPetPort,
     private val savePetPort: SavePetPort,
+    private val petLockOperations: PetLockOperations,
 ) : DeletePetUseCase {
     @Transactional
     override fun delete(command: DeletePetCommand) {
@@ -26,11 +28,27 @@ class DeletePetService(
                 ?: throw BusinessException(PetErrorCode.NOT_FOUND)
         if (pet.userId != userId) throw BusinessException(PetErrorCode.NOT_AUTHORIZED)
 
-        if (pet.isRepresentative) {
-            savePetPort.deleteAndPromoteWithinLock(pet)
-        } else {
+        if (!pet.isRepresentative) {
             pet.delete()
             savePetPort.save(pet)
+            return
+        }
+
+        petLockOperations.withLockedActivePets(userId) { activePets ->
+            val target =
+                activePets.find { it.id == pet.id }
+                    ?: throw BusinessException(PetErrorCode.NOT_FOUND)
+            val wasRepresentative = target.isRepresentative
+
+            target.delete()
+            savePetPort.saveAndFlush(target)
+
+            if (wasRepresentative) {
+                Pet
+                    .selectNextRepresentative(activePets.filter { it.id != target.id })
+                    ?.apply { markAsRepresentative() }
+                    ?.let { savePetPort.save(it) }
+            }
         }
     }
 

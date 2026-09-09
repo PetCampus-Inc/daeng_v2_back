@@ -1,4 +1,4 @@
-> 생성: 2026-09-02 22:02 · 최종 수정: 2026-09-08 18:12
+> 생성: 2026-09-02 22:02 · 최종 수정: 2026-09-09
 
 # pet 도메인
 
@@ -73,7 +73,7 @@
 | 항목 | 현재 결정 |
 |---|---|
 | 엔드포인트 | `PUT /api/v1/pets/{petId}/representative` — 같은 pet에 반복 요청해도 결과가 같은 멱등 연산이라 POST가 아닌 PUT을 쓴다. 레거시 `POST /api/v0/pet/representative/{petId}`는 인벤토리에서 원래 `KEEP`으로 판정돼 있었으나, `POST /api/v1/pets`·`PATCH /api/v1/pets/{petId}`와 동일한 RESTful URL 패턴으로 재설계하기로 확정하며 `REDESIGN`으로 정정했다(KD3-433) |
-| 대표견 전환 처리 | 위 "pet 프로필과 불변식"의 대표견 단일성 규칙(기존 대표견 해제 → 신규 대표견 지정 순서)을 `SavePetPort.setRepresentativeWithinLock`이 트랜잭션 안에서 수행한다. 이미 대표견인 pet에 재요청하면 DB 쓰기 없이 그대로 반환한다(멱등) |
+| 대표견 전환 처리 | 위 "pet 프로필과 불변식"의 대표견 단일성 규칙(기존 대표견 해제 → 신규 대표견 지정 순서)을 `SetRepresentativeService`가 `PetLockOperations`로 락을 잡고 `Pet.reassignRepresentative`(도메인 함수)로 수행한다. 이미 대표견인 pet에 재요청하면 DB 쓰기 없이 그대로 반환한다(멱등) |
 | 동시성 처리 | `LockUserPort.lockById`로 `users` 행을 먼저 잠가 동일 사용자의 동시 요청을 직렬화한다 — "pet 프로필과 불변식"의 최대 마릿수 등록 잠금과 같은 패턴이며, 같은 `petJpaRepository.findAllActiveByUserIdForUpdate` 잠금 쿼리를 재사용한다(Testcontainers 기반 동시 요청 5건 테스트로 검증) |
 | 소유권·상태 검증 | `petId`가 없거나 soft delete된 pet이면 404(`PET-404-1`), 본인 소유가 아니면 403(`PET-403-1`) — pet 생성·수정 API와 동일한 에러 코드를 재사용한다 |
 | 응답 | pet 생성·수정 API와 동일하게 `PetResponse`(pet 전체 필드 + `breedNameKo`/`breedAlias`)를 반환한다. 레거시는 `Response<Void>`였으나, 이 프로젝트의 다른 pet 엔드포인트 관례를 따른다 |
@@ -86,7 +86,7 @@
 |---|---|
 | 엔드포인트 | `DELETE /api/v1/pets/{petId}`, 응답 `204 No Content`. 레거시 `POST /api/v0/pet/remove/{petId}`는 인벤토리에서 원래 `미착수`로 남아 있었으나, 다른 pet 엔드포인트와 동일한 RESTful URL 패턴으로 재설계해 구현했다(KD3-434) |
 | 삭제 대상이 대표견일 때 | **레거시엔 없는 v2 신규 동작**: 레거시 `PetService.removePet`은 자동 승격 로직이 없어 대표견을 지우면 그냥 대표견 없음 상태로 남았다. v2는 남은 활성 pet 중 정렬 1순위(대표견 우선 → 이름순과 같은 비교자, 대표견 자신이 삭제 대상이라 실질적으로 이름순 1번)를 자동으로 새 대표견으로 승격한다. 남은 pet이 없으면 대표견 없음 상태로 둔다 |
-| 락 분기 | 대표견이 아닌 pet은 `Pet.delete()` + `SavePetPort.save`(`@Version` 낙관적 락)만으로 가볍게 처리한다. 대표견인 pet만 `SavePetPort.deleteAndPromoteWithinLock`으로 "pet 대표견 설정 API"와 같은 `users` 행 비관적 락 패턴을 타 삭제+승격을 한 트랜잭션으로 묶는다 |
+| 락 분기 | 대표견이 아닌 pet은 `Pet.delete()` + `SavePetPort.save`(`@Version` 낙관적 락)만으로 가볍게 처리한다. 대표견인 pet만 `DeletePetService`가 `PetLockOperations`로 "pet 대표견 설정 API"와 같은 `users` 행 비관적 락 패턴을 타고 `Pet.selectNextRepresentative`(도메인 함수)로 삭제+승격을 한 트랜잭션으로 묶는다 |
 | UNIQUE 제약과의 상호작용 | `pets.representative_user_id` UNIQUE는 `deleted_at`과 무관하게 걸린다 — 대표견을 삭제할 때 그 pet의 `representative_user_id`를 null로 같이 지우지 않으면 이후 누구도 새 대표견으로 승격될 수 없다(`Pet.delete()`가 `isRepresentative`도 `false`로 지워 자동 처리). 삭제 저장과 새 대표견 승격 저장이 같은 UNIQUE 컬럼을 건드리므로, "pet 대표견 설정 API"의 flush-순서 버그와 같은 이유로 그 사이에 명시적 flush가 필요하다 |
 | 소유권·상태 검증 | `petId`가 없거나 이미 soft delete된 pet이면 404(`PET-404-1`), 본인 소유가 아니면 403(`PET-403-1`) — 다른 pet 엔드포인트와 동일한 에러 코드를 재사용한다 |
 

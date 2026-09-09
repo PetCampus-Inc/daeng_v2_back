@@ -244,6 +244,8 @@ class UpdatePetServiceTest {
         override fun findById(id: PetId): Pet? = pet
 
         override fun findAllActiveByUserId(userId: Long): List<Pet> = emptyList()
+
+        override fun findAllActiveByUserIdForUpdate(userId: Long): List<Pet> = emptyList()
     }
 
     private class FakeLoadBreedPort(
@@ -253,12 +255,8 @@ class UpdatePetServiceTest {
     }
 
     private class FakeSavePetPort : SavePetPort {
-        override fun registerWithinLimit(pet: Pet): Pet = pet
-
         override fun save(pet: Pet): Pet = pet
 
-        override fun setRepresentativeWithinLock(pet: Pet): Pet = pet
-
-        override fun deleteAndPromoteWithinLock(pet: Pet): Pet? = null
+        override fun saveAndFlush(pet: Pet): Pet = pet
     }
 }

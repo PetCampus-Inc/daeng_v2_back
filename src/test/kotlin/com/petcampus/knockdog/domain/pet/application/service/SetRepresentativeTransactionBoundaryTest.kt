@@ -6,11 +6,11 @@ import com.petcampus.knockdog.domain.auth.domain.UserCode
 import com.petcampus.knockdog.domain.breed.adapter.outbound.persistence.BreedJpaEntity
 import com.petcampus.knockdog.domain.breed.adapter.outbound.persistence.BreedJpaRepository
 import com.petcampus.knockdog.domain.pet.adapter.outbound.persistence.PetJpaRepository
-import com.petcampus.knockdog.domain.pet.adapter.outbound.persistence.PetPersistenceAdapter
+import com.petcampus.knockdog.domain.pet.application.port.input.CreatePetCommand
+import com.petcampus.knockdog.domain.pet.application.port.input.CreatePetUseCase
 import com.petcampus.knockdog.domain.pet.application.port.input.SetRepresentativeCommand
 import com.petcampus.knockdog.domain.pet.application.port.input.SetRepresentativeUseCase
 import com.petcampus.knockdog.domain.pet.domain.Gender
-import com.petcampus.knockdog.domain.pet.domain.Pet
 import com.petcampus.knockdog.domain.pet.domain.Relationship
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
@@ -28,10 +28,10 @@ import kotlin.test.assertFailsWith
 @ActiveProfiles("testcontainers")
 class SetRepresentativeTransactionBoundaryTest {
     @Autowired
-    private lateinit var setRepresentativeUseCase: SetRepresentativeUseCase
+    private lateinit var createPetUseCase: CreatePetUseCase
 
     @Autowired
-    private lateinit var petPersistenceAdapter: PetPersistenceAdapter
+    private lateinit var setRepresentativeUseCase: SetRepresentativeUseCase
 
     @Autowired
     private lateinit var petJpaRepository: PetJpaRepository
@@ -46,6 +46,7 @@ class SetRepresentativeTransactionBoundaryTest {
     fun `대표견 지정 뒤 breed 조회가 실패하면 대표견 변경도 롤백된다`() {
         val user = userJpaRepository.save(UserJpaEntity(userCode = UserCode.generate().value))
         val userId = requireNotNull(user.id)
+        val userCode = UserCode(user.userCode)
 
         val breed =
             breedJpaRepository.save(
@@ -59,14 +60,14 @@ class SetRepresentativeTransactionBoundaryTest {
             )
         val breedId = requireNotNull(breed.id)
 
-        val representative = petPersistenceAdapter.registerWithinLimit(newPet(userId, breedId, "보리"))
-        val target = petPersistenceAdapter.registerWithinLimit(newPet(userId, breedId, "콩이"))
+        val representative = createPetUseCase.create(newCommand(userCode, breedId, "보리")).pet
+        val target = createPetUseCase.create(newCommand(userCode, breedId, "콩이")).pet
 
         breedJpaRepository.deleteById(breedId)
 
         assertFailsWith<IllegalStateException> {
             setRepresentativeUseCase.setRepresentative(
-                SetRepresentativeCommand(userCode = UserCode(user.userCode), petId = requireNotNull(target.id)),
+                SetRepresentativeCommand(userCode = userCode, petId = requireNotNull(target.id)),
             )
         }
 
@@ -76,24 +77,22 @@ class SetRepresentativeTransactionBoundaryTest {
         assertEquals(null, reloadedTarget.representativeUserId, "롤백됐으니 target은 대표견으로 지정되지 않은 상태로 남아야 한다")
     }
 
-    private fun newPet(
-        userId: Long,
+    private fun newCommand(
+        userCode: UserCode,
         breedId: Long,
         name: String,
-    ): Pet =
-        Pet.create(
-            userId = userId,
-            name = name,
-            profileImage = null,
-            relationship = Relationship.GUARDIAN,
-            relationshipText = null,
-            breedId = breedId,
-            gender = Gender.MALE,
-            birthYear = null,
-            weight = 10.0,
-            isNeutered = null,
-            isRepresentative = false,
-        )
+    ) = CreatePetCommand(
+        userCode = userCode,
+        name = name,
+        profileImage = null,
+        relationship = Relationship.GUARDIAN,
+        relationshipText = null,
+        breedId = breedId,
+        gender = Gender.MALE,
+        birthYear = null,
+        weight = 10.0,
+        isNeutered = null,
+    )
 
     companion object {
         @Container

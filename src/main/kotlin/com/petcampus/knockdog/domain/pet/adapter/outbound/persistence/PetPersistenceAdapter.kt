@@ -1,23 +1,18 @@
 package com.petcampus.knockdog.domain.pet.adapter.outbound.persistence
 
 import com.petcampus.knockdog.domain.auth.adapter.outbound.persistence.UserJpaEntity
-import com.petcampus.knockdog.domain.auth.application.port.output.LockUserPort
 import com.petcampus.knockdog.domain.breed.adapter.outbound.persistence.BreedJpaEntity
-import com.petcampus.knockdog.domain.pet.application.PetErrorCode
 import com.petcampus.knockdog.domain.pet.application.port.output.LoadPetPort
 import com.petcampus.knockdog.domain.pet.application.port.output.SavePetPort
 import com.petcampus.knockdog.domain.pet.domain.Pet
 import com.petcampus.knockdog.domain.pet.domain.PetId
-import com.petcampus.knockdog.global.exception.BusinessException
 import jakarta.persistence.EntityManager
 import org.springframework.data.repository.findByIdOrNull
 import org.springframework.stereotype.Component
-import org.springframework.transaction.annotation.Transactional
 
 @Component
 class PetPersistenceAdapter(
     private val petJpaRepository: PetJpaRepository,
-    private val lockUserPort: LockUserPort,
     private val entityManager: EntityManager,
 ) : LoadPetPort,
     SavePetPort {
@@ -25,57 +20,10 @@ class PetPersistenceAdapter(
 
     override fun findAllActiveByUserId(userId: Long): List<Pet> = petJpaRepository.findAllActiveByUserId(userId).map { it.toDomain() }
 
-    @Transactional
-    override fun registerWithinLimit(pet: Pet): Pet {
-        lockUserPort.lockById(pet.userId)
-        val activePets = petJpaRepository.findAllActiveByUserIdForUpdate(pet.userId)
-        check(activePets.size < Pet.MAX_ACTIVE_COUNT) { "최대 마릿수를 초과했습니다." }
-
-        if (activePets.isEmpty()) pet.markAsRepresentative() else pet.clearRepresentative()
-
-        return save(pet)
-    }
-
-    @Transactional
-    override fun setRepresentativeWithinLock(pet: Pet): Pet {
-        lockUserPort.lockById(pet.userId)
-        val activePets = petJpaRepository.findAllActiveByUserIdForUpdate(pet.userId).map { it.toDomain() }
-        val target =
-            activePets.find { it.id == pet.id }
-                ?: throw BusinessException(PetErrorCode.NOT_FOUND)
-        if (target.isRepresentative) return target
-
-        activePets
-            .filter { it.isRepresentative }
-            .forEach { save(it.apply { clearRepresentative() }) }
-        flushClearedRepresentativesBeforeReassigning()
-
-        target.markAsRepresentative()
-        return save(target)
-    }
-
-    @Transactional
-    override fun deleteAndPromoteWithinLock(pet: Pet): Pet? {
-        lockUserPort.lockById(pet.userId)
-        val activePets = petJpaRepository.findAllActiveByUserIdForUpdate(pet.userId).map { it.toDomain() }
-        val target =
-            activePets.find { it.id == pet.id }
-                ?: throw BusinessException(PetErrorCode.NOT_FOUND)
-        val wasRepresentative = target.isRepresentative
-
-        target.delete()
-        save(target)
-        if (!wasRepresentative) return null
-        flushClearedRepresentativesBeforeReassigning()
-
-        val next =
-            activePets
-                .filter { it.id != target.id }
-                .sortedWith(compareBy<Pet> { !it.isRepresentative }.thenBy { it.name })
-                .firstOrNull() ?: return null
-
-        next.markAsRepresentative()
-        return save(next)
+    override fun findAllActiveByUserIdForUpdate(userId: Long): List<Pet> {
+        entityManager.flush()
+        entityManager.clear()
+        return petJpaRepository.findAllActiveByUserIdForUpdate(userId).map { it.toDomain() }
     }
 
     override fun save(pet: Pet): Pet {
@@ -84,5 +32,9 @@ class PetPersistenceAdapter(
         return petJpaRepository.save(pet.toJpaEntity(userRef, breedRef)).toDomain()
     }
 
-    private fun flushClearedRepresentativesBeforeReassigning() = entityManager.flush()
+    override fun saveAndFlush(pet: Pet): Pet {
+        val saved = save(pet)
+        entityManager.flush()
+        return saved
+    }
 }

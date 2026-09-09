@@ -3,11 +3,7 @@ package com.petcampus.knockdog.domain.pet.application.port.output
 import com.petcampus.knockdog.domain.pet.domain.Pet
 
 interface SavePetPort {
-    fun registerWithinLimit(pet: Pet): Pet
-
     fun save(pet: Pet): Pet
 
-    fun setRepresentativeWithinLock(pet: Pet): Pet
-
-    fun deleteAndPromoteWithinLock(pet: Pet): Pet?
+    fun saveAndFlush(pet: Pet): Pet
 }

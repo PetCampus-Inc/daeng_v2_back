@@ -1,4 +1,4 @@
-> 생성: 2026-08-31 01:05 · 최종 수정: 2026-09-07 21:30
+> 생성: 2026-08-31 01:05 · 최종 수정: 2026-09-09
 
 # 예외·에러 코드 처리
 
@@ -92,7 +92,7 @@ catch-all(10번)이 프레임워크가 던지는, 아직 전용 핸들러가 없
 
 `GlobalExceptionHandler.kt`에는 이 처리 우선순위를 설명하는 주석을 코드에 남기지 않는다(`code-style.md` §1, 주석 금지) — 각 핸들러의 근거는 이 문서에 둔다.
 
-`IllegalStateException`(`check()` 실패)에 대한 전역 핸들러는 두지 않는다. `Pet.delete()`/`Pet.markAsRepresentative()`(KD3-433/434 예정)처럼 상태 위반을 던지는 API는 그 티켓에서 구현할 때 서비스 레이어가 명시적으로 잡아 해당 API에 맞는 `BusinessException`/에러코드로 변환한다(`CreatePetService.create()`의 `registerWithinLimit` 호출부가 이미 이 패턴이다) — `IllegalStateException` 타입 자체를 전역으로 잡으면 pet과 무관한 다른 도메인의 예상 못한 버그까지 409로 오분류될 위험이 있어 채택하지 않았다.
+`IllegalStateException`(`check()` 실패)에 대한 전역 핸들러는 두지 않는다. 도메인 메서드가 던지는 상태 위반이 실제로 발생할 수 있는 호출부라면, 그 서비스가 직접 잡아 해당 API에 맞는 `BusinessException`/에러코드로 변환한다 — `IllegalStateException` 타입 자체를 전역으로 잡으면 무관한 다른 도메인의 예상 못한 버그까지 오분류될 위험이 있어 채택하지 않았다.
 
 ## 4. 참고
 

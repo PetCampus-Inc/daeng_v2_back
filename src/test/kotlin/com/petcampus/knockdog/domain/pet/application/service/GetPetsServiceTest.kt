@@ -132,6 +132,8 @@ class GetPetsServiceTest {
         override fun findById(id: PetId): Pet? = pets.find { it.id == id }
 
         override fun findAllActiveByUserId(userId: Long): List<Pet> = pets
+
+        override fun findAllActiveByUserIdForUpdate(userId: Long): List<Pet> = pets
     }
 
     private class FakeLoadBreedPort(
