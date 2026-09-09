@@ -1,4 +1,4 @@
-> 생성: 2026-09-09 · 최종 수정: 2026-09-09 (구현·검증 결과 반영)
+> 생성: 2026-09-09 · 최종 수정: 2026-09-09 (PR 리뷰 반영: 범위 문구·검증 근거 정정)
 
 # KD3-497 pet 도메인 락 로직 리치 도메인 모델로 재배치
 
@@ -17,7 +17,7 @@
 
 ## 작업 목표
 
-`PetPersistenceAdapter`의 락 메서드(`registerWithinLimit`/`setRepresentativeWithinLock`/`deleteAndPromoteWithinLock`)에 남아있는 비즈니스 판단 로직(누가 대표견이 될지 등)을 리치 도메인 모델 원칙에 맞게 도메인(`Pet.kt`)과 서비스(오케스트레이션) 계층으로 재배치한다. **동작 변경 없음이 목표** — 새 기능이나 버그 수정이 아니라 순수 구조 개선.
+`PetPersistenceAdapter`의 락 메서드(`registerWithinLimit`/`setRepresentativeWithinLock`/`deleteAndPromoteWithinLock`)에 남아있는 비즈니스 판단 로직(누가 대표견이 될지 등)을 리치 도메인 모델 원칙에 맞게 도메인(`Pet.kt`)과 서비스(오케스트레이션) 계층으로 재배치한다. **의도한 API 동작 변경은 없음이 목표** — 새 기능을 추가하거나 API 응답·검증 규칙을 바꾸는 게 아니라 순수 구조 개선이다. 다만 구현 과정에서 실제 동시성 결함이 발견되면 그 수정은 이 범위에 포함한다(아래 "작업 범위" 참고) — 구조만 옮기고 기존 결함을 그대로 방치하면 "동작 유지"라는 목표 자체가 깨지기 때문이다.
 
 ## 작업 범위
 
@@ -28,10 +28,11 @@
 - `CreatePetService`/`SetRepresentativeService`/`DeletePetService`가 판단 로직을 직접 갖고 `PetLockOperations`·`Pet.selectNextRepresentative`·`SavePetPort`를 오케스트레이션하도록 재작성
 - `PetPersistenceAdapter`에서 `registerWithinLimit`/`setRepresentativeWithinLock`/`deleteAndPromoteWithinLock` 제거 — 순수 I/O(`save`/`saveAndFlush`/조회)만 남김
 - 관련 테스트 재구성(아래 "확정 사항"의 테스트 재구성 방식·동시성 테스트 전환 항목 참고)
+- (구현 중 발견) 서비스 경유 동시성 테스트가 드러낸 실제 낙관적 락 충돌 결함 수정 — "구현 및 검증 결과" 참고. 계획 단계에는 없었으나, 고치지 않으면 리팩터링 전후 동작이 달라져 "동작 유지"라는 목표를 어기게 되므로 이번 범위에 포함한다.
 
 ## 작업 제외 범위
 
-- 동작 변경(새 기능·버그 수정) — 이번 범위 아님, behavior parity가 목표
+- 의도적인 새 기능 추가나 API 응답·검증 규칙 변경 — 이번 범위 아님, API 동작은 유지하는 게 목표다(리팩터링 과정에서 드러난 기존 결함의 수정은 제외 대상이 아니다 — 위 "작업 범위" 참고)
 - pet 도메인 밖(kindergarten, auth 등)의 유사 패턴 — 발견되면 후속 과제로만 기록
 - `userCode`→`userId` 변환 중복 등 이미 문서화된 다른 후속 과제 — 이번 범위 아님
 
@@ -77,9 +78,11 @@
 
 ### 검증
 
-- `./gradlew build`(ktlint + 전체 테스트) 통과, 실패·에러 0건
-- 이전에 실패했던 `PetSetRepresentativeConcurrencyTest`/`PetDeleteAndPromoteConcurrencyTest`를 포함한 4개 동시성 테스트를 `--rerun`으로 총 5회 이상 반복 실행 — 전부 통과, 소요 시간도 정상 범위(20~40초)로 회귀 없음 확인
-- **로컬 MySQL 실제 HTTP 엔드투엔드 검증(2026-09-09)**: 로컬 Docker MySQL/Redis(이미 기동 중인 `knockdog-mysql-local`/`knockdog-redis-local`)에 `--spring.profiles.active=local`로 실제 서버를 띄우고, 테스트 사용자 2명(`E2E497AA`/`E2E497BB`)을 DB에 직접 추가한 뒤 `.env.local`의 `JWT_SECRET_KEY`로 동일한 서명 방식(jjwt, HS256)의 액세스 토큰을 발급해 검증했다(검증 후 pets·users 테스트 데이터 전부 삭제):
+**검증 가능성에 대한 안내**: 아래 항목 중 CI 링크가 있는 것(`./gradlew build`)은 PR 페이지에서 누구나 재확인할 수 있다. 나머지(동시성 테스트 반복 실행, 로컬 HTTP e2e, 독립 리뷰)는 이 세션이 로컬에서 직접 수행하고 그 결과를 여기 서술로 기록한 것으로, 로그·산출물이 저장소나 PR diff에 남지 않는다(로컬 e2e는 테스트 데이터를 검증 후 삭제했고, 독립 리뷰는 서브에이전트 실행 결과라 저장소에 커밋되지 않음) — 이전 pet 도메인 PR들(#17/#20/#21/#22)도 동일한 방식으로 기록해왔다. 이 기록만으로 독립 검증이 필요하면, 아래 각 항목에 적힌 재현 방법(테스트 클래스명, 실행 커맨드)으로 리뷰어가 직접 재실행해 확인할 수 있다.
+
+- `./gradlew build`(ktlint + 전체 테스트) 통과, 실패·에러 0건 — CI(`build`) 체크로 재확인 가능: https://github.com/PetCampus-Inc/daeng_v2_back/actions/runs/34304207419
+- (로컬 실행, 재현 가능하나 저장된 로그 없음) 이전에 실패했던 `PetSetRepresentativeConcurrencyTest`/`PetDeleteAndPromoteConcurrencyTest`를 포함한 4개 동시성 테스트를 `--rerun`으로 총 5회 이상 반복 실행 — 전부 통과, 소요 시간도 정상 범위(20~40초)로 회귀 없음 확인. 재현: `./gradlew test --tests "*.pet.adapter.outbound.persistence.Pet*ConcurrencyTest" --tests "*.pet.application.service.SetRepresentativeTransactionBoundaryTest" --rerun`
+- **로컬 MySQL 실제 HTTP 엔드투엔드 검증(2026-09-09, 로컬 실행·재현 가능하나 저장된 로그·산출물 없음)**: 로컬 Docker MySQL/Redis(이미 기동 중인 `knockdog-mysql-local`/`knockdog-redis-local`)에 `--spring.profiles.active=local`로 실제 서버를 띄우고, 테스트 사용자 2명(`E2E497AA`/`E2E497BB`)을 DB에 직접 추가한 뒤 `.env.local`의 `JWT_SECRET_KEY`로 동일한 서명 방식(jjwt, HS256)의 액세스 토큰을 발급해 검증했다(검증 후 pets·users 테스트 데이터 전부 삭제):
   - 1번째 등록 시 자동으로 대표견 지정(`isRepresentative: true`) 확인
   - 2~5번째 등록은 대표견 아님으로 등록됨 확인, 6번째 등록 시도는 400 `PET-400-1`(최대 5마리) 확인
   - `PUT /{petId}/representative`로 대표견 변경 확인, 다른 사용자가 남의 pet에 같은 요청을 보내면 403 `PET-403-1` 확인
