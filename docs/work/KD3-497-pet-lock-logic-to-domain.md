@@ -7,12 +7,13 @@
 | Jira | `KD3-497` |
 | 브랜치 | `refactor/KD3-497-pet-lock-logic-to-domain` (2026-09-09 생성, 사용자 지시로 AI가 생성 — `epic/KD3-404-pet-domain-migration`의 최신 origin tip 위에서 분기) |
 | 상위 에픽 | `KD3-404`(이미 `dev`로 PR #23 대기 중 — 이 리팩터링은 그 이후 완료된 pet 도메인 코드를 대상으로 함) |
+| PR | [#25](https://github.com/PetCampus-Inc/daeng_v2_back/pull/25) (`refactor/KD3-497-pet-lock-logic-to-domain` → `epic/KD3-404-pet-domain-migration`, 2026-09-09 생성) |
 
 ## 현재 제어점
 
 - 활성 workflow: `003-migration`
-- 현재 공통 단계: `5`(독립 리뷰·문서 동기화 완료 — `000-common.md`가 정의하는 공통 단계는 1~5뿐이며, 이전 기록의 "6"·"7"은 존재하지 않는 단계 번호를 잘못 적은 것이라 정정함)
-- 다음 결정 또는 전환 조건: 사용자가 지적한 DDD 적용 범위 문제(최대 마릿수·최초 등록 대표견 지정·대표견 교체 로직이 `selectNextRepresentative`와 달리 도메인으로 옮겨지지 않고 서비스에 raw 조건문으로 남아있던 것)를 사용자 승인 하에 반영 완료(2026-09-09, 아래 "구현 및 검증 결과" 참고) — 이제 커밋·푸시 여부만 사용자 확인하면 됨
+- 현재 공통 단계: `5`(독립 리뷰·문서 동기화 완료, PR #25 생성 완료)
+- 다음 결정 또는 전환 조건: PR 리뷰·머지 대기
 
 ## 작업 목표
 
