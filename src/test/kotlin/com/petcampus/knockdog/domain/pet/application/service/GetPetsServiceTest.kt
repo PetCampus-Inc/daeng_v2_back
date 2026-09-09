@@ -1,6 +1,7 @@
 package com.petcampus.knockdog.domain.pet.application.service
 
 import com.petcampus.knockdog.domain.auth.application.port.output.LoadUserPort
+import com.petcampus.knockdog.domain.auth.application.service.RequireUserId
 import com.petcampus.knockdog.domain.auth.domain.AddressType
 import com.petcampus.knockdog.domain.auth.domain.User
 import com.petcampus.knockdog.domain.auth.domain.UserAddress
@@ -77,7 +78,7 @@ class GetPetsServiceTest {
         userId: Long? = 1L,
         breed: BreedSummary? = BreedSummary(4L, "골든 리트리버", null),
     ) = GetPetsService(
-        loadUserPort = FakeLoadUserPort(userId),
+        requireUserId = RequireUserId(FakeLoadUserPort(userId)),
         loadPetPort = FakeLoadPetPort(pets),
         loadBreedPort = FakeLoadBreedPort(breed),
     )
@@ -90,7 +91,7 @@ class GetPetsServiceTest {
         isRepresentative: Boolean = false,
     ) = Pet.reconstitute(
         id = PetId(id),
-        userId = 1L,
+        userId = UserId(1L),
         name = name,
         profileImage = null,
         relationship = Relationship.GUARDIAN,
@@ -131,9 +132,9 @@ class GetPetsServiceTest {
     ) : LoadPetPort {
         override fun findById(id: PetId): Pet? = pets.find { it.id == id }
 
-        override fun findAllActiveByUserId(userId: Long): List<Pet> = pets
+        override fun findAllActiveByUserId(userId: UserId): List<Pet> = pets
 
-        override fun findAllActiveByUserIdForUpdate(userId: Long): List<Pet> = pets
+        override fun findAllActiveByUserIdForUpdate(userId: UserId): List<Pet> = pets
     }
 
     private class FakeLoadBreedPort(

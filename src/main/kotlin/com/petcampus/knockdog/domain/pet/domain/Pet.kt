@@ -1,10 +1,12 @@
 package com.petcampus.knockdog.domain.pet.domain
 
+import com.petcampus.knockdog.domain.auth.domain.UserId
 import java.time.LocalDateTime
+import java.time.Year
 
 class Pet private constructor(
     val id: PetId?,
-    val userId: Long,
+    val userId: UserId,
     name: String,
     profileImage: String?,
     relationship: Relationship,
@@ -68,6 +70,7 @@ class Pet private constructor(
         validateName(name)
         validateProfileImage(profileImage)
         validateRelationshipText(relationship, relationshipText)
+        validateBirthYear(birthYear)
         validateWeight(weight)
 
         this.name = name
@@ -134,7 +137,7 @@ class Pet private constructor(
         private const val RELATIONSHIP_TEXT_MAX_LENGTH = 100
 
         fun create(
-            userId: Long,
+            userId: UserId,
             name: String,
             profileImage: String?,
             relationship: Relationship,
@@ -149,6 +152,7 @@ class Pet private constructor(
             validateName(name)
             validateProfileImage(profileImage)
             validateRelationshipText(relationship, relationshipText)
+            validateBirthYear(birthYear)
             validateWeight(weight)
 
             return Pet(
@@ -171,7 +175,7 @@ class Pet private constructor(
 
         fun reconstitute(
             id: PetId,
-            userId: Long,
+            userId: UserId,
             name: String,
             profileImage: String?,
             relationship: Relationship,
@@ -231,5 +235,16 @@ class Pet private constructor(
             require(weight in WEIGHT_RANGE) { "weight는 ${WEIGHT_RANGE.start}~${WEIGHT_RANGE.endInclusive} 범위여야 합니다." }
             require(weight % 1.0 == 0.0) { "weight는 소수점 없는 정수 값이어야 합니다." }
         }
+
+        private fun validateBirthYear(birthYear: Int?) {
+            if (birthYear != null) {
+                val currentYear = Year.now().value
+                require(birthYear in currentYear - BIRTH_YEAR_RANGE..currentYear) {
+                    "birthYear는 최근 ${BIRTH_YEAR_RANGE}년 이내여야 합니다."
+                }
+            }
+        }
+
+        private const val BIRTH_YEAR_RANGE = 30
     }
 }

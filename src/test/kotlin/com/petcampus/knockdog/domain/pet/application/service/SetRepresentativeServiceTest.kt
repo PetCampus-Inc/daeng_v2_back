@@ -1,7 +1,9 @@
 package com.petcampus.knockdog.domain.pet.application.service
 
+import com.petcampus.knockdog.domain.auth.application.AuthErrorCode
 import com.petcampus.knockdog.domain.auth.application.port.output.LoadUserPort
 import com.petcampus.knockdog.domain.auth.application.port.output.LockUserPort
+import com.petcampus.knockdog.domain.auth.application.service.RequireUserId
 import com.petcampus.knockdog.domain.auth.domain.AddressType
 import com.petcampus.knockdog.domain.auth.domain.User
 import com.petcampus.knockdog.domain.auth.domain.UserAddress
@@ -103,13 +105,23 @@ class SetRepresentativeServiceTest {
         assertEquals(PetErrorCode.NOT_AUTHORIZED, exception.errorCode)
     }
 
+    @Test
+    fun `존재하지 않는 사용자면 NOT_FOUND_USER를 던진다`() {
+        val service = service(pet = null, activePets = emptyList(), userId = null)
+
+        val exception = assertFailsWith<BusinessException> { service.setRepresentative(command(petId = PetId(1L))) }
+
+        assertEquals(AuthErrorCode.NOT_FOUND_USER, exception.errorCode)
+    }
+
     private fun service(
         pet: Pet?,
         activePets: List<Pet>,
         breed: BreedSummary? = BreedSummary(4L, "골든 리트리버", null),
         savePetPort: SavePetPort = RecordingSavePetPort(),
+        userId: Long? = 1L,
     ) = SetRepresentativeService(
-        loadUserPort = FakeLoadUserPort(userId = 1L),
+        requireUserId = RequireUserId(FakeLoadUserPort(userId)),
         loadPetPort = FakeLoadPetPort(pet, activePets),
         loadBreedPort = FakeLoadBreedPort(breed),
         savePetPort = savePetPort,
@@ -124,7 +136,7 @@ class SetRepresentativeServiceTest {
         isRepresentative: Boolean = false,
     ) = Pet.reconstitute(
         id = PetId(id),
-        userId = userId,
+        userId = UserId(userId),
         name = "호두$id",
         profileImage = null,
         relationship = Relationship.GUARDIAN,
@@ -139,23 +151,25 @@ class SetRepresentativeServiceTest {
     )
 
     private class FakeLoadUserPort(
-        private val userId: Long,
+        private val userId: Long?,
     ) : LoadUserPort {
         override fun findById(id: UserId): User? = null
 
         override fun findByCode(code: UserCode): User? =
-            User.reconstitute(
-                id = UserId(userId),
-                code = code,
-                nickname = null,
-                profileImage = null,
-                infoReceiveEmail = null,
-                gender = null,
-                phoneNumber = null,
-                emergencyPhoneNumber = null,
-                addresses = listOf(UserAddress.create(AddressType.HOME, null, "서울", null, 0.0, 0.0)),
-                deletedAt = null,
-            )
+            userId?.let {
+                User.reconstitute(
+                    id = UserId(it),
+                    code = code,
+                    nickname = null,
+                    profileImage = null,
+                    infoReceiveEmail = null,
+                    gender = null,
+                    phoneNumber = null,
+                    emergencyPhoneNumber = null,
+                    addresses = listOf(UserAddress.create(AddressType.HOME, null, "서울", null, 0.0, 0.0)),
+                    deletedAt = null,
+                )
+            }
     }
 
     private class FakeLoadPetPort(
@@ -164,9 +178,9 @@ class SetRepresentativeServiceTest {
     ) : LoadPetPort {
         override fun findById(id: PetId): Pet? = pet
 
-        override fun findAllActiveByUserId(userId: Long): List<Pet> = activePets
+        override fun findAllActiveByUserId(userId: UserId): List<Pet> = activePets
 
-        override fun findAllActiveByUserIdForUpdate(userId: Long): List<Pet> = activePets
+        override fun findAllActiveByUserIdForUpdate(userId: UserId): List<Pet> = activePets
     }
 
     private class FakeLoadBreedPort(
@@ -176,7 +190,7 @@ class SetRepresentativeServiceTest {
     }
 
     private class NoopLockUserPort : LockUserPort {
-        override fun lockById(userId: Long) = Unit
+        override fun lockById(userId: UserId) = Unit
     }
 
     private class RecordingSavePetPort : SavePetPort {

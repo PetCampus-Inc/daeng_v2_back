@@ -1,6 +1,8 @@
 package com.petcampus.knockdog.domain.pet.application.service
 
+import com.petcampus.knockdog.domain.auth.application.AuthErrorCode
 import com.petcampus.knockdog.domain.auth.application.port.output.LoadUserPort
+import com.petcampus.knockdog.domain.auth.application.service.RequireUserId
 import com.petcampus.knockdog.domain.auth.domain.AddressType
 import com.petcampus.knockdog.domain.auth.domain.User
 import com.petcampus.knockdog.domain.auth.domain.UserAddress
@@ -164,11 +166,21 @@ class UpdatePetServiceTest {
         }
     }
 
+    @Test
+    fun `존재하지 않는 사용자면 NOT_FOUND_USER를 던진다`() {
+        val service = service(pet = null, userId = null)
+
+        val exception = assertFailsWith<BusinessException> { service.update(command(petId = PetId(1L))) }
+
+        assertEquals(AuthErrorCode.NOT_FOUND_USER, exception.errorCode)
+    }
+
     private fun service(
         pet: Pet?,
         breed: BreedSummary? = BreedSummary(4L, "골든 리트리버", null),
+        userId: Long? = 1L,
     ) = UpdatePetService(
-        loadUserPort = FakeLoadUserPort(userId = 1L),
+        requireUserId = RequireUserId(FakeLoadUserPort(userId)),
         loadPetPort = FakeLoadPetPort(pet),
         loadBreedPort = FakeLoadBreedPort(breed),
         savePetPort = FakeSavePetPort(),
@@ -183,7 +195,7 @@ class UpdatePetServiceTest {
         weight: Double = 10.0,
     ) = Pet.reconstitute(
         id = PetId(1L),
-        userId = userId,
+        userId = UserId(userId),
         name = name,
         profileImage = profileImage,
         relationship = relationship,
@@ -219,23 +231,25 @@ class UpdatePetServiceTest {
     )
 
     private class FakeLoadUserPort(
-        private val userId: Long,
+        private val userId: Long?,
     ) : LoadUserPort {
         override fun findById(id: UserId): User? = null
 
         override fun findByCode(code: UserCode): User? =
-            User.reconstitute(
-                id = UserId(userId),
-                code = code,
-                nickname = null,
-                profileImage = null,
-                infoReceiveEmail = null,
-                gender = null,
-                phoneNumber = null,
-                emergencyPhoneNumber = null,
-                addresses = listOf(UserAddress.create(AddressType.HOME, null, "서울", null, 0.0, 0.0)),
-                deletedAt = null,
-            )
+            userId?.let {
+                User.reconstitute(
+                    id = UserId(it),
+                    code = code,
+                    nickname = null,
+                    profileImage = null,
+                    infoReceiveEmail = null,
+                    gender = null,
+                    phoneNumber = null,
+                    emergencyPhoneNumber = null,
+                    addresses = listOf(UserAddress.create(AddressType.HOME, null, "서울", null, 0.0, 0.0)),
+                    deletedAt = null,
+                )
+            }
     }
 
     private class FakeLoadPetPort(
@@ -243,9 +257,9 @@ class UpdatePetServiceTest {
     ) : LoadPetPort {
         override fun findById(id: PetId): Pet? = pet
 
-        override fun findAllActiveByUserId(userId: Long): List<Pet> = emptyList()
+        override fun findAllActiveByUserId(userId: UserId): List<Pet> = emptyList()
 
-        override fun findAllActiveByUserIdForUpdate(userId: Long): List<Pet> = emptyList()
+        override fun findAllActiveByUserIdForUpdate(userId: UserId): List<Pet> = emptyList()
     }
 
     private class FakeLoadBreedPort(

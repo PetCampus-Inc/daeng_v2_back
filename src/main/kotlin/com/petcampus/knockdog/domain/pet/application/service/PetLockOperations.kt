@@ -1,6 +1,7 @@
 package com.petcampus.knockdog.domain.pet.application.service
 
 import com.petcampus.knockdog.domain.auth.application.port.output.LockUserPort
+import com.petcampus.knockdog.domain.auth.domain.UserId
 import com.petcampus.knockdog.domain.pet.application.port.output.LoadPetPort
 import com.petcampus.knockdog.domain.pet.domain.Pet
 import org.springframework.stereotype.Component
@@ -11,7 +12,7 @@ class PetLockOperations(
     private val loadPetPort: LoadPetPort,
 ) {
     fun <T> withLockedActivePets(
-        userId: Long,
+        userId: UserId,
         block: (List<Pet>) -> T,
     ): T {
         lockUserPort.lockById(userId)

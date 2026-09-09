@@ -3,6 +3,7 @@ package com.petcampus.knockdog.domain.pet.adapter.outbound.persistence
 import com.petcampus.knockdog.domain.auth.adapter.outbound.persistence.UserJpaEntity
 import com.petcampus.knockdog.domain.auth.adapter.outbound.persistence.UserJpaRepository
 import com.petcampus.knockdog.domain.auth.domain.UserCode
+import com.petcampus.knockdog.domain.auth.domain.UserId
 import com.petcampus.knockdog.domain.breed.adapter.outbound.persistence.BreedJpaEntity
 import com.petcampus.knockdog.domain.breed.adapter.outbound.persistence.BreedJpaRepository
 import com.petcampus.knockdog.domain.pet.application.PetErrorCode
@@ -177,7 +178,7 @@ class PetRegistrationConcurrencyTest {
 
     private fun newPet(name: String): Pet =
         Pet.create(
-            userId = userId,
+            userId = UserId(userId),
             name = name,
             profileImage = null,
             relationship = Relationship.GUARDIAN,
