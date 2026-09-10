@@ -1,4 +1,4 @@
-> 생성: 2026-09-09 16:30 · 최종 수정: 2026-09-10 13:00
+> 생성: 2026-09-09 16:30 · 최종 수정: 2026-09-10 14:00
 
 # KD3-469 유치원 비교 조회 API 개발
 
@@ -152,12 +152,13 @@ operatingSchedule: {
 
 ## 완료 확인 기준
 
-### 테스트 (2026-09-10, `./gradlew clean test ktlintCheck` — 총 149개, 실패 0, ArchUnit 통과)
+### 테스트 (2026-09-10, `./gradlew clean test ktlintCheck` — 총 154개, 실패 0, ArchUnit 통과)
 
-- `KindergartenPricingComparisonCalculatorTest` (6) — min/max, 정책별·서비스별 `round(mean(hourlyPrice))`, hourlyPrice null 행 제외, 대상 없으면 0, price 전부 없는 서비스종류 제외, 빈 메뉴 → null.
-- `CompareKindergartensServiceTest` (7) — ids 2개 아님 → `COMPARISON_TARGET_COUNT`, 중복 → `COMPARISON_TARGET_DUPLICATED`, 없는 id → `RESOURCE_NOT_FOUND`, 결과 순서 = 요청 순서, lat/lng 기준점 = OTHER 1개, 로그인 주소 기준점 HOME 먼저, 비로그인·위치없음 → 빈 목록.
-- `KindergartenComparisonResponseTest` (6) — pricing 조립, `operatingSchedule` DEFAULT 프로필 우선, 영업시간 빈 값 → null, distance 기준점별 직선거리 + `transitTimes` 빈 배열, 좌표 없는 유치원 → distance 빈 배열.
-- `KindergartenComparisonEndpointTest` (5, `@SpringBootTest`+MockMvc) — 비로그인 200, ids 2개 아님 400 `COMPARISON_TARGET_COUNT`, 없는 유치원 404 `RESOURCE_NOT_FOUND`, lat/lng → OTHER 1개, 로그인 → 저장 주소(HOME) 기준점.
+- `KindergartenPricingComparisonCalculatorTest` (7) — min/max, 정책별·서비스별 `round(mean(hourlyPrice))`, hourlyPrice null 행 제외, 대상 없으면 0, price·hourlyPrice 전부 null → null, price 전부 없는 서비스종류 제외, 빈 메뉴 → null.
+- `CompareKindergartensServiceTest` (8) — ids 2개 아님/3곳 → `COMPARISON_TARGET_COUNT`, 중복 → `COMPARISON_TARGET_DUPLICATED`, 없는 id → `RESOURCE_NOT_FOUND`, 결과 순서 = 요청 순서, lat/lng 기준점 = OTHER 1개, 로그인 주소 기준점 HOME 먼저, 비로그인·위치없음 → 빈 목록.
+- `KindergartenComparisonResponseTest` (6) — pricing 조립, `operatingSchedule` DEFAULT 프로필 우선, 영업시간 빈 값 → null, distance 기준점별 직선거리 값(`"7.6km"`/`"8.8km"`) + `transitTimes` 빈 배열, 좌표 없는 유치원 → distance 빈 배열.
+- `KindergartenComparisonEndpointTest` (6, `@SpringBootTest`+MockMvc) — 비로그인 200, `operatingSchedule.weekday.open`이 `"09:00"` JSON으로, ids 2개 아님 400 `COMPARISON_TARGET_COUNT`, 없는 유치원 404 `RESOURCE_NOT_FOUND`, lat/lng → OTHER 1개, 로그인 → 저장 주소(HOME) 기준점.
+- `ComparisonAddressAdapterTest` (2) — `AddressType` 매핑 양쪽, 유저 없음 → 빈 목록.
 
 ### KEEP API 로컬 응답 대조 (`003-migration.md` §4)
 

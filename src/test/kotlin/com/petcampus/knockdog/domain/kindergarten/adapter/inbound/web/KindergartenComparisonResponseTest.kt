@@ -139,8 +139,8 @@ class KindergartenComparisonResponseTest {
         val distance = KindergartenComparisonResponse.from(kindergarten(lat = 37.5663, lng = 126.9779), points).distance
 
         assertEquals(listOf("HOME", "OTHER"), distance.map { it.referencePoint })
+        assertEquals(listOf("7.6km", "8.8km"), distance.map { it.distance })
         assertEquals(emptyList(), distance.first().transitTimes)
-        assertEquals(true, distance.all { it.distance.endsWith("km") })
     }
 
     @Test

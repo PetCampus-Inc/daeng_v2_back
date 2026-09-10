@@ -7,6 +7,7 @@ import com.petcampus.knockdog.domain.kindergarten.application.port.output.LoadKi
 import com.petcampus.knockdog.domain.kindergarten.domain.ComparisonReferencePoint
 import com.petcampus.knockdog.domain.kindergarten.domain.ComparisonReferencePointType
 import com.petcampus.knockdog.domain.kindergarten.domain.Kindergarten
+import com.petcampus.knockdog.domain.kindergarten.domain.KindergartenBusinessHour
 import com.petcampus.knockdog.domain.kindergarten.domain.KindergartenId
 import com.petcampus.knockdog.domain.kindergarten.domain.KindergartenSource
 import com.petcampus.knockdog.domain.kindergarten.domain.KindergartenStatus
@@ -22,6 +23,8 @@ import org.springframework.test.web.servlet.MockMvc
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
+import java.time.DayOfWeek
+import java.time.LocalTime
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -42,6 +45,16 @@ class KindergartenComparisonEndpointTest {
             .andExpect(jsonPath("$.data[0].id").value("A"))
             .andExpect(jsonPath("$.data[0].service").isArray)
             .andExpect(jsonPath("$.data[0].distance").isEmpty)
+    }
+
+    @Test
+    fun `operatingSchedule은 weekday-weekend를 open-close 객체로 내려준다`() {
+        mockMvc
+            .perform(get("/api/v1/kindergartens/comparisons").param("ids", "A").param("ids", "B"))
+            .andExpect(status().isOk)
+            .andExpect(jsonPath("$.data[0].operatingSchedule.weekday.open").value("09:00"))
+            .andExpect(jsonPath("$.data[0].operatingSchedule.weekday.close").value("20:00"))
+            .andExpect(jsonPath("$.data[0].operatingSchedule.closedDays[0]").value("SUNDAY"))
     }
 
     @Test
@@ -108,7 +121,17 @@ class KindergartenComparisonEndpointTest {
                 source = KindergartenSource.CRAWLED,
                 status = KindergartenStatus.ACTIVE,
                 categories = emptyList(),
-                businessHours = emptyList(),
+                businessHours =
+                    listOf(
+                        KindergartenBusinessHour(
+                            name = "DEFAULT",
+                            weekdayOpen = LocalTime.of(9, 0),
+                            weekdayClose = LocalTime.of(20, 0),
+                            weekendOpen = LocalTime.of(10, 0),
+                            weekendClose = LocalTime.of(18, 0),
+                            offdays = listOf(DayOfWeek.SUNDAY),
+                        ),
+                    ),
                 links = emptyList(),
                 options = emptyList(),
                 priceImages = emptyList(),
