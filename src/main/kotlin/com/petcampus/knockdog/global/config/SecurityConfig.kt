@@ -47,6 +47,7 @@ class SecurityConfig(
                 "/api/v0/auth/refresh",
                 "/api/v0/auth/logout",
                 "/api/v1/users",
+                "/api/v1/kindergartens/comparisons",
                 "/error",
             )
     }

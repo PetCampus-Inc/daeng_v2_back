@@ -1,4 +1,4 @@
-> 생성: 2026-09-02 · 최종 수정: 2026-09-03 11:05
+> 생성: 2026-09-02 · 최종 수정: 2026-09-10 11:35
 
 # kindergarten 도메인 마이그레이션 지시서
 
@@ -29,8 +29,18 @@
 | `GET /api/v1/kindergartens/{id}/summary` | 유치원 요약(상단 고정 헤더용) — 이름·카테고리·주소·영업상태·최저가·거리·리뷰수·태그·배너 |
 | `GET /api/v1/kindergartens/{id}/detail` | 유치원 상세("기본정보" 탭) — 주소·좌표·영업시간·견종/서비스/시설 태그·SNS 링크 |
 | `GET /api/v1/kindergartens/{id}/pricing` | 요금표("요금" 탭) — 상품유형·카테고리별 상품·가격표 이미지 |
+| `GET /api/v1/kindergartens/comparisons?ids=A&ids=B&lat=&lng=` | 유치원 비교("비교하기") — 정확히 2곳의 요금 집계·서비스 태그·영업시간·거리를 나란히 반환([`KD3-469`](../work/KD3-469-kindergarten-comparison.md)) |
 
 `{id}`는 `kindergartens.naver_place_id`(§0)다. 아직 없는 것(지도/좌표 기반 동적 조회, 지도-카운트 등)과 그 판정 근거는 [`docs/inventory/api.md`](../inventory/api.md)(kindergarten 행)에서 관리한다 — 여기서 다시 나열하지 않는다.
+
+### 1-1. 비교(`comparisons`) 상세
+
+- **비로그인 허용** — `SecurityConfig.PUBLIC_ENDPOINTS`. 로그인 시 `@AuthenticationPrincipal`(UserCode)로 저장 주소를 거리 기준점에 쓴다.
+- **요금(`pricing`)은 `kindergarten_menus`에서 재계산한다.** 레거시는 크롤러가 만든 `product_pricing.json`을 Redis에 얹어 썼는데, 이 파일도 `avg_price_per_time.json`도 이미 시딩된 `price_and_product.json`보다 낡은 크롤이다(394개 그룹 중 82%만 `round(mean(hourly_price))`와 일치, 나머지는 레거시가 더 큼, 크롤러 공식은 저장소에 없음). `KindergartenPricingComparisonCalculator`가 `serviceType`별 `price` 최저/최고와 요금정책(`COUNT_TICKET`/`MONTHLY_TICKET`)별 `round(mean(hourlyPrice))`를 계산한다. 값이 레거시와 달라도 프론트는 비교·포맷팅에만 써서 영향 없다.
+- **`transitTimes`는 항상 빈 배열** — 도보·자동차·대중교통 소요시간은 TMAP/네이버 연동이 필요해 `KD3-499`로 분리했다. `distance[].distance`(직선거리 `"9.6km"`)는 채운다.
+- **거리 기준점(`referencePoint`)** — `lat`+`lng` 쿼리가 오면 `OTHER` 하나, 없고 로그인했으면 저장 주소별(`HOME` 먼저), 둘 다 없으면 `distance: []`.
+- **`serviceType` 응답 필드** — 레거시는 `productType`이었다. 도메인·DTO 필드명 일치 규칙([`code-style.md`](../conventions/code-style.md) §3)에 따라 `serviceType`으로 통일했다. 프론트 수정 필요.
+- **`operatingSchedule`** — 레거시 `weekdayHours`/`weekendHours` 문자열(`"09:00~20:00"`)을 `weekday`/`weekend` `{open, close}` 구조로 바꿨다(`detail`의 `BusinessHours`와 동일, `LocalTime` → `"09:00"`). 프론트 수정 필요. `businessHours` 프로필은 `name == "DEFAULT"` 우선, 없으면 첫 번째.
 
 ## 2. 레거시에서 발견해 `v1`에서 고친 버그 (로컬 응답 대조 시 참고)
 
