@@ -12,7 +12,6 @@ class MemoTest {
 
         assertNull(memo.content)
         assertNull(memo.id)
-        assertEquals(emptyList(), memo.photos)
     }
 
     @Test
@@ -30,32 +29,12 @@ class MemoTest {
     }
 
     @Test
-    fun `withContent는 id와 photos를 유지한 채 content만 바꾼다`() {
-        val original =
-            Memo.reconstitute(
-                MemoId(7L),
-                "A1B2C3D4",
-                "1234567890",
-                "old",
-                listOf(MemoPhoto("memo/A1B2C3D4/a.jpg", 0)),
-            )
+    fun `withContent는 id를 유지한 채 content만 바꾼다`() {
+        val original = Memo.reconstitute(MemoId(7L), "A1B2C3D4", "1234567890", "old")
 
         val updated = original.withContent("new")
 
         assertEquals("new", updated.content)
         assertEquals(MemoId(7L), updated.id)
-        assertEquals(1, updated.photos.size)
-    }
-
-    @Test
-    fun `withPhotos는 sortOrder로 정렬하고 6장이면 불변식 위반`() {
-        val memo = Memo.create("A1B2C3D4", "1234567890", null)
-
-        val withTwo = memo.withPhotos(listOf(MemoPhoto("b", 1), MemoPhoto("a", 0)))
-        assertEquals(listOf("a", "b"), withTwo.photos.map { it.objectKey })
-
-        assertFailsWith<IllegalArgumentException> {
-            memo.withPhotos((1..6).map { MemoPhoto("k$it", it) })
-        }
     }
 }

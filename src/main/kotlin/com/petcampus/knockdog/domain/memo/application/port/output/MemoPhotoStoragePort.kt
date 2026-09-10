@@ -7,6 +7,8 @@ interface MemoPhotoStoragePort {
     ): CommittedPhoto
 
     fun viewUrlFor(objectKey: String): String
+
+    fun delete(objectKey: String)
 }
 
 data class CommittedPhoto(

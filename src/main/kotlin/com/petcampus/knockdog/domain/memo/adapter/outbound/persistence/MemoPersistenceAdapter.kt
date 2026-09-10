@@ -5,7 +5,6 @@ import com.petcampus.knockdog.domain.memo.application.port.output.MemoSummary
 import com.petcampus.knockdog.domain.memo.application.port.output.SaveMemoPort
 import com.petcampus.knockdog.domain.memo.domain.Memo
 import com.petcampus.knockdog.domain.memo.domain.MemoId
-import com.petcampus.knockdog.domain.memo.domain.MemoPhoto
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
 import java.time.LocalDateTime
@@ -13,14 +12,13 @@ import java.time.LocalDateTime
 @Component
 class MemoPersistenceAdapter(
     private val memoJpaRepository: MemoJpaRepository,
-    private val memoPhotoJpaRepository: MemoPhotoJpaRepository,
 ) : LoadMemoPort,
     SaveMemoPort {
     @Transactional(readOnly = true)
     override fun findByUserCodeAndTargetId(
         userCode: String,
         targetId: String,
-    ): Memo? = memoJpaRepository.findByUserCodeAndTargetId(userCode, targetId)?.let { assemble(it) }
+    ): Memo? = memoJpaRepository.findByUserCodeAndTargetId(userCode, targetId)?.toDomain()
 
     @Transactional(readOnly = true)
     override fun findSummariesByUserCode(userCode: String): List<MemoSummary> =
@@ -37,32 +35,14 @@ class MemoPersistenceAdapter(
                     updatedAt = LocalDateTime.now()
                 }
             } ?: MemoJpaEntity(userCode = memo.userCode, targetId = memo.targetId, content = memo.content)
-        val savedRoot = memoJpaRepository.save(entity)
-        val rootId = requireNotNull(savedRoot.id)
-
-        memoPhotoJpaRepository.deleteAllByMemoId(rootId)
-        memoPhotoJpaRepository.flush()
-        memoPhotoJpaRepository.saveAll(
-            memo.photos.mapIndexed { index, photo ->
-                MemoPhotoJpaEntity(memoId = rootId, objectKey = photo.objectKey, sortOrder = index)
-            },
-        )
-
-        return assemble(savedRoot)
-    }
-
-    private fun assemble(entity: MemoJpaEntity): Memo {
-        val id = requireNotNull(entity.id)
-        val photos =
-            memoPhotoJpaRepository
-                .findAllByMemoIdOrderBySortOrder(id)
-                .map { MemoPhoto(objectKey = it.objectKey, sortOrder = it.sortOrder) }
-        return Memo.reconstitute(
-            id = MemoId(id),
-            userCode = entity.userCode,
-            targetId = entity.targetId,
-            content = entity.content,
-            photos = photos,
-        )
+        return memoJpaRepository.save(entity).toDomain()
     }
 }
+
+private fun MemoJpaEntity.toDomain(): Memo =
+    Memo.reconstitute(
+        id = MemoId(requireNotNull(id)),
+        userCode = userCode,
+        targetId = targetId,
+        content = content,
+    )

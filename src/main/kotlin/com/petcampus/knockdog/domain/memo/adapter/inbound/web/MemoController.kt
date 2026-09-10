@@ -33,12 +33,7 @@ class MemoController(
     ): Response<MemoResponse> {
         val view =
             saveMemoUseCase.save(
-                SaveMemoCommand(
-                    userCode = userCode,
-                    targetId = targetId,
-                    content = request.content,
-                    photoKeys = request.photoKeys ?: emptyList(),
-                ),
+                SaveMemoCommand(userCode = userCode, targetId = targetId, content = request.content),
             )
         return Response.success(view.toResponse())
     }
@@ -46,7 +41,6 @@ class MemoController(
 
 data class SaveMemoRequest(
     val content: String? = null,
-    val photoKeys: List<String>? = null,
 )
 
 data class MemoResponse(
@@ -54,6 +48,7 @@ data class MemoResponse(
     val photos: List<PhotoResponse>,
 ) {
     data class PhotoResponse(
+        val id: Long,
         val key: String,
         val url: String,
     )
@@ -62,5 +57,5 @@ data class MemoResponse(
 private fun MemoView.toResponse() =
     MemoResponse(
         content = content,
-        photos = photos.map { MemoResponse.PhotoResponse(it.key, it.url) },
+        photos = photos.map { MemoResponse.PhotoResponse(id = it.id, key = it.key, url = it.url) },
     )

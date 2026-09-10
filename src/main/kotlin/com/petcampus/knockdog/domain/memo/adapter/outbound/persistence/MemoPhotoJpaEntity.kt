@@ -15,8 +15,10 @@ class MemoPhotoJpaEntity(
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id")
     val id: Long? = null,
-    @Column(name = "memo_id", nullable = false)
-    val memoId: Long,
+    @Column(name = "user_code", nullable = false, length = 8)
+    val userCode: String,
+    @Column(name = "target_id", nullable = false, length = 100)
+    val targetId: String,
     @Column(name = "object_key", nullable = false, length = 512)
     val objectKey: String,
     @Column(name = "sort_order", nullable = false)

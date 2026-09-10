@@ -8,5 +8,4 @@ data class SaveMemoCommand(
     val userCode: String,
     val targetId: String,
     val content: String?,
-    val photoKeys: List<String>,
 )

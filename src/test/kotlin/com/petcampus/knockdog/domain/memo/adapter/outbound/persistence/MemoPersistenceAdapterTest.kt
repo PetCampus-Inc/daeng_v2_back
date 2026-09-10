@@ -1,7 +1,6 @@
 package com.petcampus.knockdog.domain.memo.adapter.outbound.persistence
 
 import com.petcampus.knockdog.domain.memo.domain.Memo
-import com.petcampus.knockdog.domain.memo.domain.MemoPhoto
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
@@ -36,26 +35,6 @@ class MemoPersistenceAdapterTest {
         assertEquals(first.id, updated.id)
         assertEquals("v2", adapter.findByUserCodeAndTargetId("A1B2C3D4", "place-1")!!.content)
         assertEquals(1, adapter.findSummariesByUserCode("A1B2C3D4").size)
-    }
-
-    @Test
-    fun `photos는 sort_order대로 저장·조회되고 재저장 시 전량 교체된다`() {
-        val saved =
-            adapter.save(
-                Memo
-                    .create("A1B2C3D4", "place-1", "m")
-                    .withPhotos(listOf(MemoPhoto("memo/A1B2C3D4/b.jpg", 1), MemoPhoto("memo/A1B2C3D4/a.jpg", 0))),
-            )
-        assertEquals(
-            listOf("memo/A1B2C3D4/a.jpg", "memo/A1B2C3D4/b.jpg"),
-            adapter.findByUserCodeAndTargetId("A1B2C3D4", "place-1")!!.photos.map { it.objectKey },
-        )
-
-        adapter.save(saved.withPhotos(listOf(MemoPhoto("memo/A1B2C3D4/c.jpg", 0))))
-        assertEquals(
-            listOf("memo/A1B2C3D4/c.jpg"),
-            adapter.findByUserCodeAndTargetId("A1B2C3D4", "place-1")!!.photos.map { it.objectKey },
-        )
     }
 
     @Test

@@ -12,6 +12,7 @@ data class MemoView(
     val photos: List<PhotoView>,
 ) {
     data class PhotoView(
+        val id: Long,
         val key: String,
         val url: String,
     )

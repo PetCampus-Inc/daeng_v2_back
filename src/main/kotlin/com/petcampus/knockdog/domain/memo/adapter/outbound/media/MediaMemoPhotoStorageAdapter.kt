@@ -4,6 +4,8 @@ import com.petcampus.knockdog.domain.media.application.port.input.CommitObjectCo
 import com.petcampus.knockdog.domain.media.application.port.input.CommitObjectUseCase
 import com.petcampus.knockdog.domain.media.application.port.input.IssueDownloadUrlCommand
 import com.petcampus.knockdog.domain.media.application.port.input.IssueDownloadUrlUseCase
+import com.petcampus.knockdog.domain.media.application.port.output.ObjectStoragePort
+import com.petcampus.knockdog.domain.media.domain.ObjectKey
 import com.petcampus.knockdog.domain.memo.application.port.output.CommittedPhoto
 import com.petcampus.knockdog.domain.memo.application.port.output.MemoPhotoStoragePort
 import org.springframework.stereotype.Component
@@ -12,6 +14,7 @@ import org.springframework.stereotype.Component
 class MediaMemoPhotoStorageAdapter(
     private val commitObjectUseCase: CommitObjectUseCase,
     private val issueDownloadUrlUseCase: IssueDownloadUrlUseCase,
+    private val objectStoragePort: ObjectStoragePort,
 ) : MemoPhotoStoragePort {
     override fun commitUploaded(
         userCode: String,
@@ -22,4 +25,8 @@ class MediaMemoPhotoStorageAdapter(
     }
 
     override fun viewUrlFor(objectKey: String): String = issueDownloadUrlUseCase.issue(IssueDownloadUrlCommand(objectKey)).url
+
+    override fun delete(objectKey: String) {
+        objectStoragePort.delete(ObjectKey(objectKey))
+    }
 }
