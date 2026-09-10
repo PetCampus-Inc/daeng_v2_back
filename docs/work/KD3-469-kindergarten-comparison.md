@@ -1,4 +1,4 @@
-> 생성: 2026-09-09 16:30 · 최종 수정: 2026-09-10 14:00
+> 생성: 2026-09-09 16:30 · 최종 수정: 2026-09-10 15:00
 
 # KD3-469 유치원 비교 조회 API 개발
 
@@ -18,7 +18,7 @@
 
 레거시 `GET /api/v0/kindergarten/comparisons`(인벤토리 판정 `KEEP`)를 신규 서버 `GET /api/v1/kindergartens/comparisons`로 이관한다. ADR 0012에 따라 `v0` 경로는 만들지 않고 `v1`만 제공하며, 응답 **내용**이 레거시와 기능적으로 같아야 한다(경로는 다름).
 
-- 유치원 2곳 이상을 받아 나란히 비교할 데이터를 배열로 반환한다.
+- 유치원 정확히 2곳을 받아 나란히 비교할 데이터를 배열로 반환한다(§확정 사항).
 - 응답 필드: `id`, `name`, `thumbnailS3Key`, `categories`, `pricing`, `service`, `distance`, `operatingSchedule` (레거시 `ComparisonResponse`와 동일).
 - 이동시간(`distance[].transitTimes`)과 비교 히스토리는 이 티켓 범위 밖(각각 KD3-499, KD3-496).
 
@@ -71,7 +71,7 @@
 | `service` | `KindergartenServiceTags.allOf(kindergarten)` — 견종/서비스/안전시설/편의시설 4개 옵션그룹 코드 목록. 프론트 `DogServiceSection`이 대조하는 `TOTAL_SERVICE_MAP` 키와 1:1이다. 레거시 `ServiceTag` enum의 파생 태그(`OPEN_NOW` 등)는 프론트 비교 맵에 키가 없어 무시되므로 쓰지 않는다. v1 `summary`와 자동으로 일치 |
 | `operatingSchedule` | `businessHours` 프로필 1개(`name == "DEFAULT"` 우선, 없으면 첫 번째) → 아래 구조. `weekday`/`weekend`는 `KindergartenDetailResponse.BusinessHours`의 `TimeRange`와 같은 모양 |
 
-```
+```text
 operatingSchedule: {
   weekday: { open: LocalTime, close: LocalTime } | null,   // "09:00" / "20:00"
   weekend: { open: LocalTime, close: LocalTime } | null,
