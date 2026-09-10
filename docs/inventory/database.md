@@ -1,4 +1,4 @@
-> 생성: 2026-08-02 13:45 · 최종 수정: 2026-09-09 18:15
+> 생성: 2026-08-02 13:45 · 최종 수정: 2026-09-10 10:00
 
 # 데이터 인벤토리
 
@@ -73,10 +73,10 @@
 | MySQL | `attendance_record_note_template` | 알림장 템플릿 | attendance | attendance | `REDESIGN` | `미착수` | 알림장 템플릿 후보 | attendance-template 슬라이스 | 유치원별 템플릿 소유권, 삭제 정책 |
 | MySQL | `free_memo` | 자유메모 | memo | memo | `REDESIGN` | `완료` | → 신규 `memos`(V10) | [`KD3-465`](../work/KD3-465-memo.md) | `(user_code, target_id)` 유니크 1행 upsert. `user_code`=토큰 subject. 레거시 "매 저장 새 row + 히스토리" 폐기 |
 | MySQL | `free_memo_photo` | 자유메모 사진 | memo/media | memo | `REDESIGN` | `완료` | → 신규 `memo_photos`(V11) | [`KD3-465`](../work/KD3-465-memo.md) | 저장마다 전량 교체(하드 삭제). `object_key`=media commit 후 영구 key. 재편집 시 S3 orphan 정리 주체 미결 |
-| MySQL | `checklist_template` | 체크리스트 템플릿 | memo | memo | `DROP` | `완료` | 미이관 — `resources/checklists/registration.ko-KR.json` 정적 리소스 | [`KD3-465`](../work/KD3-465-memo.md) | 관리자 편집·유치원별 템플릿 계획 없음(YAGNI) |
-| MySQL | `checklist_section` | 체크리스트 섹션 | memo | memo | `DROP` | `완료` | 미이관 — 정적 리소스 | [`KD3-465`](../work/KD3-465-memo.md) | - |
-| MySQL | `checklist_question` | 체크리스트 질문 | memo | memo | `DROP` | `완료` | 미이관 — 정적 리소스 | [`KD3-465`](../work/KD3-465-memo.md) | 실사용 타입은 TRI_STATE·INTEGER 2종뿐 |
-| MySQL | `question_option` | 체크리스트 질문 옵션 | memo | memo | `DROP` | `완료` | 미이관 — 미사용(옵션형 문항 없음) | [`KD3-465`](../work/KD3-465-memo.md) | - |
+| MySQL | `checklist_template` | 체크리스트 템플릿 | memo | memo | `DROP` | `해당없음` | 미이관 — `resources/checklists/registration.ko-KR.json` 정적 리소스로 대체 | [`KD3-465`](../work/KD3-465-memo.md) | 관리자 편집·유치원별 템플릿 계획 없음(YAGNI) |
+| MySQL | `checklist_section` | 체크리스트 섹션 | memo | memo | `DROP` | `해당없음` | 미이관 — 정적 리소스로 대체 | [`KD3-465`](../work/KD3-465-memo.md) | - |
+| MySQL | `checklist_question` | 체크리스트 질문 | memo | memo | `DROP` | `해당없음` | 미이관 — 정적 리소스로 대체 | [`KD3-465`](../work/KD3-465-memo.md) | 실사용 타입은 TRI_STATE·INTEGER 2종뿐 |
+| MySQL | `question_option` | 체크리스트 질문 옵션 | memo | memo | `DROP` | `해당없음` | 미이관 — 미사용(옵션형 문항 없음) | [`KD3-465`](../work/KD3-465-memo.md) | - |
 | MySQL | `checklist_submission` | 체크리스트 제출 내역 | memo | memo | `REDESIGN` | `완료` | → 신규 `checklist_submissions`(V12) | [`KD3-465`](../work/KD3-465-memo.md) | `(user_code, target_id)` 1행 upsert(전체 교체). `template_version` 보존 |
 | MySQL | `checklist_answer` | 체크리스트 답변 | memo | memo | `REDESIGN` | `완료` | → `checklist_submissions.answers` JSON에 통합 | [`KD3-465`](../work/KD3-465-memo.md) | 폴리모픽 4컬럼 → `{questionCode: value}` JSON. `value` 항상 문자열 |
 | MySQL | `user_agreement` | (초안 없음) | auth/user | auth/user | `REDESIGN` | `완료` | **신규 서버에서 `user_agreements`로 확정**([`KD3-258`](../work/KD3-258-user-social-auth.md) V2). `(user_id, term_type)` unique, append-only라 `BaseEntity` 공통 컬럼 없이 `agreed_at`만 둔다 — 재제출해도 최초 동의 시각이 보존된다 | 확정됨 | 약관 버전 관리 필요 여부(현재 버전 개념 없음). 탈퇴 시 동의 이력 보존/삭제 정책 |

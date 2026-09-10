@@ -1,4 +1,4 @@
-> 생성: 2026-09-08 11:00 · 최종 수정: 2026-09-09 19:00
+> 생성: 2026-09-08 11:00 · 최종 수정: 2026-09-10 10:05
 
 # KD3-465 — 메모 기능 이관 (자유메모 · 상담 체크리스트)
 
@@ -54,9 +54,9 @@ memos
 memo_photos
   id           BIGINT PK
   memo_id      BIGINT
-  object_key   VARCHAR(...)    -- media commit 후 영구 key ("memo/{targetId}/{userCode}/{filename}")
+  object_key   VARCHAR(...)    -- media commit 후 영구 key ("memo/{userCode}/{filename}")
   sort_order   INT             -- photoKeys 배열 순서
-  created_at
+  created_at                   -- BaseEntity 미상속 (전량 교체, user_agreements 선례)
   UNIQUE (memo_id, object_key)
 
 checklist_submissions
@@ -78,12 +78,12 @@ checklist_submissions
 ```
 domain/memo/
   domain/
-    FreeMemo.kt                       -- 애그리게잇 1 (userCode, targetId, content, photos)
-    MemoPhoto.kt
+    FreeMemo.kt                       -- 애그리게잇 1 (userCode, targetId, content, photos). require 불변식
+    MemoPhoto.kt / MemoId.kt
     ChecklistSubmission.kt            -- 애그리게잇 2 (userCode, targetId, templateVersion, answers)
     ChecklistTemplate.kt / ChecklistSection.kt / ChecklistQuestion.kt   -- 순수 VO (정적 템플릿 표현)
     ChecklistQuestionType.kt          -- TRI_STATE, INTEGER (레거시 QuestionType 7종 중 실사용 2종만)
-    ChecklistAnswerValue.kt           -- 값 검증 (TRI_STATE ∈ {YES,NO,UNKNOWN}, INTEGER 범위)
+                                         값 정규화·검증은 ChecklistQuestion.normalize(raw): String? (null=무효)
   application/
     MemoErrorCode.kt
     port/input/
@@ -93,15 +93,18 @@ domain/memo/
       LoadFreeMemoPort.kt / SaveFreeMemoPort.kt
       LoadChecklistSubmissionPort.kt / SaveChecklistSubmissionPort.kt
       LoadChecklistTemplatePort.kt          -- 정적 템플릿 로드
-      MemoPhotoStoragePort.kt               -- 사진 commit / 조회 URL (media 위임)    service/  (유스케이스별 1파일)
+      MemoPhotoStoragePort.kt               -- 사진 commit / 조회 URL (media 위임)
+    service/                                -- FreeMemoService, ChecklistService
   adapter/
     inbound/web/   (유스케이스별 컨트롤러 분리 — hexagonal.md §1)
       FreeMemoController.kt / MemoListController.kt
       ChecklistTemplateController.kt / ChecklistAnswerController.kt
     outbound/
-      persistence/  JPA 엔티티 · Repository · PersistenceAdapter · Mapper
-      template/      ChecklistTemplateResourceAdapter.kt  (resources/checklists/*.json 파싱)
-      media/         MediaMemoPhotoStorageAdapter.kt      (media UseCase 위임)```
+      persistence/  JPA 엔티티 · Repository · PersistenceAdapter (매퍼는 확장함수)
+                    ChecklistAnswersJsonConverter (Map<String,String> ↔ JSON)
+      template/     ChecklistTemplateResourceAdapter.kt  (resources/checklists/*.json 파싱)
+      media/        MediaMemoPhotoStorageAdapter.kt      (media UseCase 위임)
+```
 
 - `HexagonalArchitectureTest` 규칙 4는 `domain.*.domain..` 와일드카드라 `memo.domain` 자동 포함(KD3-478에서 확인됨 — hexagonal.md §3의 stale 문구는 KD3-478이 정정).
 
@@ -123,7 +126,7 @@ domain/memo/
 | C12 | 인증 | `/api/v1/memos/**`, `/api/v1/checklists/**` **전부 인증 필수** (SecurityConfig, ADR 0007 기본 deny). **레거시는 `GET /memo/checklist`(템플릿)만 공개였음 — 인증으로 변경** |
 | C13 | 작성자 식별자 | `user_code` 문자열(`@AuthenticationPrincipal`이 주는 토큰 subject) 직접 저장. 레거시는 user PK(BIGINT) 저장이었으나 memo가 PK를 쓸 일이 없어 auth 도메인 의존을 제거 |
 | C14 | 유치원 존재 검증 | **하지 않는다.** memo 응답에 유치원 데이터가 하나도 없어(이름·요금 등 없음) 크로스 도메인 의존이 불필요. 잘못된 `targetId`로 저장돼도 무해(FK 없음), 조회는 빈 응답. 가드가 필요해지면 후속으로 memo 자체 outbound 포트 추가 |
-| C15 | 사진(첨부) | **이 티켓 포함** (사용자 확정 2026-09-08). **서버측 commit 방식**: 프론트가 `POST /api/v1/media/upload-urls`로 tmp key 확보 → S3 직접 PUT → `PUT /api/v1/memos/{targetId}` body `photoKeys`(순서 있는 배열)에 전달. memo가 각 key를 판별 — `tmp/{userCode}/…`면 `MemoPhotoStoragePort`(→ media `CommitObjectUseCase`, `targetPath="memo/{targetId}/{userCode}"`)로 commit해 영구 key 획득 / `memo/{targetId}/{userCode}/…`면 prefix 소유권 검증 후 유지 / 그 외 400. 최종 영구 key를 `memo_photos`에 배열 순서대로 전량 교체. `GET`은 각 key에 media `IssueDownloadUrlUseCase`로 `url` 생성 → `photos: [{key, url}]`. 사진 ≤ 5장. **프론트는 현재 레거시 `/s3/image/move`를 직접 호출해 client측 commit 중 — v1 전환 시 "업로드 → tmp key → PUT memo"로 단순화(프론트 작업)** |
+| C15 | 사진(첨부) | **이 티켓 포함** (사용자 확정 2026-09-08). **서버측 commit 방식**: 프론트가 `POST /api/v1/media/upload-urls` `{purpose:"MEMO_ATTACHMENT", contentType}`로 `tmp/{userCode}/MEMO_ATTACHMENT/{uuid}.{ext}` key 확보 → S3 직접 PUT → `PUT /api/v1/memos/{targetId}` body `photoKeys`(순서 있는 배열)에 전달. memo가 각 key를 판별 — `tmp/{userCode}/…`면 `MemoPhotoStoragePort`(→ media `CommitObjectUseCase`)로 commit, media가 purpose 세그먼트로 경로 결정(`MediaPurpose.MEMO_ATTACHMENT` → `memo/{userCode}/{filename}`) / `memo/{userCode}/…`면 prefix 소유권 검증 후 유지 / 그 외·중복 key는 400(`MEMO_INVALID_PHOTO_KEY`). commit은 전량 선검증 후 실행. 최종 영구 key를 `memo_photos`에 배열 순서대로 전량 교체. `GET`은 각 key에 media `IssueDownloadUrlUseCase`로 `url` 생성 → `photos: [{key, url}]`. 사진 ≤ 5장. **프론트는 현재 레거시 `/s3/image/move`를 직접 호출해 client측 commit 중 — v1 전환 시 "업로드 → tmp key → PUT memo"로 단순화(프론트 작업)** |
 
 ### API 계약 요약
 
