@@ -11,7 +11,7 @@ interface MemoJpaRepository : JpaRepository<MemoJpaEntity, Long> {
         targetId: String,
     ): MemoJpaEntity?
 
-    fun findAllByUserCodeOrderByUpdatedAtDesc(userCode: String): List<MemoJpaEntity>
+    fun findAllByUserCodeOrderByUpdatedAtDescIdDesc(userCode: String): List<MemoJpaEntity>
 
     @Modifying(flushAutomatically = true, clearAutomatically = true)
     @Query(

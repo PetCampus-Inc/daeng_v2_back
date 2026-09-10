@@ -22,7 +22,7 @@ class MemoPersistenceAdapter(
     @Transactional(readOnly = true)
     override fun findSummariesByUserCode(userCode: String): List<MemoSummary> =
         memoJpaRepository
-            .findAllByUserCodeOrderByUpdatedAtDesc(userCode)
+            .findAllByUserCodeOrderByUpdatedAtDescIdDesc(userCode)
             .map { MemoSummary(targetId = it.targetId, content = it.content, memoDate = it.updatedAt.toLocalDate()) }
 
     @Transactional

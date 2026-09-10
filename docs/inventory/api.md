@@ -1,4 +1,4 @@
-> 생성: 2026-08-02 13:45 · 최종 수정: 2026-09-10 10:00
+> 생성: 2026-08-02 13:45 · 최종 수정: 2026-09-10 12:30
 
 # API 인벤토리
 
@@ -251,7 +251,7 @@
 | POST | `/api/v0/member/vaccination` | 없음 | `DROP` | `해당없음` | 없음 | legacy-member | P3 | @Deprecated 레거시 블록: 0001에 따라 신규 서버 미이관<br>src/main/java/com/petcampus/knockdog/controller/member/MemberController.java#MemberController.updateVaccinationImg | - |
 | GET | `/api/v0/member/video` | 없음 | `DROP` | `해당없음` | 없음 | legacy-member | P3 | @Deprecated 레거시 블록: 0001에 따라 신규 서버 미이관<br>src/main/java/com/petcampus/knockdog/controller/member/MemberController.java#MemberController.getVideoInfo | - |
 | GET | `/api/v0/memo` | 있음: src/entities/memo/api/getMemo.ts | `KEEP` | `진행중` | v1 | memo | P1 | 프론트 호출 확인<br>src/main/java/com/petcampus/knockdog/memo/controller/MemoController.java#MemoController.getFreeMemo | [`KD3-465`](../work/KD3-465-memo.md). 신규 `GET /api/v1/memos/{targetId}`(`v0`는 컷오버까지 레거시가 제공, ADR 0012). 로컬 응답 대조 미완료(사람 몫) |
-| POST | `/api/v0/memo` | 있음: src/entities/memo/api/updateMemo.ts | `KEEP` | `진행중` | v1 | memo | P1 | 프론트 호출 확인<br>src/main/java/com/petcampus/knockdog/memo/controller/MemoController.java#MemoController.postfreememo | [`KD3-465`](../work/KD3-465-memo.md). 신규 `PUT /api/v1/memos/{targetId}`(upsert). 로컬 응답 대조 미완료(사람 몫) |
+| POST | `/api/v0/memo` | 있음: src/entities/memo/api/updateMemo.ts | `KEEP` | `진행중` | v1 | memo | P1 | 프론트 호출 확인<br>src/main/java/com/petcampus/knockdog/memo/controller/MemoController.java#MemoController.postfreememo | [`KD3-465`](../work/KD3-465-memo.md). 레거시 `{content, photoKeys}` 한 번에 → 신규는 텍스트 `PUT /api/v1/memos/{targetId}`, 사진 `POST`·`DELETE /api/v1/memos/{targetId}/photos`(개별)로 분리. 원자적 upsert. 로컬 응답 대조 미완료(사람 몫) |
 | GET | `/api/v0/memo/checklist` | 있음: src/entities/checklist/api/questions.tsx | `KEEP` | `진행중` | v1 | memo | P1 | 프론트 호출 확인<br>src/main/java/com/petcampus/knockdog/memo/controller/MemoController.java#MemoController.getchecklist | [`KD3-465`](../work/KD3-465-memo.md). 신규 `GET /api/v1/checklists/template`(정적 리소스, 레거시 공개→인증화 C12). 로컬 응답 대조 미완료(사람 몫) |
 | POST | `/api/v0/memo/checklist` | 있음: src/entities/checklist/api/answers.tsx | `KEEP` | `진행중` | v1 | memo | P1 | 프론트 호출 확인<br>src/main/java/com/petcampus/knockdog/memo/controller/MemoController.java#MemoController.postchecklist | [`KD3-465`](../work/KD3-465-memo.md). 신규 `PUT /api/v1/checklists/{targetId}`(전체 교체). 로컬 응답 대조 미완료(사람 몫) |
 | GET | `/api/v0/memo/checklist/answer` | 있음: src/entities/checklist/api/answers.tsx | `KEEP` | `진행중` | v1 | memo | P1 | 프론트 호출 확인<br>src/main/java/com/petcampus/knockdog/memo/controller/MemoController.java#MemoController.postchecklist | [`KD3-465`](../work/KD3-465-memo.md). 신규 `GET /api/v1/checklists/{targetId}`. 없으면 200+`{sections:[]}`(레거시 실패 응답 교정 C9), `value` 항상 문자열(C8). 로컬 응답 대조 미완료(사람 몫) |

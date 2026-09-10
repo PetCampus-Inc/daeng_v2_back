@@ -1,4 +1,4 @@
-> 생성: 2026-09-08 11:00 · 최종 수정: 2026-09-10 10:05
+> 생성: 2026-09-08 11:00 · 최종 수정: 2026-09-10 12:30
 
 # KD3-465 — 메모 기능 이관 (자유메모 · 상담 체크리스트)
 
@@ -115,7 +115,7 @@ domain/memo/
 | C1 | 응답 엔벨로프 | 전부 `global/response/Response.kt` (`{status, code, message, data}`). 레거시의 raw DTO 3개 + `BasicInfoResponseDto` 3개 혼재를 통일 |
 | C2 | 성공 응답 | `Response.success(data)` — `code: "SUCCESS"`. 레거시 커스텀 성공 코드(`MEMO_SAVED`, `CHECKLIST_SAVED` 등)·메시지 폐기 (프론트가 성공 시 `data`만 씀) |
 | C3 | 오류 | `domain/memo/application/MemoErrorCode.kt` enum 신규 ([`error-handling.md`](../conventions/error-handling.md)). `code` 문자열은 레거시(`CHECKLIST_*`)와 맞추지 않는다 — 프론트가 `data.success`(boolean)/`data.message`만 보고 `code`로 분기하지 않음(프론트 `answers.tsx`·`getMemo.ts`·`questions.tsx` 대조) |
-| C4 | 자유메모 upsert | `(user_code, target_id)` 유니크 1행. `PUT`이 없으면 생성 / 있으면 content(+사진) 교체. **레거시의 "매 저장 새 row + 히스토리" 폐기** (히스토리 노출하던 `GET /memo/list`는 `DROP`) |
+| C4 | 메모 텍스트 upsert | `memos` `(user_code, target_id)` 유니크 1행. `PUT /api/v1/memos/{targetId}` body `{content}` — **content만** upsert(사진 무관, C15). **원자적** — 네이티브 `INSERT ... ON DUPLICATE KEY UPDATE`(동시 최초 저장 race 제거, CodeRabbit #6·#7). **레거시의 "매 저장 새 row + 히스토리" 폐기** (`GET /memo/list`는 `DROP`) |
 | C5 | 자유메모 빈 상태 | `GET`에서 200 + `{ content: null, photos: [] }` (레거시 parity) |
 | C6 | 날짜 필드 | 단건 조회(`GET /api/v1/memos/{targetId}`)에는 날짜 필드 **없음** (프론트 `MemoResponse`가 `content`·`photos`만 읽음). 목록(`GET /api/v1/memos`)의 `memoDate`는 도메인/DTO에서 `LocalDate` 타입으로 두면 전역 컨벤션(KD3-495, `api-contract.md §2`)이 `"2026-09-08"`로 직렬화 — 수동 포맷팅 없음. 프론트 `entities/kindergarten/model/mappers.ts`가 `.replace(/-/g, '.')`로 표시 포맷을 만들므로 대시 ISO가 그대로 맞다. `memoDate`의 원본은 `memos.updated_at`의 날짜 부분 |
 | C7 | 체크리스트 답변 저장 | `PUT` = 전체 교체 (제출된 answers가 그 submission의 전부, 빠진 문항은 삭제). required 검증 없음 (템플릿에 `required:true` 문항이 없음) — 부분 제출 허용 |
@@ -126,7 +126,7 @@ domain/memo/
 | C12 | 인증 | `/api/v1/memos/**`, `/api/v1/checklists/**` **전부 인증 필수** (SecurityConfig, ADR 0007 기본 deny). **레거시는 `GET /memo/checklist`(템플릿)만 공개였음 — 인증으로 변경** |
 | C13 | 작성자 식별자 | `user_code` 문자열(`@AuthenticationPrincipal`이 주는 토큰 subject) 직접 저장. 레거시는 user PK(BIGINT) 저장이었으나 memo가 PK를 쓸 일이 없어 auth 도메인 의존을 제거 |
 | C14 | 유치원 존재 검증 | **하지 않는다.** memo 응답에 유치원 데이터가 하나도 없어(이름·요금 등 없음) 크로스 도메인 의존이 불필요. 잘못된 `targetId`로 저장돼도 무해(FK 없음), 조회는 빈 응답. 가드가 필요해지면 후속으로 memo 자체 outbound 포트 추가 |
-| C15 | 사진(첨부) | **이 티켓 포함** (사용자 확정 2026-09-08). **서버측 commit 방식**: 프론트가 `POST /api/v1/media/upload-urls` `{purpose:"MEMO_ATTACHMENT", contentType}`로 `tmp/{userCode}/MEMO_ATTACHMENT/{uuid}.{ext}` key 확보 → S3 직접 PUT → `PUT /api/v1/memos/{targetId}` body `photoKeys`(순서 있는 배열)에 전달. memo가 각 key를 판별 — `tmp/{userCode}/…`면 `MemoPhotoStoragePort`(→ media `CommitObjectUseCase`)로 commit, media가 purpose 세그먼트로 경로 결정(`MediaPurpose.MEMO_ATTACHMENT` → `memo/{userCode}/{filename}`) / `memo/{userCode}/…`면 prefix 소유권 검증 후 유지 / 그 외·중복 key는 400(`MEMO_INVALID_PHOTO_KEY`). commit은 전량 선검증 후 실행. 최종 영구 key를 `memo_photos`에 배열 순서대로 전량 교체. `GET`은 각 key에 media `IssueDownloadUrlUseCase`로 `url` 생성 → `photos: [{key, url}]`. 사진 ≤ 5장. **프론트는 현재 레거시 `/s3/image/move`를 직접 호출해 client측 commit 중 — v1 전환 시 "업로드 → tmp key → PUT memo"로 단순화(프론트 작업)** |
+| C15 | 사진 첨부 | **이 티켓 포함** (2026-09-08). **텍스트와 독립된 기능** (2026-09-10 사용자 지시): `memo_photos`는 `memos` row에 매이지 않고 `(user_code, target_id)` 직접 키. 개별 추가/삭제, 유치원당 최대 5장. 프론트가 `POST /api/v1/media/upload-urls` `{purpose:"MEMO_ATTACHMENT"}` → `tmp/{userCode}/MEMO_ATTACHMENT/…` key → `POST /api/v1/memos/{targetId}/photos` `{photoKey}`. memo가 `MemoPhotoStoragePort`(→ media `CommitObjectUseCase`)로 commit(`MediaPurpose.MEMO_ATTACHMENT` → `memo/{userCode}/{filename}`), `memo_photos`에 `sort_order = max+1`로 insert. tmp 아니면 400. `DELETE /api/v1/memos/{targetId}/photos/{photoId}` = 소유자 확인 후 DB row + S3 object(`ObjectStoragePort.delete`) 제거, 아니면 404(`MEMO_PHOTO_NOT_FOUND`). `GET /api/v1/memos/{targetId}`가 텍스트와 사진을 합쳐 반환 |
 
 ### API 계약 요약
 
@@ -134,8 +134,10 @@ domain/memo/
 
 | 메서드·경로 | 요청 | 응답 `data` | 인가 |
 |---|---|---|---|
-| `GET /api/v1/memos/{targetId}` | — | `{ content: string\|null, photos: [{ key, url }] }` | 인증 |
-| `PUT /api/v1/memos/{targetId}` | `{ content?: string, photoKeys?: string[] }` | 갱신된 표현 (`GET`과 동일 형태) | 인증 |
+| `GET /api/v1/memos/{targetId}` | — | `{ content: string\|null, photos: [{ id, key, url }] }` (텍스트 + 사진 합침) | 인증 |
+| `PUT /api/v1/memos/{targetId}` | `{ content?: string }` | 갱신된 표현 (`GET`과 동일 형태) | 인증 |
+| `POST /api/v1/memos/{targetId}/photos` | `{ photoKey: string }` (tmp key) | `{ id, key, url }` | 인증 |
+| `DELETE /api/v1/memos/{targetId}/photos/{photoId}` | — | `null` | 인증 |
 | `GET /api/v1/memos` | — | `{ memos: [{ shopId, content, memoDate }] }` — `shopId`=targetId, `memoDate`=`YYYY-MM-DD`. 프론트가 `shopId`로 유치원 카드에 조인 | 인증 |
 | `GET /api/v1/checklists/template` | — | `{ template: { code, version, locale, title }, sections: [{ id, title, questions: [{ id, label, type }] }] }` | 인증 |
 | `GET /api/v1/checklists/{targetId}` | — | `{ sections: [{ sectionId, title, answers: [{ questionId, question, value }] }] }` (없으면 `{ sections: [] }`) | 인증 |
@@ -143,20 +145,26 @@ domain/memo/
 
 - 저장(`PUT`) 응답 body는 프론트가 읽지 않는다(대조 결과) — RESTful 관례상 갱신된 표현을 반환하되, 프론트는 저장 후 쿼리 무효화로 재조회한다.
 
-## 구현 순서
+## 커밋 이력
 
-단일 브랜치 `feat/KD3-465-memo` → 단일 PR (`epic/KD3-272-kindergarten-features`). 아래 순서로 커밋을 나눈다. `Refs: KD3-465`.
+단일 브랜치 `feat/KD3-465-memo` → 단일 PR. `Refs: KD3-465`. 커밋 범위 `ff71aaf..HEAD`.
 
-| 커밋 묶음 | 범위 | Flyway |
+| 커밋 | 범위 | Flyway |
 |---|---|---|
-| A. 자유메모 도메인 + 조회/저장 | `domain/memo/` 정석형 스캐폴딩, `FreeMemo` 애그리게잇, `MemoErrorCode` 신설, persistence 어댑터. `GET`·`PUT /api/v1/memos/{targetId}`(텍스트만), `GET /api/v1/memos`. SecurityConfig 경로 규칙 | `V10__create_memos.sql` |
-| B. 메모 사진 | `memo_photos` 테이블, `MemoPhoto`(FreeMemo 애그리게잇에 편입), `MemoPhotoStoragePort` + `MediaMemoPhotoStorageAdapter`(media `CommitObjectUseCase`·`IssueDownloadUrlUseCase` 위임). `GET`/`PUT`에 `photos`/`photoKeys` 연결 | `V11__create_memo_photos.sql` |
-| C. 상담 체크리스트 | `ChecklistSubmission` 애그리게잇, `ChecklistTemplate` VO, `LoadChecklistTemplatePort` + 리소스 어댑터, `resources/checklists/registration.ko-KR.json`. `GET /api/v1/checklists/template`, `GET`·`PUT /api/v1/checklists/{targetId}` | `V12__create_checklist_submissions.sql` |
-| D. 문서 동기화 | `docs/domains/memo.md` 신설, `inventory/api.md`·`database.md` 갱신 (아래 `작업 후 확인 목록`) |
+| A. 자유메모 v1 이관 (`b0cc1c6`) | `domain/memo/` 정석형, `Memo` 애그리게잇, `MemoErrorCode`, persistence. `GET`·`PUT /api/v1/memos/{targetId}`, `GET /api/v1/memos` | `V10` |
+| media `MEMO_ATTACHMENT` (`151b9ef`) | `MediaPurpose`에 enum 값 추가 (→ `memo/{userCode}/`) | — |
+| B. 메모 사진 (`a339900`, 후 `81aa380`에서 재설계) | `memo_photos` 테이블. `MemoPhotoStoragePort` + `MediaMemoPhotoStorageAdapter` | `V11` |
+| C. 상담 체크리스트 (`7c4b2f1`) | `ChecklistSubmission`, `ChecklistTemplate` VO, `LoadChecklistTemplatePort` + 리소스 어댑터, `registration.ko-KR.json`. `GET /api/v1/checklists/template`, `GET`·`PUT /api/v1/checklists/{targetId}` | `V12` |
+| D. 문서 동기화 (`3da954a`) | `docs/domains/memo.md` 신설, 인벤토리 갱신 |
+| 독립 리뷰 반영 (`e1686b6`) | KDoc 제거·`updated_at` touch·photoKeys 선검증 |
+| CodeRabbit 문서 지적 (`b93b873`) | api.md 열 수·진척, database.md DROP 진척 |
+| **`FreeMemo` → `Memo` 리네임 (`bfc838e`)** | 신규 서버 식별자 전부 (2026-09-10 사용자 지시) |
+| **메모 텍스트/사진 분리 (`81aa380`)** | `memo_photos` `(user_code, target_id)` 직접 키. `POST`/`DELETE /api/v1/memos/{targetId}/photos` 신설. `MemoPhotoService`·`MemoPhotoController` 추가 (2026-09-10 사용자 지시) |
+| **원자적 upsert (`5fb9ccd`)** | `memos`·`checklist_submissions` 네이티브 `ON DUPLICATE KEY UPDATE`. `answers` JSON→TEXT. `MemoUpsertConcurrencyTest` (CodeRabbit #6·#7) |
 
-- 베이스가 이제 `dev`라 Flyway 번호는 `V10`부터 확정(dev 최신이 `V9`). A→B→C 순.
-- `MemoErrorCode.kt`는 A에서 생성, B·C에서 코드 추가. 컨트롤러는 유스케이스별 분리(hexagonal.md §1). ArchUnit은 `domain.*.domain..` 와일드카드라 `memo.domain` 자동 포함(등록 불필요, KD3-478 확인).
-- PR: `feat/KD3-465-memo` → `epic/KD3-272-kindergarten-features` (squash merge). `epic` → `dev`는 일반 merge (git.md §2).
+- 도메인 구조의 최신·정확한 기준은 [`docs/domains/memo.md`](../domains/memo.md) §3.
+- ArchUnit은 `domain.*.domain..` 와일드카드라 `memo.domain` 자동 포함.
+- PR: [#27](https://github.com/PetCampus-Inc/daeng_v2_back/pull/27) `feat/KD3-465-memo` → `epic/KD3-272-kindergarten-features` (squash merge). `epic` → `dev`는 일반 merge (git.md §2).
 
 ## 작업 제외 범위
 
@@ -169,7 +177,7 @@ domain/memo/
 - **관리자용 체크리스트 템플릿 편집·유치원별 템플릿** — 계획 없음(YAGNI). 템플릿은 정적 리소스 1개.
 - **`GET /api/v0/memo/list`** — `DROP`.
 - **S3 orphan object 정리** — 사진 재편집으로 참조가 끊긴 영구 object의 S3 삭제 주체는 [`integrations.md`](../inventory/integrations.md) 미결. 이번은 DB row만 정리, S3 object는 방치.
-- **서버 전체 날짜/시간 포맷 통일** — 레거시는 도메인·엔드포인트마다 제각각(`yyyy.MM.dd` 표시 문자열 / ISO date / 포맷 없음). memo는 날짜 필드가 목록 `memoDate` 하나뿐이고 프론트가 ISO `YYYY-MM-DD`에 결합돼 있어(C6) 여기서 통일할 대상이 없다. 서버 전역 규칙(응답 timestamp = ISO-8601, 표시 포맷은 프론트 담당, 백엔드는 pre-formatted 문자열 금지)은 `docs/conventions/api-contract.md`에 별도 항목으로 추가하는 게 맞고, repo-wide 컨벤션이라 별도 fast dev PR 대상. 이 티켓 범위 밖.
+- **서버 전체 날짜/시간 포맷 통일** — 이미 KD3-495(`api-contract.md §2`, dev 반영)로 확정됨. memo는 `memoDate`를 `LocalDate` 타입으로 두면 컨벤션이 `"YYYY-MM-DD"` 직렬화(C6). 이 티켓에서 추가로 할 일 없음.
 
 ## 방향 논의 및 결정 사항
 
@@ -212,34 +220,31 @@ domain/memo/
 
 ## 완료 확인 기준
 
-- [x] `GET /api/v1/memos/{targetId}`: 인증 없으면 401, 메모 없으면 200 + `{content:null, photos:[]}`, 있으면 content·photos 반환 — `MemoEndpointsTest`, `FreeMemoServiceTest`.
-- [x] `PUT /api/v1/memos/{targetId}`: 신규 생성 / 기존 교체, `content` 2000자 초과 400(`MEMO_CONTENT_TOO_LONG`), `(user_code,target_id)` 유니크 — `MemoPersistenceAdapterTest`, `MemoEndpointsTest`.
-- [x] `GET /api/v1/memos`: 유치원당 1건, `{shopId, content, memoDate}`, `updated_at` 내림차순 — `MemoPersistenceAdapterTest`, `FreeMemoServiceTest`.
-- [x] 사진: tmp key는 media commit해 `memo/{userCode}/` 영구화, 소유 아닌 key 400(`MEMO_INVALID_PHOTO_KEY`), 6장 400(`MEMO_TOO_MANY_PHOTOS`), 저장마다 전량 교체 — `FreeMemoServiceTest`, `MemoPersistenceAdapterTest`, `MemoEndpointsTest`. `MediaPurpose.MEMO_ATTACHMENT` — `MediaPurposeTest`, `MediaEndpointsTest`.
+- [x] `GET /api/v1/memos/{targetId}`: 인증 없으면 401, 메모 없으면 200 + `{content:null, photos:[]}`, 있으면 content + photos(`{id,key,url}`) 합쳐서 반환 — `MemoEndpointsTest`, `MemoServiceTest`.
+- [x] `PUT /api/v1/memos/{targetId}`: content만 upsert, `content` 2000자 초과 400(`MEMO_CONTENT_TOO_LONG`), 동시 최초 저장도 원자적 — `MemoPersistenceAdapterTest`, `MemoUpsertConcurrencyTest`, `MemoEndpointsTest`.
+- [x] `GET /api/v1/memos`: 텍스트 있는 유치원 목록 `{shopId, content, memoDate}`, `updated_at`·`id` 내림차순 — `MemoPersistenceAdapterTest`, `MemoServiceTest`.
+- [x] 사진 추가·삭제: `POST .../photos` tmp key만 받아 media commit → `memo/{userCode}/` (그 외 400 `MEMO_INVALID_PHOTO_KEY`), 6장째 400(`MEMO_TOO_MANY_PHOTOS`). `DELETE .../photos/{id}` 소유자 확인 후 DB row + S3 object 제거, 남의 것 404(`MEMO_PHOTO_NOT_FOUND`) — `MemoPhotoServiceTest`, `MemoPhotoPersistenceAdapterTest`, `MemoPhotoEndpointsTest`. `MediaPurpose.MEMO_ATTACHMENT` — `MediaPurposeTest`, `MediaEndpointsTest`.
 - [x] `GET /api/v1/checklists/template`: 5섹션·13문항, 문항 ID가 레거시·프론트 목록과 일치, 인증 필요 — `ChecklistTemplateResourceAdapterTest`, `ChecklistEndpointsTest`.
 - [x] `PUT /api/v1/checklists/{targetId}`: 모르는 questionId 400(`MEMO_INVALID_CHECKLIST_ANSWER`), TRI_STATE·INTEGER(0~500) 검증, 전체 교체 — `ChecklistServiceTest`, `ChecklistEndpointsTest`.
 - [x] `GET /api/v1/checklists/{targetId}`: 저장 없으면 200 + `{sections:[]}`, 템플릿 순서대로, `value` 항상 문자열 — `ChecklistServiceTest`, `ChecklistEndpointsTest`.
 - [x] `HexagonalArchitectureTest` 통과 — `memo.domain` 와일드카드 포함. 도메인 모델이 `MemoErrorCode`에 의존하지 않도록 값 검증을 `require`(도메인) + `BusinessException`(서비스)로 분리.
-- [x] `./gradlew ktlintCheck test` green — ArchUnit + 전체 테스트(155건).
+- [x] `./gradlew clean build` green — ktlint + ArchUnit + 전체 테스트.
 - [ ] **로컬 응답 대조 (사람 몫)**: `KEEP` 6개 엔드포인트 — 레거시 `v0` 응답의 `data` 내부 필드와 신규 `v1` 대조. 경로·엔벨로프·아래 `계약 parity`의 의도적 차이는 제외. 미실행(로컬 레거시 기동 필요).
 - [ ] **Notion API 명세 등록 (사람 몫)**: v1 memo/checklist 6개 엔드포인트 ([`docs/rules/notion-api-spec-sync.md`](../rules/notion-api-spec-sync.md)).
 - [ ] **배포 컨테이너 `TZ=Asia/Seoul` (사람 몫)**: `memoDate`가 KST 날짜로 나오려면 필요(KD3-495 전제).
 
-### 독립 리뷰 (2026-09-09, 컨텍스트 미공유 에이전트)
+### 리뷰 반영
 
-작업 문서 + 커밋 범위(`ff71aaf..d88ab65`) 대조. **머지 가능 — 블로킹 없음.** 파리티(레거시 DTO 6종), 헥사고날 경계, 프론트 계약, 날짜 컨벤션, 인가 default-deny, 경로 충돌, upsert·flush 순서 전부 OK 확인.
+**독립 리뷰 (2026-09-09, 컨텍스트 미공유 에이전트)** — "머지 가능, 블로킹 없음". 파리티·헥사고날·프론트 계약·날짜 컨벤션·인가 OK. 반영(`e1686b6`): `MemoErrorCode` KDoc 제거, `save` 시 `updated_at` touch, photoKeys 선검증.
 
-반영한 지적 (`e1686b6`):
-- `MemoErrorCode` KDoc 제거 (code-style §1)
-- `MemoPersistenceAdapter.save`가 사진만 수정/동일 content 재저장 시 `updated_at` 미갱신 → `memoDate`·정렬 stale. `save`에서 `updatedAt` 강제 touch
-- `resolvePhotos`가 전체 검증 전 tmp key를 순차 commit → 뒤 key 400 시 S3 orphan. prefix·중복 key를 commit 전 전량 검증, 중복 시 `MEMO_INVALID_PHOTO_KEY`(500 방지)
+**CodeRabbit (PR #27, actionable 9)** — 문서 5건 반영(`b93b873`): api.md 열 수(MD056)·진척 `완료`→`진행중`, database.md DROP 진척 `해당없음`, work doc 사진 key 경로·코드블록. 코드 4건: #6·#7(동시 최초 저장 race) → 원자적 upsert(`5fb9ccd`). #9(보조 정렬 없음) → `ORDER BY updated_at DESC, id DESC`. #8(사진 commit이 DB 저장 전 → tx 실패 시 orphan) → 사진이 개별 기능으로 분리되며 커밋 단위가 사진 1장 단위로 축소됨(영향 감소), S3 orphan 정리 주체는 여전히 미결로 문서화.
 
-후속/코멘트 수준 (미반영): memo가 media key 스킴을 문자열 복제(결합), `MemoPhotoJpaEntity.createdAt` 인라인 기본값(auditing 패턴과 미세 불일치).
+**2026-09-10 사용자 지시 반영**: `FreeMemo`→`Memo` 리네임(`bfc838e`), 메모 텍스트/사진 완전 분리(`81aa380`), 원자적 upsert 방식은 JDBC 네이티브 `ON DUPLICATE KEY UPDATE`(`5fb9ccd`).
 
 ### 계약 parity (003-migration §4)
 
-- 6개 엔드포인트 전부 `KEEP`(응답 내용) — 레거시와 `data` 내부 필드 대조 대상.
-- 의도적 차이(대조 실패 아님): C1(엔벨로프 통일), C2(성공 코드), C6(단건 응답에서 날짜 필드 없음), C8(`value` 문자열화), C9(빈 체크리스트 200 vs 레거시 실패 응답), C12(템플릿 인증화).
+- `KEEP` 엔드포인트(응답 내용) — 레거시와 `data` 내부 필드 대조 대상.
+- 의도적 차이(대조 실패 아님): C1(엔벨로프 통일), C2(성공 코드), C4(메모 텍스트·사진 분리 — 레거시 `POST /memo`의 `{content, photoKeys}`가 `PUT /memos/{id}` + `POST`/`DELETE /memos/{id}/photos`로), C6(단건 응답 날짜 필드 없음), C8(`value` 문자열화), C9(빈 체크리스트 200 vs 레거시 실패 응답), C12(템플릿 인증화).
 - `GET /api/v0/memo/list`는 `DROP` — 대조 제외.
 
 ## 작업 후 확인 목록
@@ -247,9 +252,9 @@ domain/memo/
 | 문서 | 판정 | 결과 |
 |---|---|---|
 | `docs/domains/memo.md` | 신설함 | 경계·불변식, v1 6개 엔드포인트 매핑, 스키마(`memos` V10 / `memo_photos` V11 / `checklist_submissions` V12 + 정적 템플릿), 구조, media 의존, 레거시 대비 의도적 차이 |
-| `docs/inventory/api.md` | 갱신함 | memo 6개 행: 진척 `미착수`→`완료`, `대상 버전` `v0`→`v1`, 근거에 신규 경로·KD3-465 링크·의도적 차이. `GET /memo/list`는 `DROP` 유지(KD3-465 확인 추가). 최종 수정 시각 갱신 |
-| `docs/inventory/database.md` | 갱신함 | `free_memo`/`free_memo_photo`·`checklist_submission`/`checklist_answer` → `완료`(신규 테이블 매핑). `checklist_template`/`section`/`question`/`question_option` → `DROP`(정적 리소스). 소유 도메인 `checklist`→`memo`. 위험 표 L113·L117·L118 신규 테이블명·미결로 갱신 |
-| `docs/inventory/integrations.md` | 갱신함 | S3 행: 사용 위치·신규 방향에 memo 소비 이관(KD3-465, `MediaMemoPhotoStorageAdapter`, `MediaPurpose.MEMO_ATTACHMENT` → `memo/{userCode}/`), orphan 정리 미결 명시 |
+| `docs/inventory/api.md` | 갱신함 | memo 6개 행: 진척 `미착수`→`진행중`(로컬 응답 대조 미완료), `대상 버전` `v1`, 근거·후속 확인 열 분리(MD056), 신규 경로·KD3-465 링크·의도적 차이. 진척 카운트 표(7/9/106/137)·설명 갱신 |
+| `docs/inventory/database.md` | 갱신함 | `free_memo`→`memos`(V10), `free_memo_photo`→`memo_photos`(V11, user+target 직접 키), `checklist_submission`→`checklist_submissions`(V12), `checklist_answer`→`answers` TEXT 컬럼. `checklist_template`/`section`/`question`/`question_option` → `DROP`/`해당없음`. 소유 도메인 `checklist`→`memo`. 위험 표 신규 테이블명·미결 갱신 |
+| `docs/inventory/integrations.md` | 갱신함 | S3 행: memo 소비 이관(KD3-465, `MediaMemoPhotoStorageAdapter`, `MediaPurpose.MEMO_ATTACHMENT` → `memo/{userCode}/`), orphan 정리 미결 명시 |
 | `docs/domains/media.md` | 갱신함 | §1 업로드 purpose 행에 `MEMO_ATTACHMENT`(→ `memo/{userCode}/{filename}`) 추가 |
 | `docs/architecture/hexagonal.md` | 확인, 변경 없음 | 규칙 4 와일드카드로 `memo.domain` 자동 포함 — 문구 stale 아님 |
 | `docs/service.md` | 확인, 변경 없음 | §5 흐름도는 원장 중심이고 보호자 탐색 경험(메모·체크리스트·북마크·비교) 노드가 없음. 이 티켓에서 추가하지 않음 — 유치원 부가 기능 슬라이스가 다 들어온 뒤 한 번에 반영 여부 판단(별도) |

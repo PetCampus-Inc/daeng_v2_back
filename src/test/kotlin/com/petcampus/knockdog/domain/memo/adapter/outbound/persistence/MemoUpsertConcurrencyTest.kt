@@ -38,6 +38,6 @@ class MemoUpsertConcurrencyTest {
         executor.awaitTermination(10, TimeUnit.SECONDS)
 
         assertEquals(emptyList(), errors)
-        assertEquals(1, memoJpaRepository.findAllByUserCodeOrderByUpdatedAtDesc("CONC0001").size)
+        assertEquals(1, memoJpaRepository.findAllByUserCodeOrderByUpdatedAtDescIdDesc("CONC0001").size)
     }
 }

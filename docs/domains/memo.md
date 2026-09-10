@@ -1,31 +1,32 @@
-> 생성: 2026-09-09 18:00 · 최종 수정: 2026-09-09 18:00
+> 생성: 2026-09-09 18:00 · 최종 수정: 2026-09-10 12:00
 
 # memo 도메인 마이그레이션 지시서
 
-보호자가 유치원을 탐색·비교하며 남기는 **자유메모**(유치원당 1건, 사진 첨부)와 **상담시 체크리스트**(유치원당 1건, 고정 문항 답변)를 담당한다.
+보호자가 유치원을 탐색·비교하며 남기는 **메모 텍스트**(유치원당 1건), **메모 사진**(유치원당 최대 5장), **상담시 체크리스트**(유치원당 1건, 고정 문항 답변)를 담당한다. 텍스트·사진·체크리스트는 서로 독립된 기능이다.
 
 - 설계 근거: [`0003`](../adr/0003-헥사고날-정석형-통일.md) 헥사고날 정석형, [`0007`](../adr/0007-인가-기본-deny-전환.md) 인가 기본 deny, [`0010`](../adr/0010-신규-db-인스턴스-스키마-재작성.md) 신규 DB, [`0012`](../adr/0012-신규-서버-v0-미제공-원칙.md) 신규 서버는 `v0`를 만들지 않는다
 - 원본: `daeng_v1_back`(`knockdog_server`)의 `memo/` 패키지 (컨트롤러 1개, 서비스 2개, 엔티티 8개)
 - 착수 기록: [`docs/work/KD3-465-memo.md`](../work/KD3-465-memo.md) — 계약 결정 C1~C15, 프론트(`daeng_v2_front`) 대조 결과
-- **KD3-465에서 전체 구현 완료** (자유메모 + 사진 + 체크리스트). 레거시 엔드포인트별 판정·진척은 [`docs/inventory/api.md`](../inventory/api.md)(memo 행)가 단일 기준이다.
+- **KD3-465에서 전체 구현 완료**. 레거시 엔드포인트별 판정·진척은 [`docs/inventory/api.md`](../inventory/api.md)(memo 행)가 단일 기준이다.
 
 ## 0. 담당 데이터
 
 | 저장소 | 이름 | 비고 |
 |---|---|---|
-| MySQL (JPA) | `memos` (V10) | `(user_code, target_id)` 유니크 1행. `user_code`는 auth 토큰 subject(`UserCode`), `target_id`는 `kindergartens.naver_place_id`. FK 제약 없음. 레거시 `free_memo`의 "매 저장 새 row + 히스토리"를 폐기하고 upsert 1행으로 재설계 |
-| MySQL (JPA) | `memo_photos` (V11) | `memo` 저장 시 `photoKeys` 배열을 **전량 교체**(하드 삭제 후 삽입)하므로 `BaseEntity`(soft-delete)를 상속하지 않는다 — `user_agreements`와 같은 예외. `object_key`는 `media` commit 후 영구 key(`memo/{userCode}/{filename}`) |
-| MySQL (JPA) | `checklist_submissions` (V12) | `(user_code, target_id)` 유니크 1행. `answers`는 `{questionCode: value}` JSON 컬럼(`AttributeConverter`). `template_version`은 답변 시점 템플릿 버전. 레거시 `checklist_submission` + `checklist_answer`(폴리모픽 4컬럼)를 통합 |
+| MySQL (JPA) | `memos` (V10) | `(user_code, target_id)` 유니크 1행 = 메모 텍스트. `user_code`는 auth 토큰 subject(`UserCode`), `target_id`는 `kindergartens.naver_place_id`. FK 제약 없음. 레거시 `free_memo`의 "매 저장 새 row + 히스토리"를 폐기하고 원자적 upsert 1행으로 재설계 |
+| MySQL (JPA) | `memo_photos` (V11) | `(user_code, target_id, object_key)` 유니크. **`memos` row에 매이지 않고 `(user_code, target_id)`를 직접 키로 갖는다** — 텍스트와 독립된 기능. 개별 추가·삭제, 유치원당 최대 5장(애플리케이션 검증). `object_key`는 `media` commit 후 영구 key(`memo/{userCode}/{filename}`). `BaseEntity` 미상속(라이프사이클을 도메인이 관리) |
+| MySQL (JPA) | `checklist_submissions` (V12) | `(user_code, target_id)` 유니크 1행. `answers`는 `{questionCode: value}` JSON 문자열을 담는 **`TEXT` 컬럼**(`AttributeConverter`) — 통째로만 읽고 써서 JSON 타입 불필요. `template_version`은 답변 시점 템플릿 버전. 원자적 upsert. 레거시 `checklist_submission` + `checklist_answer`(폴리모픽 4컬럼)를 통합 |
 | 리소스 파일 | `resources/checklists/registration.ko-KR.json` | 상담 체크리스트 템플릿. **DB 테이블 없음** — 레거시 `checklist_template`/`checklist_section`/`checklist_question`/`question_option`은 미이관. 5섹션 13문항(TRI_STATE 12 + INTEGER 1). 기동 시 1회 로드해 (a) 템플릿 조회 응답 (b) 답변 저장 검증 (c) 답변 조회 시 문항 라벨 채우기에 모두 쓰인다 |
 
 ## 1. 불변식 · 제약
 
 | 항목 | 규칙 |
 |---|---|
-| 자유메모 개수 | 한 사용자가 한 유치원에 자유메모 1건. `PUT`은 upsert |
-| 자유메모 content | 2000자 이내(`FreeMemo.CONTENT_MAX_LENGTH`, 도메인 `require` + 서비스가 `MEMO_CONTENT_TOO_LONG`으로 선검사) |
-| 자유메모 사진 | 최대 5장(`FreeMemo.PHOTO_MAX_COUNT`). `PUT`의 `photoKeys`는 순서 있는 배열이고, `tmp/{userCode}/…`는 `media`로 commit해 영구화, `memo/{userCode}/…`(호출자 소유)는 유지, 그 외는 `MEMO_INVALID_PHOTO_KEY` |
+| 메모 텍스트 개수 | 한 사용자가 한 유치원에 텍스트 1건. `PUT`은 upsert이며 **content만** 건드린다(사진 무관) |
+| 메모 텍스트 content | 2000자 이내(`Memo.CONTENT_MAX_LENGTH`, 도메인 `require` + 서비스가 `MEMO_CONTENT_TOO_LONG`으로 선검사) |
+| 메모 사진 | 유치원당 최대 5장(`MemoPhoto.MAX_COUNT_PER_TARGET`). **개별 추가/삭제.** 추가는 `tmp/{userCode}/…` key만 받아 `media`로 commit해 영구화(그 외 `MEMO_INVALID_PHOTO_KEY`). 삭제는 소유자 확인 후 DB row + S3 object 제거(아니면 `MEMO_PHOTO_NOT_FOUND`) |
 | 체크리스트 개수 | 한 사용자가 한 유치원에 제출 1건. `PUT`은 upsert이며 **전체 교체**(제출 answers가 곧 그 제출의 전부, 빠진 문항은 삭제) |
+| 동시성 | `memos`·`checklist_submissions` 저장은 네이티브 `INSERT ... ON DUPLICATE KEY UPDATE`로 원자적 upsert — 동시 최초 저장이 `UNIQUE` 위반으로 실패하지 않는다. JPA 엔티티에도 `uniqueConstraints`를 명시(H2 테스트에서 제약 필요) |
 | 체크리스트 문항 ID | `q_vaccine_proof_required` 등 13개는 **레거시·프론트(`checklist-edit.api.ts`)와 100% 동일 — 절대 변경 금지**. 라벨·섹션 제목은 화면지시서(Figma) 기준이며 프론트가 API 응답을 그대로 렌더한다 |
 | 체크리스트 값 | TRI_STATE ∈ {`YES`,`NO`,`UNKNOWN`}, INTEGER는 `q_max_dogs_per_day` 하나뿐이고 0~500. 응답의 `value`는 **항상 문자열**(레거시는 INTEGER를 숫자로 내려 프론트 타입과 어긋났음 — 의도적 교정) |
 | required 검증 | 없음 — 템플릿에 `required:true` 문항이 없다. 부분 제출 허용 |
@@ -36,31 +37,33 @@
 
 | 신규 (`v1`) | 레거시 (`v0`) | 설명 |
 |---|---|---|
-| `GET /api/v1/memos/{targetId}` | `GET /api/v0/memo?targetId=` | 유치원별 자유메모 조회. 없으면 200 + `{content:null, photos:[]}` |
-| `PUT /api/v1/memos/{targetId}` | `POST /api/v0/memo?targetId=` | 자유메모 upsert. body `{content?, photoKeys?}`. 갱신된 표현 반환 |
-| `GET /api/v1/memos` | `GET /api/v0/memo/shops` | 내가 메모한 유치원 목록. `{memos:[{shopId, content, memoDate}]}` — `shopId`=targetId, `memoDate`=`LocalDate`. 프론트가 `shopId`로 유치원 카드에 조인 |
+| `GET /api/v1/memos/{targetId}` | `GET /api/v0/memo?targetId=` | 유치원별 메모(텍스트 + 사진). 없으면 200 + `{content:null, photos:[]}`. `photos:[{id, key, url}]` |
+| `PUT /api/v1/memos/{targetId}` | `POST /api/v0/memo?targetId=`(텍스트 부분) | 메모 텍스트 upsert. body `{content?}`. 갱신된 표현 반환 |
+| `POST /api/v1/memos/{targetId}/photos` | `POST /api/v0/memo?targetId=`(사진 부분) | 사진 1장 추가. body `{photoKey}`(tmp key). `{id, key, url}` 반환. 5장 초과 400 |
+| `DELETE /api/v1/memos/{targetId}/photos/{photoId}` | (없음) | 사진 1장 삭제 (DB row + S3 object). 소유 아니면 404 |
+| `GET /api/v1/memos` | `GET /api/v0/memo/shops` | 내 메모 텍스트가 있는 유치원 목록. `{memos:[{shopId, content, memoDate}]}` — `shopId`=targetId, `memoDate`=`LocalDate`. 프론트가 `shopId`로 유치원 카드에 조인 |
 | `GET /api/v1/checklists/template` | `GET /api/v0/memo/checklist` | 상담 체크리스트 템플릿(정적). `{template:{code,version,locale,title}, sections:[{id,title,questions:[{id,label,type}]}]}` |
 | `GET /api/v1/checklists/{targetId}` | `GET /api/v0/memo/checklist/answer?targetId=` | 유치원별 내 체크리스트 답변. `{sections:[{sectionId,title,answers:[{questionId,question,value}]}]}`. 없으면 200 + `{sections:[]}` |
 | `PUT /api/v1/checklists/{targetId}` | `POST /api/v0/memo/checklist?targetId=` | 체크리스트 답변 upsert(전체 교체). body `{answers:[{questionId,value}]}` |
 | — | `GET /api/v0/memo/list` | `DROP` (ADR 0004: `memo`, `memo/shops`만 사용) |
 
-레거시 `v0`는 컷오버까지 레거시 서버가 계속 제공한다(ADR 0012).
+레거시는 `POST /api/v0/memo`에서 텍스트와 `photoKeys`를 한 번에 받았다 — 신규는 텍스트(`PUT`)와 사진(`POST`/`DELETE .../photos`)을 분리했다. 레거시 `v0`는 컷오버까지 레거시 서버가 계속 제공한다(ADR 0012).
 
 ## 3. 구조 (정석형 헥사고날)
 
 ```
 domain/memo/
-  domain/            FreeMemo·MemoPhoto·MemoId, ChecklistTemplate·ChecklistSection·ChecklistQuestion·ChecklistQuestionType·ChecklistSubmission (순수 모델/VO)
+  domain/            Memo·MemoPhoto·MemoId, ChecklistTemplate·ChecklistSection·ChecklistQuestion·ChecklistQuestionType·ChecklistSubmission (순수 모델/VO)
   application/
     MemoErrorCode.kt
-    port/input/       GetFreeMemo·SaveFreeMemo·GetMemoedKindergartens / GetChecklistTemplate·GetChecklistAnswers·SaveChecklistAnswers UseCase
-    port/output/      LoadFreeMemo·SaveFreeMemo·MemoPhotoStorage / LoadChecklistTemplate·LoadChecklistSubmission·SaveChecklistSubmission Port
-    service/          FreeMemoService, ChecklistService
+    port/input/       GetMemo·SaveMemo·GetMemoedKindergartens / AddMemoPhoto·DeleteMemoPhoto / GetChecklistTemplate·GetChecklistAnswers·SaveChecklistAnswers UseCase
+    port/output/      LoadMemo·SaveMemo / LoadMemoPhoto·SaveMemoPhoto·MemoPhotoStorage / LoadChecklistTemplate·LoadChecklistSubmission·SaveChecklistSubmission Port
+    service/          MemoService(텍스트+조회), MemoPhotoService(추가·삭제), ChecklistService
   adapter/
-    inbound/web/      FreeMemoController·MemoListController·ChecklistTemplateController·ChecklistAnswerController
+    inbound/web/      MemoController·MemoPhotoController·MemoListController·ChecklistTemplateController·ChecklistAnswerController
     outbound/persistence/  Memo·MemoPhoto·ChecklistSubmission JPA 엔티티/Repository/Adapter, ChecklistAnswersJsonConverter
     outbound/template/     ChecklistTemplateResourceAdapter (리소스 JSON → ChecklistTemplate)
-    outbound/media/        MediaMemoPhotoStorageAdapter (MemoPhotoStoragePort → media CommitObjectUseCase·IssueDownloadUrlUseCase 위임)
+    outbound/media/        MediaMemoPhotoStorageAdapter (MemoPhotoStoragePort → media CommitObjectUseCase·IssueDownloadUrlUseCase·ObjectStoragePort 위임)
 ```
 
 - ArchUnit 규칙 4(`domain.*.domain..` 와일드카드)로 `memo.domain` 자동 포함. 도메인 모델은 에러코드를 모른다 — 값 검증은 `require`(도메인) + `BusinessException(MemoErrorCode)`(서비스). 체크리스트 값 정규화는 `ChecklistQuestion.normalize(raw): String?`(null = 무효)로 도메인이 담당하고 서비스가 null → `MEMO_INVALID_CHECKLIST_ANSWER`로 매핑.
@@ -70,18 +73,19 @@ domain/memo/
 첨부 사진은 `media` 도메인에 위임한다.
 
 - 업로드: 프론트가 `POST /api/v1/media/upload-urls` `{purpose:"MEMO_ATTACHMENT", contentType}` → `tmp/{userCode}/MEMO_ATTACHMENT/{uuid}.{ext}` key. `MediaPurpose.MEMO_ATTACHMENT`는 KD3-465에서 추가(→ `memo/{userCode}/{filename}`).
-- 저장: `PUT /api/v1/memos/{targetId}`의 `photoKeys` 중 tmp key는 memo가 `CommitObjectUseCase.commit`으로 영구화, 결과 key를 `memo_photos`에 저장.
+- 추가: `POST /api/v1/memos/{targetId}/photos`의 `photoKey`(tmp)는 memo가 `CommitObjectUseCase.commit`으로 영구화, 결과 key를 `memo_photos`에 저장.
 - 조회: `GET`에서 각 영구 key에 `IssueDownloadUrlUseCase.issue` → `photos[].url`.
-- **재편집으로 참조가 끊긴 영구 object의 S3 삭제 주체는 미결** — [`integrations.md`](../inventory/integrations.md) S3 행 참고. 현재는 `memo_photos` row만 정리하고 S3 object는 방치.
+- 삭제: `DELETE`가 `MemoPhotoStoragePort.delete` → media의 `ObjectStoragePort.delete`로 S3 object 제거(media가 삭제를 인바운드로 노출하지 않아 소비 도메인이 outbound 포트 직접 호출 — media.md §1). DB row도 함께 제거.
 
 ## 5. 레거시 대비 의도적 차이 (parity 대조 시 참고)
 
-`KEEP` 6개 엔드포인트는 응답 **내용**이 레거시와 기능적으로 같은지만 본다(경로·엔벨로프는 재설계). 아래는 의도된 차이다.
+`KEEP` 엔드포인트는 응답 **내용**이 레거시와 기능적으로 같은지만 본다(경로·엔벨로프는 재설계). 아래는 의도된 차이다.
 
 | 항목 | 레거시 | 신규 |
 |---|---|---|
 | 응답 엔벨로프 | raw DTO 3개 + `BasicInfoResponseDto` 3개 혼재 | `Response<T>` 단일 (C1) |
 | 성공 코드 | `MEMO_SAVED`/`CHECKLIST_SAVED` 등 커스텀 | `SUCCESS` (C2) |
+| 메모 텍스트/사진 | `POST /memo` 한 번에 `{content, photoKeys}` | 텍스트 `PUT /memos/{id}`, 사진 `POST`/`DELETE /memos/{id}/photos` 분리 |
 | 자유메모 히스토리 | 매 저장 새 row, `GET /memo/list`로 노출 | upsert 1행, `list` DROP (C4) |
 | 단건 조회 날짜 | `memoDate`(`yyyy.MM.dd`) 포함 | 없음 (프론트가 안 읽음, C6) |
 | 체크리스트 `value` | INTEGER를 숫자로 | 항상 문자열 (C8) |
