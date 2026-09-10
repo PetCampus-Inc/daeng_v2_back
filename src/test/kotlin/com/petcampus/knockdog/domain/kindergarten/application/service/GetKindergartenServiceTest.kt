@@ -14,6 +14,8 @@ class GetKindergartenServiceTest {
         private val kindergarten: Kindergarten?,
     ) : LoadKindergartenPort {
         override fun findByNaverPlaceId(naverPlaceId: String) = kindergarten
+
+        override fun findByNaverPlaceIds(naverPlaceIds: List<String>) = listOfNotNull(kindergarten)
     }
 
     private fun sampleKindergarten(id: Long = 1L) =

@@ -4,4 +4,6 @@ import org.springframework.data.jpa.repository.JpaRepository
 
 interface KindergartenJpaRepository : JpaRepository<KindergartenJpaEntity, Long> {
     fun findByNaverPlaceId(naverPlaceId: String): KindergartenJpaEntity?
+
+    fun findAllByNaverPlaceIdIn(naverPlaceIds: List<String>): List<KindergartenJpaEntity>
 }

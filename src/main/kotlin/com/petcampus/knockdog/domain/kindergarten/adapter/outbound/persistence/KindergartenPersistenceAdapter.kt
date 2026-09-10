@@ -23,6 +23,10 @@ class KindergartenPersistenceAdapter(
         return assemble(entity)
     }
 
+    @Transactional(readOnly = true)
+    override fun findByNaverPlaceIds(naverPlaceIds: List<String>): List<Kindergarten> =
+        kindergartenJpaRepository.findAllByNaverPlaceIdIn(naverPlaceIds).map { assemble(it) }
+
     @Transactional
     override fun save(kindergarten: Kindergarten): Kindergarten {
         val savedRoot = kindergartenJpaRepository.save(kindergarten.toJpaEntity())
