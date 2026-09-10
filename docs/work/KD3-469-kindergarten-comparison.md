@@ -1,4 +1,4 @@
-> 생성: 2026-09-09 16:30 · 최종 수정: 2026-09-10 10:00
+> 생성: 2026-09-09 16:30 · 최종 수정: 2026-09-10 12:00
 
 # KD3-469 유치원 비교 조회 API 개발
 
@@ -11,8 +11,8 @@
 ## 현재 제어점
 
 - 활성 workflow: `003-migration`
-- 현재 공통 단계: `4` (검증)
-- 다음 결정 또는 전환 조건: KEEP 응답 대조 정리 → 5단계 독립 리뷰·PR
+- 현재 공통 단계: `5` (독립 리뷰·PR·문서 동기화)
+- 다음 결정 또는 전환 조건: 독립 리뷰 반영 → PR → epic 머지
 
 ## 작업 목표
 
@@ -84,7 +84,7 @@ operatingSchedule: {
 ## 작업 범위
 
 1. **요금 집계 계산기** — `kindergarten/domain/KindergartenPricingComparisonCalculator`(순수 함수, `KindergartenDistanceCalculator`·`KindergartenOperatingStatusCalculator`와 같은 결). 입력 `List<KindergartenMenu>`, 출력은 응답 DTO가 아니라 도메인 값(예: `KindergartenPricingComparison`). 위 표대로 계산.
-2. **거리 기준점 조회 포트** — `kindergarten/application/port/output/LoadComparisonReferencePointsPort`(가칭). 어댑터는 `kindergarten/adapter/outbound`에 두고 auth `LoadUserPort.findById(UserId)`를 호출해 `User.addresses` → 비교용 기준점 값으로 매핑. 로그인 안 했으면 빈 목록.
+2. **거리 기준점 조회 포트** — `kindergarten/application/port/output/LoadComparisonAddressesPort`. 어댑터(`kindergarten/adapter/outbound/user/ComparisonAddressAdapter`)가 auth `LoadUserPort.findByCode(UserCode)`를 호출해 `User.addresses` → `ComparisonReferencePoint`(kindergarten 도메인 값, `HOME`/`OTHER` + lat/lng)로 매핑. `@AuthenticationPrincipal`이 UserCode 문자열이라 `findByCode`를 쓴다. 유저 없으면 빈 목록.
 3. **유치원 batch 로드** — `LoadKindergartenPort.findByNaverPlaceIds(ids: List<String>): List<Kindergarten>` + 어댑터 구현(`findAllByNaverPlaceIdIn` 후 기존 `assemble` 재사용). 요청 수와 로드 수가 다르면 서비스가 판단.
 4. **use case / service** — `CompareKindergartensUseCase`(입력 포트) + `CompareKindergartensService`. ids 검증(정확히 2개·중복), 404 판정, 기준점 결정, 유치원별 비교 데이터 조립.
 5. **컨트롤러 / 응답 DTO** — `KindergartenComparisonController`(`GET /api/v1/kindergartens/comparisons`), `KindergartenComparisonResponse`. `@AuthenticationPrincipal` nullable.
@@ -109,7 +109,7 @@ operatingSchedule: {
 
 - 요금 집계는 `kindergarten_menus`에서 재계산(레거시 `product_pricing.json` 시딩 안 함). 근거·검증은 §배경.
 - 패키지 배치: 별도 `comparison` 도메인이 아니라 `domain/kindergarten`의 기능. 자체 영속성이 없고 `Kindergarten` 애그리거트를 통째로 읽는다. 히스토리(KD3-496)의 배치는 그때 결정.
-- 거리 기준점: `lat`/`lng` 쿼리 + 로그인 저장 주소 둘 다 지원(레거시대로). 저장 주소는 auth `LoadUserPort` 경유 포트로 읽는다.
+- 거리 기준점: `lat`/`lng` 쿼리 + 로그인 저장 주소 둘 다 지원(레거시대로). 저장 주소는 `LoadComparisonAddressesPort` → auth `LoadUserPort.findByCode` 경유로 읽는다.
 - 이동시간은 KD3-499로 분리. KD3-469는 `distance[]` 구조를 완성하고 `transitTimes`만 빈 배열.
 - `service`는 `KindergartenServiceTags.allOf`(4개 옵션그룹 코드) 사용 — 프론트 `TOTAL_SERVICE_MAP` 키와 1:1.
 - `operatingSchedule` 프로필은 `name == "DEFAULT"` 우선, 없으면 첫 번째.
@@ -131,11 +131,36 @@ operatingSchedule: {
 
 ## 완료 확인 기준
 
-- `KindergartenPricingComparisonCalculator` 단위 테스트 — min/max, 정책별·서비스별 `round(mean(hourlyPrice))`, hourlyPrice null 행 제외, 대상 없으면 0, 빈 메뉴 → null.
-- `CompareKindergartensService` 테스트 — ids 2개 아님 400, 중복 400, 없는 id 404, lat/lng 기준점, 로그인 주소 기준점(포트 스텁), `transitTimes` 빈 배열, `distance` 순서(HOME 먼저).
-- 컨트롤러 테스트 — `GET /api/v1/kindergartens/comparisons` 성공/실패 상태 코드, 공개 접근(비로그인).
-- `./gradlew clean test ktlintCheck` 통과, ArchUnit 통과.
-- **KEEP API 로컬 응답 대조** (`003-migration.md` §4) — 레거시 `ComparisonController.getComparison` 응답과 v1 응답을 필드 단위로 대조. 차이(요금 재계산으로 인한 값 차이, `transitTimes` 빈 배열, not-found 404 vs 500)는 의도된 것으로 기록하고, 프론트 소비처 확인 결과를 남긴다.
+### 테스트 (2026-09-10, `./gradlew clean test ktlintCheck` — 총 149개, 실패 0, ArchUnit 통과)
+
+- `KindergartenPricingComparisonCalculatorTest` (6) — min/max, 정책별·서비스별 `round(mean(hourlyPrice))`, hourlyPrice null 행 제외, 대상 없으면 0, price 전부 없는 서비스종류 제외, 빈 메뉴 → null.
+- `CompareKindergartensServiceTest` (7) — ids 2개 아님 → `COMPARISON_TARGET_COUNT`, 중복 → `COMPARISON_TARGET_DUPLICATED`, 없는 id → `RESOURCE_NOT_FOUND`, 결과 순서 = 요청 순서, lat/lng 기준점 = OTHER 1개, 로그인 주소 기준점 HOME 먼저, 비로그인·위치없음 → 빈 목록.
+- `KindergartenComparisonResponseTest` (6) — pricing 조립, `operatingSchedule` DEFAULT 프로필 우선, 영업시간 빈 값 → null, distance 기준점별 직선거리 + `transitTimes` 빈 배열, 좌표 없는 유치원 → distance 빈 배열.
+- `KindergartenComparisonEndpointTest` (5, `@SpringBootTest`+MockMvc) — 비로그인 200, ids 2개 아님 400 `COMPARISON_TARGET_COUNT`, 없는 유치원 404 `RESOURCE_NOT_FOUND`, lat/lng → OTHER 1개, 로그인 → 저장 주소(HOME) 기준점.
+
+### KEEP API 로컬 응답 대조 (`003-migration.md` §4)
+
+레거시 서버(Redis 의존)를 로컬에서 띄우지 못해 **실행 대조는 못 했다**. 대신 레거시 `ComparisonResponse.java` / `ComparisonService.java` 소스와 v1 코드를 필드 단위로 대조했다.
+
+| 필드 | 레거시 | v1 | 차이와 근거 |
+|---|---|---|---|
+| `id`/`name`/`thumbnailS3Key`/`categories` | KindergartenDto | Kindergarten(RDB) | 동일(크롤 원본) |
+| `pricing.countHourlyAvg`/`monthlyHourlyAvg` | `product_pricing.json`(stale) | `round(mean(hourlyPrice))` | **값 다름 — 의도.** 레거시 소스가 stale(§배경) |
+| `pricing` null | `:pricing` Redis 키 없을 때 | `menus` 비었을 때 | 트리거 조건 다름, 결과(null) 동일 |
+| `pricing.products[].productType` → **`serviceType`** | 필드명 `productType` | 필드명 `serviceType` | **필드명 변경 — code-style §3.** 프론트 수정 필요 |
+| `pricing.products[].min`/`max` | stale json | `menus`의 `price` MIN/MAX | 구조 동일(`{name, price}`), 값 다를 수 있음 |
+| `pricing.products[].countTicketAvg` | stale json | `round(mean(hourlyPrice))` COUNT_TICKET∩svc | 값 다름 — 의도 |
+| `service` | `ServiceTag` enum(영업중·가격정책 태그 포함) | `KindergartenServiceTags.allOf`(4개 옵션그룹) | **목록 다름 — 의도.** 프론트 `TOTAL_SERVICE_MAP`과 1:1(§미결 질문 1) |
+| `distance[].referencePoint` | `HOME`/`WORK`/`OTHER` | `HOME`/`OTHER` | v2엔 `WORK` 없음(auth `AddressType`, KD3-372) |
+| `distance[].distance` | `"%.1fkm"` Haversine | `"%.1fkm"` Haversine(동일 공식) | 동일 |
+| `distance[].transitTimes` | `[{type, time: "2시간 49분"}]` | **`[]`** | **비어있음 — KD3-499로 분리** |
+| `operatingSchedule` | `{closedDays, weekdayHours: "09:00~20:00", weekendHours}` | `{weekday: {open,close}, weekend: {open,close}, closedDays}` | **구조 변경 — 의도(§미결 질문 3).** `detail`과 일관. 프론트 수정 필요 |
+| not-found | 500(전용 핸들러 없음) | 404 `RESOURCE_NOT_FOUND` | 교정(summary/detail/pricing과 동일) |
+| ids<2 / 중복 | `COMPARISON-400-1` / `COMPARISON-400-2` | `COMPARISON_TARGET_COUNT` / `COMPARISON_TARGET_DUPLICATED` | code 문자열 다름 — 프론트는 comparison 에러 코드로 분기 안 함(`shared/api/model/constant/apiErrorCode.ts`엔 login/token 코드만). 안전 |
+| ids>2 | 허용 | 400 | 정확히 2(§미결 질문 4) |
+| `Response` 래퍼 | `{data, status, code, message, responseTime}` | `{status, code, message, data}` | `responseTime` 없음 — 프론트 `select`가 `.data`만 읽음(KD3-258 선례) |
+
+**프론트 협의 필요**: `productType`→`serviceType` 필드명, `operatingSchedule` 구조, `v0`→`v1` 경로. 사람이 프론트 저장소에서 전환 작업.
 
 ## 작업 후 확인 목록
 
