@@ -77,9 +77,35 @@ class MediaEndpointsTest {
                 post("/api/v1/media/upload-urls")
                     .header("Authorization", bearer())
                     .contentType(MediaType.APPLICATION_JSON)
-                    .content("""{"purpose":"MEMO_ATTACHMENT","contentType":"image/webp"}"""),
+                    .content("""{"purpose":"ALBUM_PHOTO","contentType":"image/webp"}"""),
             ).andExpect(status().isBadRequest)
             .andExpect(jsonPath("$.code").value("MEDIA_UNSUPPORTED_PURPOSE"))
+    }
+
+    @Test
+    fun `MEMO_ATTACHMENT는 업로드 URL 발급 후 memo 폴더로 commit된다`() {
+        val uploadResponse =
+            mockMvc
+                .perform(
+                    post("/api/v1/media/upload-urls")
+                        .header("Authorization", bearer())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""{"purpose":"MEMO_ATTACHMENT","contentType":"image/webp"}"""),
+                ).andExpect(status().isOk)
+                .andExpect(jsonPath("$.data.key").value(startsWith("tmp/A1B2C3D4/MEMO_ATTACHMENT/")))
+                .andReturn()
+                .response
+                .contentAsString
+        val key = ObjectMapper().readTree(uploadResponse).at("/data/key").asText()
+
+        mockMvc
+            .perform(
+                post("/api/v1/media/commits")
+                    .header("Authorization", bearer())
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("""{"key":"$key"}"""),
+            ).andExpect(status().isOk)
+            .andExpect(jsonPath("$.data.key").value(startsWith("memo/A1B2C3D4/")))
     }
 
     @Test

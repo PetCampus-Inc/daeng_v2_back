@@ -1,4 +1,4 @@
-> 생성: 2026-09-07 13:10 · 최종 수정: 2026-09-08 10:45
+> 생성: 2026-09-07 13:10 · 최종 수정: 2026-09-09 17:30
 
 # media 도메인
 
@@ -16,7 +16,7 @@
 | 항목 | 규칙 |
 |---|---|
 | 임시 업로드 key | 서버가 생성한다 — `tmp/{userCode}/{purpose}/{uuid}.{ext}`. 클라이언트는 prefix/경로를 지정할 수 없다(레거시 `path` 파라미터 제거 — 0004 보안 이슈). `{purpose}` 세그먼트로 commit이 DB 조회 없이 목적을 복원한다 |
-| 업로드 purpose | `MediaPurpose` enum. **현재 지원: `PROFILE_IMAGE` 하나** (→ `user/{userCode}/{uuid}.{ext}`). 미지원 값 400(`MEDIA_UNSUPPORTED_PURPOSE`) |
+| 업로드 purpose | `MediaPurpose` enum. **현재 지원: `PROFILE_IMAGE`(→ `user/{userCode}/{filename}`), `MEMO_ATTACHMENT`(→ `memo/{userCode}/{filename}`, KD3-465)**. 미지원 값 400(`MEDIA_UNSUPPORTED_PURPOSE`) |
 | 업로드 content-type | `MediaContentType` 허용 목록(`image/jpeg`, `image/png`, `image/webp`, `image/heic`, `image/heif`)만. 그 외 400. 프론트 picker(`useImagePicker.ts`)와 맞춘다 — `image/jpg` 별칭은 미대응 |
 | commit 소유권 | source key가 호출자의 `tmp/{userCode}/` 아래일 때만 허용. 아니면 403 |
 | commit 경로 결정 | source key의 purpose 세그먼트 → 그 purpose의 경로 템플릿. `PROFILE_IMAGE` → `user/{callerUserCode}/{원본 filename}`. copy 후 원본 best-effort delete |

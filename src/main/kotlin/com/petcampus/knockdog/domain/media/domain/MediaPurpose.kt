@@ -2,6 +2,7 @@ package com.petcampus.knockdog.domain.media.domain
 
 enum class MediaPurpose {
     PROFILE_IMAGE,
+    MEMO_ATTACHMENT,
     ;
 
     fun permanentKey(
@@ -10,6 +11,7 @@ enum class MediaPurpose {
     ): ObjectKey =
         when (this) {
             PROFILE_IMAGE -> ObjectKey("user/$userCode/$filename")
+            MEMO_ATTACHMENT -> ObjectKey("memo/$userCode/$filename")
         }
 
     companion object {

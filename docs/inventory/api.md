@@ -1,4 +1,4 @@
-> 생성: 2026-08-02 13:45 · 최종 수정: 2026-09-10 11:30
+> 생성: 2026-08-02 13:45 · 최종 수정: 2026-09-10 13:30
 
 # API 인벤토리
 
@@ -54,11 +54,15 @@
 
 | 완료 | 진행중 | 미착수 | 해당없음 |
 |---:|---:|---:|---:|
-| 7 | 4 | 111 | 137 |
+| 7 | 13 | 102 | 137 |
 
 완료 7개 — auth 도메인: `v1` 2개(`oidc-verifications`, `users`)와 `v0` 유지 5개(`login`, `refresh`, `logout`, 약관 동의 제출·조회, [`KD3-258`](../work/KD3-258-user-social-auth.md)).
 
-진행중 4개 — kindergarten 도메인 `main/{id}`, `basic/{id}`, `{id}/pricing`([`KD3-413`](../work/KD3-413-kindergarten-static-lookup.md))와 comparison `comparisons`([`KD3-469`](../work/KD3-469-kindergarten-comparison.md)). 신규 서버는 `v0`를 만들지 않는다(ADR 0012) — `v1`로 구현했으나 로컬 응답 대조·시딩 데이터 검증이 안 끝나 `완료`가 아니라 `진행중`이다. `v0`는 컷오버까지 레거시 서버가 계속 제공한다.
+진행중 13개 — 전부 `v1`로 구현·자동검증은 끝났고 로컬 응답 대조(사람 몫)가 안 끝나 `진행중`이다. 신규 서버는 `v0`를 만들지 않는다(ADR 0012) — `v0`는 컷오버까지 레거시 서버가 계속 제공한다.
+- kindergarten 3개 — `main/{id}`, `basic/{id}`, `{id}/pricing` ([`KD3-413`](../work/KD3-413-kindergarten-static-lookup.md))
+- comparison 1개 — `comparisons` ([`KD3-469`](../work/KD3-469-kindergarten-comparison.md))
+- memo 6개 — `memo`(GET/POST), `memo/checklist`(GET/POST), `memo/checklist/answer`(GET), `memo/shops`(GET) ([`KD3-465`](../work/KD3-465-memo.md))
+- media 3개 — `s3/image/move`, `s3/image/pre-signed-url`, `s3/image/pre-signed-url/upload` ([`KD3-478`](../work/KD3-478-s3-infra-image-upload.md))
 
 ## 6. 인벤토리
 
@@ -246,13 +250,13 @@
 | POST | `/api/v0/member/super-login` | 없음 | `DROP` | `해당없음` | 없음 | legacy-member | P3 | @Deprecated 레거시 블록: 0001에 따라 신규 서버 미이관<br>src/main/java/com/petcampus/knockdog/controller/member/MemberController.java#MemberController.superLogin | - |
 | POST | `/api/v0/member/vaccination` | 없음 | `DROP` | `해당없음` | 없음 | legacy-member | P3 | @Deprecated 레거시 블록: 0001에 따라 신규 서버 미이관<br>src/main/java/com/petcampus/knockdog/controller/member/MemberController.java#MemberController.updateVaccinationImg | - |
 | GET | `/api/v0/member/video` | 없음 | `DROP` | `해당없음` | 없음 | legacy-member | P3 | @Deprecated 레거시 블록: 0001에 따라 신규 서버 미이관<br>src/main/java/com/petcampus/knockdog/controller/member/MemberController.java#MemberController.getVideoInfo | - |
-| GET | `/api/v0/memo` | 있음: src/entities/memo/api/getMemo.ts | `KEEP` | `미착수` | v0 | memo | P1 | 프론트 호출 확인<br>src/main/java/com/petcampus/knockdog/memo/controller/MemoController.java#MemoController.getFreeMemo | v0 계약 보존/parity 대상 |
-| POST | `/api/v0/memo` | 있음: src/entities/memo/api/updateMemo.ts | `KEEP` | `미착수` | v0 | memo | P1 | 프론트 호출 확인<br>src/main/java/com/petcampus/knockdog/memo/controller/MemoController.java#MemoController.postfreememo | v0 계약 보존/parity 대상 |
-| GET | `/api/v0/memo/checklist` | 있음: src/entities/checklist/api/questions.tsx | `KEEP` | `미착수` | v0 | memo | P1 | 프론트 호출 확인<br>src/main/java/com/petcampus/knockdog/memo/controller/MemoController.java#MemoController.getchecklist | v0 계약 보존/parity 대상 |
-| POST | `/api/v0/memo/checklist` | 있음: src/entities/checklist/api/answers.tsx | `KEEP` | `미착수` | v0 | memo | P1 | 프론트 호출 확인<br>src/main/java/com/petcampus/knockdog/memo/controller/MemoController.java#MemoController.postchecklist | v0 계약 보존/parity 대상 |
-| GET | `/api/v0/memo/checklist/answer` | 있음: src/entities/checklist/api/answers.tsx | `KEEP` | `미착수` | v0 | memo | P1 | 프론트 호출 확인<br>src/main/java/com/petcampus/knockdog/memo/controller/MemoController.java#MemoController.postchecklist | v0 계약 보존/parity 대상 |
-| GET | `/api/v0/memo/list` | 없음 | `DROP` | `해당없음` | 없음 | memo | P3 | 0004 삭제 확정: memo, memo/shops만 사용<br>src/main/java/com/petcampus/knockdog/memo/controller/MemoController.java#MemoController.getFreeMemoList | - |
-| GET | `/api/v0/memo/shops` | 있음: src/entities/memo/api/memo.ts | `KEEP` | `미착수` | v0 | memo | P1 | 프론트 호출 확인<br>src/main/java/com/petcampus/knockdog/memo/controller/MemoController.java#MemoController.getFreeMemoList | v0 계약 보존/parity 대상 |
+| GET | `/api/v0/memo` | 있음: src/entities/memo/api/getMemo.ts | `KEEP` | `진행중` | v1 | memo | P1 | 프론트 호출 확인<br>src/main/java/com/petcampus/knockdog/memo/controller/MemoController.java#MemoController.getFreeMemo | [`KD3-465`](../work/KD3-465-memo.md). 신규 `GET /api/v1/memos/{targetId}`(`v0`는 컷오버까지 레거시가 제공, ADR 0012). 로컬 응답 대조 미완료(사람 몫) |
+| POST | `/api/v0/memo` | 있음: src/entities/memo/api/updateMemo.ts | `KEEP` | `진행중` | v1 | memo | P1 | 프론트 호출 확인<br>src/main/java/com/petcampus/knockdog/memo/controller/MemoController.java#MemoController.postfreememo | [`KD3-465`](../work/KD3-465-memo.md). 레거시 `{content, photoKeys}` 한 번에 → 신규는 텍스트 `PUT /api/v1/memos/{targetId}`, 사진 `POST`·`DELETE /api/v1/memos/{targetId}/photos`(개별)로 분리. 원자적 upsert. 로컬 응답 대조 미완료(사람 몫) |
+| GET | `/api/v0/memo/checklist` | 있음: src/entities/checklist/api/questions.tsx | `KEEP` | `진행중` | v1 | memo | P1 | 프론트 호출 확인<br>src/main/java/com/petcampus/knockdog/memo/controller/MemoController.java#MemoController.getchecklist | [`KD3-465`](../work/KD3-465-memo.md). 신규 `GET /api/v1/checklists/template`(정적 리소스, 레거시 공개→인증화 C12). 로컬 응답 대조 미완료(사람 몫) |
+| POST | `/api/v0/memo/checklist` | 있음: src/entities/checklist/api/answers.tsx | `KEEP` | `진행중` | v1 | memo | P1 | 프론트 호출 확인<br>src/main/java/com/petcampus/knockdog/memo/controller/MemoController.java#MemoController.postchecklist | [`KD3-465`](../work/KD3-465-memo.md). 신규 `PUT /api/v1/checklists/{targetId}`(전체 교체). 로컬 응답 대조 미완료(사람 몫) |
+| GET | `/api/v0/memo/checklist/answer` | 있음: src/entities/checklist/api/answers.tsx | `KEEP` | `진행중` | v1 | memo | P1 | 프론트 호출 확인<br>src/main/java/com/petcampus/knockdog/memo/controller/MemoController.java#MemoController.postchecklist | [`KD3-465`](../work/KD3-465-memo.md). 신규 `GET /api/v1/checklists/{targetId}`. 없으면 200+`{sections:[]}`(레거시 실패 응답 교정 C9), `value` 항상 문자열(C8). 로컬 응답 대조 미완료(사람 몫) |
+| GET | `/api/v0/memo/list` | 없음 | `DROP` | `해당없음` | 없음 | memo | P3 | 0004 삭제 확정: memo, memo/shops만 사용<br>src/main/java/com/petcampus/knockdog/memo/controller/MemoController.java#MemoController.getFreeMemoList | [`KD3-465`](../work/KD3-465-memo.md)에서 미이관 확정 |
+| GET | `/api/v0/memo/shops` | 있음: src/entities/memo/api/memo.ts | `KEEP` | `진행중` | v1 | memo | P1 | 프론트 호출 확인<br>src/main/java/com/petcampus/knockdog/memo/controller/MemoController.java#MemoController.getFreeMemoList | [`KD3-465`](../work/KD3-465-memo.md). 신규 `GET /api/v1/memos`. `{memos:[{shopId, content, memoDate}]}`, `memoDate`=`YYYY-MM-DD`, 프론트가 `shopId`로 유치원 카드 조인. 로컬 응답 대조 미완료(사람 몫) |
 | POST | `/api/v0/mypage/address` | 있음: src/entities/user/api/address.ts | `REDESIGN` | `미착수` | v0+v1 | user | P1 | 0004 v1 재설계 대표 사례: body operation을 HTTP method로 분리<br>src/main/java/com/petcampus/knockdog/mypage/controller/MyPageController.java#MyPageController.manageAddress | 상세 v1 계약은 도메인/계획 문서에서 확정 |
 | GET | `/api/v0/mypage/getPushSetting` | 없음 | `DEFER` | `미착수` | TBD | user | P2 | 프론트가 `GET /api/v0/notification-settings`로 이전(KD3-338), 현재 호출 없음<br>src/main/java/com/petcampus/knockdog/mypage/controller/MyPageController.java#MyPageController.getPushSetting | `notification-settings`로 완전 대체 가능한지 확인 후 DROP 확정 |
 | GET | `/api/v0/mypage/getUserInfo` | 있음: src/entities/user/api/user.ts | `REDESIGN` | `미착수` | v0+v1 | user | P1 | 0004 v1 재설계 대표 사례: GET /v1/users/me<br>src/main/java/com/petcampus/knockdog/mypage/controller/MyPageController.java#MyPageController.getUserInfo | 상세 v1 계약은 도메인/계획 문서에서 확정 |
