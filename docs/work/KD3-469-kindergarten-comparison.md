@@ -1,4 +1,4 @@
-> 생성: 2026-09-09 16:30 · 최종 수정: 2026-09-10 12:00
+> 생성: 2026-09-09 16:30 · 최종 수정: 2026-09-10 13:00
 
 # KD3-469 유치원 비교 조회 API 개발
 
@@ -128,6 +128,27 @@ operatingSchedule: {
 ### 사용자 승인 기록
 
 - 2026-09-10 — 작업 문서 검토, 미결 질문 5건 확정("미결 질문부터 처리하자" → 5건 답변 → "3번 businesshours 와 같은 모양으로 해서 진행"). 구현 진행 승인.
+- 2026-09-10 — "중간 보고 없이 끝까지 쭉 작업해" — 구현·독립 리뷰·PR까지 논스톱 진행 위임.
+
+### 독립 리뷰
+
+컨텍스트 없는 리뷰어가 커밋 `ff71aaf..f0a2d1e`와 이 문서를 대조(2026-09-10). 빌드/컨벤션/커밋/아키텍처 이상 없음, 블로커 없음.
+
+| 지적 | 처리 |
+|---|---|
+| KEEP 대조 표에 `operatingSchedule` 프로필 선택·`distance[]` 순서 변경 행 누락 | 표에 2행 추가 |
+| `ComparisonAddressAdapter` 테스트 없음 | `ComparisonAddressAdapterTest` 추가(타입 매핑 양쪽, 유저 없음) |
+| `>2 ids` → 400 테스트 없음 | `CompareKindergartensServiceTest`에 3곳 케이스 추가 |
+| `"%.1fkm".format()` 기본 로케일 | `String.format(Locale.KOREA, ...)`로 고정 (레거시도 기본 로케일이라 회귀는 아님) |
+| 메뉴는 있으나 price·hourlyPrice 전부 null이면 `pricing`이 `{0,0,[]}` (null 아님) | `products` 비고 두 평균 모두 0이면 `null` 반환하도록 계산기 수정 + 테스트 |
+| 계산기 `?: 0` 죽은 코드 | 제거(price를 Pair로 들고 다님) |
+| kindergarten 어댑터가 auth의 **outbound** 포트(`LoadUserPort`)를 호출 — auth가 inbound 계약을 발행하는 게 더 깨끗 | 후속(아래). 지금은 read-only·소규모라 수용 |
+| `roundToInt`는 half-up, 검증 문서의 82% 분석은 Python `round`(half-even) | 레거시 재현이 목적이 아니라 영향 없음. 문서에 표기 |
+
+### 후속 작업
+
+- **응답 DTO 시간 타입 제한 ArchUnit 규칙** — (KD3-495에서 넘어옴) `adapter/inbound/web` 응답 DTO가 `Instant`/`OffsetDateTime` 등을 쓰지 못하게 강제.
+- **cross-domain `application` 접근 규칙** — auth가 유저 조회용 inbound 계약(use case)을 발행하고, kindergarten이 그걸 쓰도록 정리. ArchUnit으로 도메인 간 `application` 직접 참조를 막는 것도 검토. 별도 티켓.
 
 ## 완료 확인 기준
 
@@ -155,6 +176,8 @@ operatingSchedule: {
 | `distance[].distance` | `"%.1fkm"` Haversine | `"%.1fkm"` Haversine(동일 공식) | 동일 |
 | `distance[].transitTimes` | `[{type, time: "2시간 49분"}]` | **`[]`** | **비어있음 — KD3-499로 분리** |
 | `operatingSchedule` | `{closedDays, weekdayHours: "09:00~20:00", weekendHours}` | `{weekday: {open,close}, weekend: {open,close}, closedDays}` | **구조 변경 — 의도(§미결 질문 3).** `detail`과 일관. 프론트 수정 필요 |
+| `operatingSchedule` 프로필 선택 | `businessHours.get(0)` (항상 첫 번째) | `name == "DEFAULT"` 우선, 없으면 첫 번째 | 의도(§미결 질문 2). v2는 `name`으로 구분된 여러 프로필을 가질 수 있음 |
+| `distance[]` 순서 | 유저 저장 주소 순서 그대로 | `HOME` 먼저, 그다음 저장 순서 | 의도(§미결 질문 5). 프론트는 `referencePoint`로 찾아 써서 순서 무관 |
 | not-found | 500(전용 핸들러 없음) | 404 `RESOURCE_NOT_FOUND` | 교정(summary/detail/pricing과 동일) |
 | ids<2 / 중복 | `COMPARISON-400-1` / `COMPARISON-400-2` | `COMPARISON_TARGET_COUNT` / `COMPARISON_TARGET_DUPLICATED` | code 문자열 다름 — 프론트는 comparison 에러 코드로 분기 안 함(`shared/api/model/constant/apiErrorCode.ts`엔 login/token 코드만). 안전 |
 | ids>2 | 허용 | 400 | 정확히 2(§미결 질문 4) |

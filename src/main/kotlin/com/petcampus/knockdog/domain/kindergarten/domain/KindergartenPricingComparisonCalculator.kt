@@ -9,30 +9,32 @@ object KindergartenPricingComparisonCalculator {
     fun calculate(menus: List<KindergartenMenu>): KindergartenPricingComparison? {
         if (menus.isEmpty()) return null
 
-        return KindergartenPricingComparison(
-            countHourlyAvg = hourlyAverage(menus, COUNT_TICKET),
-            monthlyHourlyAvg = hourlyAverage(menus, MONTHLY_TICKET),
-            products =
-                menus
-                    .groupBy { it.serviceType }
-                    .mapNotNull { (serviceType, group) -> productOf(serviceType, group) },
-        )
+        val countHourlyAvg = hourlyAverage(menus, COUNT_TICKET)
+        val monthlyHourlyAvg = hourlyAverage(menus, MONTHLY_TICKET)
+        val products =
+            menus
+                .groupBy { it.serviceType }
+                .mapNotNull { (serviceType, group) -> productOf(serviceType, group) }
+
+        if (products.isEmpty() && countHourlyAvg == 0 && monthlyHourlyAvg == 0) return null
+
+        return KindergartenPricingComparison(countHourlyAvg, monthlyHourlyAvg, products)
     }
 
     private fun productOf(
         serviceType: String,
         menus: List<KindergartenMenu>,
     ): KindergartenPricingComparison.Product? {
-        val priced = menus.mapNotNull { menu -> menu.price?.let { menu to it } }
-        if (priced.isEmpty()) return null
+        val pricedMenus = menus.mapNotNull { menu -> menu.price?.let { price -> menu.productName to price } }
+        if (pricedMenus.isEmpty()) return null
 
-        val cheapest = priced.minBy { it.second }.first
-        val priciest = priced.maxBy { it.second }.first
+        val cheapest = pricedMenus.minBy { it.second }
+        val priciest = pricedMenus.maxBy { it.second }
 
         return KindergartenPricingComparison.Product(
             serviceType = serviceType,
-            min = KindergartenPricingComparison.PriceItem(cheapest.productName, cheapest.price ?: 0),
-            max = KindergartenPricingComparison.PriceItem(priciest.productName, priciest.price ?: 0),
+            min = KindergartenPricingComparison.PriceItem(cheapest.first, cheapest.second),
+            max = KindergartenPricingComparison.PriceItem(priciest.first, priciest.second),
             countTicketAvg = hourlyAverage(menus, COUNT_TICKET),
             monthlyHourlyAvg = hourlyAverage(menus, MONTHLY_TICKET),
         )

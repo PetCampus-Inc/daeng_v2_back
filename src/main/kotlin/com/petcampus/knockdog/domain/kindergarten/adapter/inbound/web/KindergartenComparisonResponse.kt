@@ -7,6 +7,7 @@ import com.petcampus.knockdog.domain.kindergarten.domain.KindergartenDistanceCal
 import com.petcampus.knockdog.domain.kindergarten.domain.KindergartenPricingComparison
 import com.petcampus.knockdog.domain.kindergarten.domain.KindergartenPricingComparisonCalculator
 import java.time.LocalTime
+import java.util.Locale
 
 data class KindergartenComparisonResponse(
     val id: String,
@@ -104,7 +105,12 @@ data class KindergartenComparisonResponse(
             return referencePoints.map { point ->
                 Distance(
                     referencePoint = point.type.name,
-                    distance = "%.1fkm".format(KindergartenDistanceCalculator.calculateKm(point.lat, point.lng, lat, lng)),
+                    distance =
+                        String.format(
+                            Locale.KOREA,
+                            "%.1fkm",
+                            KindergartenDistanceCalculator.calculateKm(point.lat, point.lng, lat, lng),
+                        ),
                     transitTimes = emptyList(),
                 )
             }

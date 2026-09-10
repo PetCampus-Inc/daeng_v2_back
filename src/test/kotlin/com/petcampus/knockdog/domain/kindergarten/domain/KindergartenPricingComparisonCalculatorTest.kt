@@ -94,6 +94,17 @@ class KindergartenPricingComparisonCalculatorTest {
     }
 
     @Test
+    fun `price도 hourlyPrice도 전부 없으면 null을 반환한다`() {
+        val menus =
+            listOf(
+                menu("COUNT_TICKET", "DAYCARE", price = null, hourlyPrice = null),
+                menu("MEMBERSHIP", "MEMBERSHIP", price = null, hourlyPrice = null),
+            )
+
+        assertNull(KindergartenPricingComparisonCalculator.calculate(menus))
+    }
+
+    @Test
     fun `price가 전부 없는 서비스종류는 products에서 빠진다`() {
         val menus =
             listOf(

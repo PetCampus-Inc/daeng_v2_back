@@ -75,6 +75,16 @@ class CompareKindergartensServiceTest {
     }
 
     @Test
+    fun `비교 대상이 3곳이면 COMPARISON_TARGET_COUNT다`() {
+        val exception =
+            assertFailsWith<BusinessException> {
+                service().compare(CompareKindergartensCommand(listOf("A", "B", "C"), null, null, null))
+            }
+
+        assertEquals(KindergartenErrorCode.COMPARISON_TARGET_COUNT, exception.errorCode)
+    }
+
+    @Test
     fun `비교 대상이 중복되면 COMPARISON_TARGET_DUPLICATED다`() {
         val exception =
             assertFailsWith<BusinessException> {
