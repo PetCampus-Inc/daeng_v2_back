@@ -40,11 +40,9 @@ class ChecklistService(
                 input.questionId to value
             }
 
-        val existing = loadChecklistSubmissionPort.findByUserCodeAndTargetId(command.userCode, command.targetId)
-        val submission =
-            existing?.withAnswers(template.version, normalized)
-                ?: ChecklistSubmission.create(command.userCode, command.targetId, template.version, normalized)
-        saveChecklistSubmissionPort.save(submission)
+        saveChecklistSubmissionPort.save(
+            ChecklistSubmission.create(command.userCode, command.targetId, template.version, normalized),
+        )
 
         return assembleAnswersView(template, normalized)
     }

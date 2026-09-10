@@ -6,10 +6,14 @@ import jakarta.persistence.GeneratedValue
 import jakarta.persistence.GenerationType
 import jakarta.persistence.Id
 import jakarta.persistence.Table
+import jakarta.persistence.UniqueConstraint
 import java.time.LocalDateTime
 
 @Entity
-@Table(name = "memo_photos")
+@Table(
+    name = "memo_photos",
+    uniqueConstraints = [UniqueConstraint(columnNames = ["user_code", "target_id", "object_key"])],
+)
 class MemoPhotoJpaEntity(
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

@@ -48,12 +48,7 @@ class MemoService(
             throw BusinessException(MemoErrorCode.CONTENT_TOO_LONG)
         }
 
-        val memo =
-            (
-                loadMemoPort.findByUserCodeAndTargetId(command.userCode, command.targetId)
-                    ?: Memo.create(command.userCode, command.targetId, null)
-            ).withContent(command.content)
-        saveMemoPort.save(memo)
+        saveMemoPort.save(Memo.create(command.userCode, command.targetId, command.content))
 
         return get(command.userCode, command.targetId)
     }

@@ -7,11 +7,6 @@ class ChecklistSubmission private constructor(
     val templateVersion: String,
     val answers: Map<String, String>,
 ) {
-    fun withAnswers(
-        templateVersion: String,
-        answers: Map<String, String>,
-    ): ChecklistSubmission = ChecklistSubmission(id, userCode, targetId, templateVersion, answers)
-
     companion object {
         fun create(
             userCode: String,

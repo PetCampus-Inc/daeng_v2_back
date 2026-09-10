@@ -6,7 +6,7 @@ CREATE TABLE checklist_submissions (
   user_code         VARCHAR(8)   NOT NULL,
   target_id         VARCHAR(100) NOT NULL,
   template_version  VARCHAR(50)  NOT NULL,
-  answers           JSON         NOT NULL,
+  answers           TEXT         NOT NULL,   -- {questionCode: value} JSON 문자열. 통째로만 읽고 써서 JSON 타입 불필요
   created_at        DATETIME(6)  NOT NULL,
   updated_at        DATETIME(6)  NOT NULL,
   deleted_at        DATETIME(6),

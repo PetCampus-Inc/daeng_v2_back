@@ -32,10 +32,10 @@ class ChecklistSubmissionPersistenceAdapterTest {
     }
 
     @Test
-    fun `재저장은 새 row가 아니라 answers 교체`() {
+    fun `재저장은 새 row가 아니라 answers 교체(upsert)`() {
         val first = adapter.save(ChecklistSubmission.create("A1B2C3D4", "p", "1", mapOf("q1" to "YES")))
 
-        adapter.save(first.withAnswers("1", mapOf("q1" to "NO", "q2" to "YES")))
+        adapter.save(ChecklistSubmission.create("A1B2C3D4", "p", "1", mapOf("q1" to "NO", "q2" to "YES")))
 
         val found = adapter.findByUserCodeAndTargetId("A1B2C3D4", "p")!!
         assertEquals(first.id, found.id)

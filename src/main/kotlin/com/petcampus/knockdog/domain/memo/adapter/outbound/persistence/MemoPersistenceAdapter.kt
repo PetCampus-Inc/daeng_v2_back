@@ -7,7 +7,6 @@ import com.petcampus.knockdog.domain.memo.domain.Memo
 import com.petcampus.knockdog.domain.memo.domain.MemoId
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
-import java.time.LocalDateTime
 
 @Component
 class MemoPersistenceAdapter(
@@ -28,14 +27,8 @@ class MemoPersistenceAdapter(
 
     @Transactional
     override fun save(memo: Memo): Memo {
-        val entity =
-            memo.id?.let { memoId ->
-                memoJpaRepository.findById(memoId.value).orElseThrow().apply {
-                    content = memo.content
-                    updatedAt = LocalDateTime.now()
-                }
-            } ?: MemoJpaEntity(userCode = memo.userCode, targetId = memo.targetId, content = memo.content)
-        return memoJpaRepository.save(entity).toDomain()
+        memoJpaRepository.upsert(memo.userCode, memo.targetId, memo.content)
+        return requireNotNull(memoJpaRepository.findByUserCodeAndTargetId(memo.userCode, memo.targetId)).toDomain()
     }
 }
 

@@ -1,5 +1,6 @@
 package com.petcampus.knockdog.domain.memo.adapter.outbound.persistence
 
+import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.petcampus.knockdog.domain.memo.application.port.output.LoadChecklistSubmissionPort
 import com.petcampus.knockdog.domain.memo.application.port.output.SaveChecklistSubmissionPort
 import com.petcampus.knockdog.domain.memo.domain.ChecklistSubmission
@@ -19,19 +20,19 @@ class ChecklistSubmissionPersistenceAdapter(
 
     @Transactional
     override fun save(submission: ChecklistSubmission): ChecklistSubmission {
-        val entity =
-            submission.id?.let { id ->
-                checklistSubmissionJpaRepository.findById(id).orElseThrow().apply {
-                    templateVersion = submission.templateVersion
-                    answers = submission.answers
-                }
-            } ?: ChecklistSubmissionJpaEntity(
-                userCode = submission.userCode,
-                targetId = submission.targetId,
-                templateVersion = submission.templateVersion,
-                answers = submission.answers,
-            )
-        return checklistSubmissionJpaRepository.save(entity).toDomain()
+        checklistSubmissionJpaRepository.upsert(
+            userCode = submission.userCode,
+            targetId = submission.targetId,
+            templateVersion = submission.templateVersion,
+            answers = objectMapper.writeValueAsString(submission.answers),
+        )
+        return requireNotNull(
+            checklistSubmissionJpaRepository.findByUserCodeAndTargetId(submission.userCode, submission.targetId),
+        ).toDomain()
+    }
+
+    companion object {
+        private val objectMapper = jacksonObjectMapper()
     }
 }
 

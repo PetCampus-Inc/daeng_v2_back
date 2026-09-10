@@ -8,9 +8,13 @@ import jakarta.persistence.GeneratedValue
 import jakarta.persistence.GenerationType
 import jakarta.persistence.Id
 import jakarta.persistence.Table
+import jakarta.persistence.UniqueConstraint
 
 @Entity
-@Table(name = "checklist_submissions")
+@Table(
+    name = "checklist_submissions",
+    uniqueConstraints = [UniqueConstraint(columnNames = ["user_code", "target_id"])],
+)
 class ChecklistSubmissionJpaEntity(
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -23,6 +27,6 @@ class ChecklistSubmissionJpaEntity(
     @Column(name = "template_version", nullable = false, length = 50)
     var templateVersion: String,
     @Convert(converter = ChecklistAnswersJsonConverter::class)
-    @Column(name = "answers", nullable = false, columnDefinition = "json")
+    @Column(name = "answers", nullable = false, columnDefinition = "TEXT")
     var answers: Map<String, String>,
 ) : BaseEntity()
