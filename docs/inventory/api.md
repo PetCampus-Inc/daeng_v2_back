@@ -1,4 +1,4 @@
-> 생성: 2026-08-02 13:45 · 최종 수정: 2026-09-07 13:10
+> 생성: 2026-08-02 13:45 · 최종 수정: 2026-09-10 11:30
 
 # API 인벤토리
 
@@ -54,11 +54,11 @@
 
 | 완료 | 진행중 | 미착수 | 해당없음 |
 |---:|---:|---:|---:|
-| 7 | 3 | 112 | 137 |
+| 7 | 4 | 111 | 137 |
 
 완료 7개 — auth 도메인: `v1` 2개(`oidc-verifications`, `users`)와 `v0` 유지 5개(`login`, `refresh`, `logout`, 약관 동의 제출·조회, [`KD3-258`](../work/KD3-258-user-social-auth.md)).
 
-진행중 3개 — kindergarten 도메인: `main/{id}`, `basic/{id}`, `{id}/pricing`. 신규 서버는 `v0`를 만들지 않는다(ADR 0012) — `v1` 3개(`summary`/`detail`/`pricing`)로 구현은 끝났지만 로컬 응답 대조·시딩 데이터 검증이 아직 안 끝나 `완료`가 아니라 `진행중`이다([`KD3-413`](../work/KD3-413-kindergarten-static-lookup.md)). `v0`는 컷오버까지 레거시 서버가 계속 제공한다.
+진행중 4개 — kindergarten 도메인 `main/{id}`, `basic/{id}`, `{id}/pricing`([`KD3-413`](../work/KD3-413-kindergarten-static-lookup.md))와 comparison `comparisons`([`KD3-469`](../work/KD3-469-kindergarten-comparison.md)). 신규 서버는 `v0`를 만들지 않는다(ADR 0012) — `v1`로 구현했으나 로컬 응답 대조·시딩 데이터 검증이 안 끝나 `완료`가 아니라 `진행중`이다. `v0`는 컷오버까지 레거시 서버가 계속 제공한다.
 
 ## 6. 인벤토리
 
@@ -194,7 +194,7 @@
 | GET | `/api/v0/kindergarten/{placeId}/blog-reviews` | 있음: src/entities/review/api/review.ts | `DEFER` | `미착수` | TBD | kindergarten | P1 | 0005 리뷰 크롤링 마이그레이션 보류<br>src/main/java/com/petcampus/knockdog/kindergardeninfo/KindergartenController.java#KindergartenController.getBlogReviews | 그대로 이관/별도 서비스 분리 여부 확인 |
 | GET | `/api/v0/kindergarten/aggregations` | 없음 | `DROP` | `해당없음` | 없음 | kindergarten | P3 | 0004 삭제 확정: map-view/aggregation이 대체<br>src/main/java/com/petcampus/knockdog/kindergardeninfo/KindergartenController.java#KindergartenController.getAggregations | - |
 | GET | `/api/v0/kindergarten/basic/{id}` | 있음: src/entities/kindergarten/api/kindergarten-basic.ts | `KEEP` | `진행중` | v1 | kindergarten | P1 | 프론트 호출 확인<br>src/main/java/com/petcampus/knockdog/kindergardeninfo/KindergartenController.java#KindergartenController.getKindergartenDetail | [`KD3-413`](../work/KD3-413-kindergarten-static-lookup.md). 신규 서버는 `v0`를 만들지 않는다(ADR 0012) — `GET /api/v1/kindergartens/{id}/detail`만 제공(실체 없는 `breakTime` 필드 제거). `v0`는 컷오버까지 레거시가 계속 제공한다. 로컬 응답 대조·시딩 데이터 검증 미완료 — [`docs/domains/kindergarten.md`](../domains/kindergarten.md) §2·§3 참고 |
-| GET | `/api/v0/kindergarten/comparisons` | 있음: src/entities/compare/api/comparisons.ts | `KEEP` | `미착수` | v0 | comparison | P1 | 프론트 호출 확인<br>src/main/java/com/petcampus/knockdog/comparison/controller/ComparisonController.java#ComparisonController.getComparison | v0 계약 보존/parity 대상 |
+| GET | `/api/v0/kindergarten/comparisons` | 있음: src/entities/compare/api/comparisons.ts | `KEEP` | `진행중` | v1 | comparison | P1 | 프론트 호출 확인<br>src/main/java/com/petcampus/knockdog/comparison/controller/ComparisonController.java#ComparisonController.getComparison | [`KD3-469`](../work/KD3-469-kindergarten-comparison.md). 신규 서버는 `v0`를 만들지 않는다(ADR 0012) — `GET /api/v1/kindergartens/comparisons`만 제공. 요금은 `kindergarten_menus`에서 재계산(레거시 `product_pricing.json`이 stale), 이동시간(`transitTimes`)은 KD3-499로 분리, `operatingSchedule`은 `{open,close}` 구조로 개선. 로컬 응답 대조 미완료. `v0`는 컷오버까지 레거시가 계속 제공한다 |
 | GET | `/api/v0/kindergarten/comparisons/history` | 있음: src/entities/compare/api/comparisons.ts | `REDESIGN` | `미착수` | v0 | comparison | P1 | 0004 보안 이슈: PrivateAccess가 permit 규칙에 가려짐<br>src/main/java/com/petcampus/knockdog/comparison/controller/ComparisonController.java#ComparisonController.getComparisonHistory | 인가 기본 deny 전환 시 계약/권한 함께 검증 |
 | DELETE | `/api/v0/kindergarten/comparisons/history/{historyId}` | 있음: src/entities/compare/api/comparisons.ts | `REDESIGN` | `미착수` | v0 | comparison | P1 | 0004 보안 이슈: PrivateAccess가 permit 규칙에 가려짐<br>src/main/java/com/petcampus/knockdog/comparison/controller/ComparisonController.java#ComparisonController.deleteComparisonHistory | 인가 기본 deny 전환 시 계약/권한 함께 검증 |
 | GET | `/api/v0/kindergarten/filters` | 없음 | `DROP` | `해당없음` | 없음 | kindergarten | P3 | 0004 삭제 확정: filters/result만 사용<br>src/main/java/com/petcampus/knockdog/kindergardeninfo/KindergartenController.java#KindergartenController.getFilterSearchKindergartens | - |
