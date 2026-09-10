@@ -2,6 +2,7 @@ package com.petcampus.knockdog.domain.kindergarten.adapter.inbound.web
 
 import com.petcampus.knockdog.domain.auth.application.port.output.TokenPort
 import com.petcampus.knockdog.domain.auth.domain.UserCode
+import com.petcampus.knockdog.domain.comparison.adapter.outbound.persistence.ComparisonHistoryJpaRepository
 import com.petcampus.knockdog.domain.kindergarten.application.port.output.LoadComparisonAddressesPort
 import com.petcampus.knockdog.domain.kindergarten.application.port.output.LoadKindergartenPort
 import com.petcampus.knockdog.domain.kindergarten.domain.ComparisonReferencePoint
@@ -25,6 +26,7 @@ import org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPat
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
 import java.time.DayOfWeek
 import java.time.LocalTime
+import kotlin.test.assertEquals
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -35,6 +37,9 @@ class KindergartenComparisonEndpointTest {
 
     @Autowired
     private lateinit var tokenPort: TokenPort
+
+    @Autowired
+    private lateinit var comparisonHistoryJpaRepository: ComparisonHistoryJpaRepository
 
     @Test
     fun `인증 없이 두 유치원을 비교할 수 있다`() {
@@ -101,6 +106,35 @@ class KindergartenComparisonEndpointTest {
             ).andExpect(status().isOk)
             .andExpect(jsonPath("$.data[0].distance.length()").value(1))
             .andExpect(jsonPath("$.data[0].distance[0].referencePoint").value("HOME"))
+    }
+
+    @Test
+    fun `로그인 상태로 비교하면 비교 히스토리가 기록된다`() {
+        comparisonHistoryJpaRepository.deleteAll()
+        val bearer = "Bearer " + tokenPort.issueAccessToken(UserCode("H1I2J3K4"))
+
+        mockMvc
+            .perform(
+                get("/api/v1/kindergartens/comparisons")
+                    .header("Authorization", bearer)
+                    .param("ids", "A")
+                    .param("ids", "B"),
+            ).andExpect(status().isOk)
+
+        val recorded = comparisonHistoryJpaRepository.findAll().single { it.userCode == "H1I2J3K4" }
+        assertEquals("A", recorded.kindergartenIdA)
+        assertEquals("B", recorded.kindergartenIdB)
+    }
+
+    @Test
+    fun `비로그인으로 비교하면 히스토리를 기록하지 않는다`() {
+        comparisonHistoryJpaRepository.deleteAll()
+
+        mockMvc
+            .perform(get("/api/v1/kindergartens/comparisons").param("ids", "A").param("ids", "B"))
+            .andExpect(status().isOk)
+
+        assertEquals(0, comparisonHistoryJpaRepository.count())
     }
 
     @TestConfiguration

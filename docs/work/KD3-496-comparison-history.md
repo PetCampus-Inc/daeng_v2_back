@@ -1,4 +1,4 @@
-> 생성: 2026-09-11 10:00 · 최종 수정: 2026-09-11 10:00
+> 생성: 2026-09-11 10:00 · 최종 수정: 2026-09-11 12:00
 
 # KD3-496 유치원 비교 히스토리 저장·조회·삭제
 
@@ -11,8 +11,8 @@
 ## 현재 제어점
 
 - 활성 workflow: `003-migration`
-- 현재 공통 단계: `3` (구현)
-- 다음 결정 또는 전환 조건: 구현·검증 완료 → 5단계 독립 리뷰·PR
+- 현재 공통 단계: `5` (독립 리뷰·PR·문서 동기화)
+- 다음 결정 또는 전환 조건: 독립 리뷰 반영 → PR → epic 머지
 
 ## 작업 목표
 
@@ -20,7 +20,7 @@
 
 | | 레거시 | v1 |
 |---|---|---|
-| 저장 | `GET /api/v0/kindergarten/comparisons`의 부수효과(로그인 시) | `GET /api/v1/kindergartens/comparisons`(KD3-469) 컨트롤러가 로그인 시 저장 use case 호출 |
+| 저장 | `GET /api/v0/kindergarten/comparisons`의 부수효과(로그인 시) | `GET /api/v1/kindergartens/comparisons`(KD3-469) 컨트롤러가 로그인 시 `KindergartensComparedEvent` 발행 → comparison의 `@EventListener`가 저장 |
 | 조회 | `GET /api/v0/kindergarten/comparisons/history?limit=10` `@PrivateAccess` | `GET /api/v1/kindergartens/comparisons/history?limit=10` (인증 필수) |
 | 삭제 | `DELETE /api/v0/kindergarten/comparisons/history/{historyId}` `@PrivateAccess` | `DELETE /api/v1/kindergartens/comparisons/history/{historyId}` (인증 필수) |
 
@@ -87,7 +87,7 @@ KD3-465 memo/checklist가 확립한 패턴을 따른다: `@AuthenticationPrincip
 6. **service** — `ComparisonHistoryService`. 저장: 두 ID 정렬 후 upsert. 조회: `findRecentByUserCode` → 유치원 요약 조회 → null 필터. 삭제: `findById` → 소유자 확인 → soft delete.
 7. **컨트롤러** — `ComparisonHistoryController`. `GET /api/v1/kindergartens/comparisons/history?limit=10`(기본 10), `DELETE /api/v1/kindergartens/comparisons/history/{historyId}`. `@AuthenticationPrincipal userCode: String`(non-null).
 8. **에러 코드** — `ComparisonHistoryErrorCode` — `NOT_FOUND`(404), `NOT_OWNER`(403).
-9. **KD3-469 컨트롤러 수정** — `KindergartenComparisonController.compare`가 `principal`(userCode)이 있으면 `compareKindergartensUseCase.compare()` 이후 `saveComparisonHistoryUseCase.save(userCode, ids)`를 호출.
+9. **KD3-469 컨트롤러 수정 + 이벤트** — `kindergarten/application/event/KindergartensComparedEvent`(kindergarten이 타입만 정의). `KindergartenComparisonController.compare`가 `principal`(userCode)이 있으면 `compare()` 이후 이벤트 발행. `comparison/adapter/inbound/event/ComparisonHistoryRecorder`(`@EventListener`, 동기)가 받아 `SaveComparisonHistoryUseCase.save`를 호출 — kindergarten이 comparison에 컴파일 의존하지 않는다. 동기 리스너라 저장 예외는 그대로 전파(§미결 질문 2).
 10. **요약 조회 어댑터** — `comparison/adapter/outbound/kindergarten/ComparisonKindergartenSummaryAdapter` — kindergarten `LoadKindergartenPort.findByNaverPlaceIds` 경유, `Kindergarten` → `ComparisonKindergartenSummary`(id/name/thumbnailS3Key/categories) 매핑.
 11. **어댑터 outbound persistence** — `ComparisonHistoryJpaEntity`(BaseEntity 상속), `ComparisonHistoryJpaRepository`, `ComparisonHistoryPersistenceAdapter`, upsert 쿼리.
 12. **문서** — `docs/inventory/api.md` comparison 2개 행(`history`, `history/{id}`) 이관 진척 갱신, `docs/domains/`에 comparison 관련 절 추가.
@@ -107,7 +107,7 @@ KD3-465 memo/checklist가 확립한 패턴을 따른다: `@AuthenticationPrincip
 - 히스토리는 `domain/comparison` 신규 슬라이스(memo 선례). KD3-469 비교 조회는 kindergarten 유지.
 - 유저 식별은 `user_code`(KD3-465 패턴).
 - dedup은 정렬된 `kindergarten_id_a`/`_b` + `UNIQUE(user_code, a, b)`. `comparedAt`은 `updated_at` 재사용.
-- 저장 트리거는 `KindergartenComparisonController`(어댑터)가 조립 — compare 서비스는 read-only 유지, kindergarten→comparison 슬라이스 순환 회피.
+- 저장 트리거는 이벤트 — `KindergartenComparisonController`가 `KindergartensComparedEvent` 발행, comparison의 `@EventListener`가 저장. kindergarten은 이벤트 타입만 정의하고 comparison에 컴파일 의존하지 않는다(comparison → kindergarten 단방향). compare 서비스는 read-only 유지.
 - 보존은 레거시대로 무제한. 조회는 `?limit=` optional, 기본 10.
 - 삭제는 `deleted_at` soft delete. 소유자 아니면 403, 없으면 404.
 - 인증: 조회·삭제 엔드포인트를 `PUBLIC_ENDPOINTS`에 넣지 않아 `authenticated()` 적용.
@@ -125,11 +125,31 @@ KD3-465 memo/checklist가 확립한 패턴을 따른다: `@AuthenticationPrincip
 
 ## 완료 확인 기준
 
-- `ComparisonHistoryService` 테스트 — 저장 시 ID 정렬·upsert(재비교 시 새 행 안 생김), 조회 시 최근순·limit·유치원 요약·null 필터, 삭제 시 소유자 아니면 403·없으면 404·soft delete.
-- `ComparisonHistory` 도메인 테스트 — 두 ID 정렬 불변식.
-- 컨트롤러 테스트(`@SpringBootTest`+MockMvc) — 비로그인 401, 조회 성공, 삭제 성공/403/404, `GET /comparisons`(KD3-469) 호출 시 로그인이면 히스토리 저장됨.
-- `./gradlew clean test ktlintCheck` 통과, ArchUnit 통과.
-- **KEEP/REDESIGN 응답 대조** — 레거시 `ComparisonHistoryResponse` / `ComparisonController` 소스와 v1 응답을 필드 단위 대조. 차이(`comparedAt` ISO, 에러 코드 문자열, soft delete)는 의도된 것으로 기록.
+### 테스트 (2026-09-11, `./gradlew clean test ktlintCheck` — 총 223개, 실패 0, ArchUnit 통과)
+
+- `ComparisonHistoryTest` (3) — 두 ID 사전순 정렬 불변식, `naverPlaceIds` 순서, 같은 ID 두 개 거부.
+- `ComparisonHistoryServiceTest` (8) — 저장 시 ID 정렬 upsert, 2곳 아니면 거부, `limit` 1~50 clamp, 히스토리별 유치원 요약, 없어진 유치원 필터(행은 유지), 삭제 NOT_FOUND/NOT_OWNER/soft delete.
+- `ComparisonHistoryEndpointTest` (5, `@SpringBootTest`+MockMvc) — 비로그인 401, 최근순 조회, 삭제 후 목록에서 사라짐, 남의 것 403 `COMPARISON_HISTORY_NOT_OWNER`, 없는 것 404 `COMPARISON_HISTORY_NOT_FOUND`.
+- `KindergartenComparisonEndpointTest` (+2) — 로그인 비교 시 `comparison_histories`에 정렬된 쌍 기록, 비로그인 비교는 미기록.
+
+### REDESIGN 응답 대조 (`003-migration.md` §4)
+
+레거시 서버(Redis 의존)를 로컬에서 못 띄워 소스 대조로 갈음. 레거시 `ComparisonHistoryResponse.java` / `ComparisonHistoryService.java` / `ComparisonController.java` 대비:
+
+| 항목 | 레거시 | v1 | 차이 |
+|---|---|---|---|
+| `id` | 히스토리 PK(Long) | 〃 | 동일 |
+| `kindergartens[]` | `{id, name, thumbnailS3Key, categories}`, 없어진 유치원 필터 | 〃 | 동일. 요약은 Redis → RDB(`LoadKindergartenPort`) |
+| `comparedAt` | `number[]` (`[2026,9,11,10,0,0]`) | `"2026-09-11T10:00:00"` ISO | **포맷 변경 — 의도(KD3-495).** `ComparisonHistoryCard` 렌더에 안 씀 |
+| 정렬 | `comparedAt DESC` | `updated_at DESC, id DESC` | `updated_at`이 comparedAt이므로 동등 |
+| `limit` | `@RequestParam(defaultValue="10")`, 상한 없음 | 기본 10, 1~50 clamp | 상한 추가 — 악의적 큰 값 방지 |
+| 저장 dedup | 유저 전체 히스토리 로드 후 `HashSet` 동등성 | 정렬 저장 + `UNIQUE` upsert | 결과 동일, 쿼리 효율 개선 |
+| 삭제 | hard delete | soft delete(`deleted_at`) | **의도.** 재비교 시 `deleted_at = NULL`로 되살아남 |
+| 삭제 에러 | `COMPARISON-403-1` / `COMPARISON-404-1` | `COMPARISON_HISTORY_NOT_OWNER` / `COMPARISON_HISTORY_NOT_FOUND` | code 문자열 다름 — 프론트는 comparison 에러 코드로 분기 안 함 |
+| 인증 실패 | `@PrivateAccess`가 permit에 가려져 사실상 공개(0004) | 401 | **보안버그 교정** |
+| 삭제 응답 본문 | `Response.success()` (data null) | 〃 | 동일(`responseTime` 제외, KD3-258 선례) |
+
+**프론트 협의**: `comparedAt` 배열 → ISO 문자열, `v0` → `v1` 경로.
 
 ## 작업 후 확인 목록
 
