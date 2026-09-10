@@ -1,6 +1,6 @@
 package com.petcampus.knockdog.domain.memo.adapter.outbound.persistence
 
-import com.petcampus.knockdog.domain.memo.domain.FreeMemo
+import com.petcampus.knockdog.domain.memo.domain.Memo
 import com.petcampus.knockdog.domain.memo.domain.MemoPhoto
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
@@ -20,7 +20,7 @@ class MemoPersistenceAdapterTest {
     fun `없으면 null, 저장하면 조회된다`() {
         assertNull(adapter.findByUserCodeAndTargetId("A1B2C3D4", "place-1"))
 
-        adapter.save(FreeMemo.create("A1B2C3D4", "place-1", "첫 메모"))
+        adapter.save(Memo.create("A1B2C3D4", "place-1", "첫 메모"))
 
         val found = adapter.findByUserCodeAndTargetId("A1B2C3D4", "place-1")
         assertNotNull(found)
@@ -29,7 +29,7 @@ class MemoPersistenceAdapterTest {
 
     @Test
     fun `같은 user_code, target_id로 다시 저장하면 새 row가 아니라 갱신된다`() {
-        val first = adapter.save(FreeMemo.create("A1B2C3D4", "place-1", "v1"))
+        val first = adapter.save(Memo.create("A1B2C3D4", "place-1", "v1"))
 
         val updated = adapter.save(first.withContent("v2"))
 
@@ -42,7 +42,7 @@ class MemoPersistenceAdapterTest {
     fun `photos는 sort_order대로 저장·조회되고 재저장 시 전량 교체된다`() {
         val saved =
             adapter.save(
-                FreeMemo
+                Memo
                     .create("A1B2C3D4", "place-1", "m")
                     .withPhotos(listOf(MemoPhoto("memo/A1B2C3D4/b.jpg", 1), MemoPhoto("memo/A1B2C3D4/a.jpg", 0))),
             )
@@ -60,9 +60,9 @@ class MemoPersistenceAdapterTest {
 
     @Test
     fun `findSummariesByUserCode는 내 메모만 updated_at 내림차순`() {
-        adapter.save(FreeMemo.create("A1B2C3D4", "place-1", "a"))
-        adapter.save(FreeMemo.create("A1B2C3D4", "place-2", "b"))
-        adapter.save(FreeMemo.create("OTHER999", "place-3", "c"))
+        adapter.save(Memo.create("A1B2C3D4", "place-1", "a"))
+        adapter.save(Memo.create("A1B2C3D4", "place-2", "b"))
+        adapter.save(Memo.create("OTHER999", "place-3", "c"))
 
         val mine = adapter.findSummariesByUserCode("A1B2C3D4")
 

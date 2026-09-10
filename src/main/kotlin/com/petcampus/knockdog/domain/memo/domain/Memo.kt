@@ -1,20 +1,20 @@
 package com.petcampus.knockdog.domain.memo.domain
 
-class FreeMemo private constructor(
+class Memo private constructor(
     val id: MemoId?,
     val userCode: String,
     val targetId: String,
     val content: String?,
     val photos: List<MemoPhoto>,
 ) {
-    fun withContent(content: String?): FreeMemo {
+    fun withContent(content: String?): Memo {
         validateContent(content)
-        return FreeMemo(id, userCode, targetId, content, photos)
+        return Memo(id, userCode, targetId, content, photos)
     }
 
-    fun withPhotos(photos: List<MemoPhoto>): FreeMemo {
+    fun withPhotos(photos: List<MemoPhoto>): Memo {
         require(photos.size <= PHOTO_MAX_COUNT) { "사진은 최대 ${PHOTO_MAX_COUNT}장입니다." }
-        return FreeMemo(id, userCode, targetId, content, photos.sortedBy { it.sortOrder })
+        return Memo(id, userCode, targetId, content, photos.sortedBy { it.sortOrder })
     }
 
     companion object {
@@ -25,9 +25,9 @@ class FreeMemo private constructor(
             userCode: String,
             targetId: String,
             content: String?,
-        ): FreeMemo {
+        ): Memo {
             validateContent(content)
-            return FreeMemo(null, userCode, targetId, content, emptyList())
+            return Memo(null, userCode, targetId, content, emptyList())
         }
 
         fun reconstitute(
@@ -36,7 +36,7 @@ class FreeMemo private constructor(
             targetId: String,
             content: String?,
             photos: List<MemoPhoto>,
-        ): FreeMemo = FreeMemo(id, userCode, targetId, content, photos)
+        ): Memo = Memo(id, userCode, targetId, content, photos)
 
         private fun validateContent(content: String?) {
             require(content == null || content.length <= CONTENT_MAX_LENGTH) {

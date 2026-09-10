@@ -1,13 +1,13 @@
 package com.petcampus.knockdog.domain.memo.application.port.output
 
-import com.petcampus.knockdog.domain.memo.domain.FreeMemo
+import com.petcampus.knockdog.domain.memo.domain.Memo
 import java.time.LocalDate
 
-interface LoadFreeMemoPort {
+interface LoadMemoPort {
     fun findByUserCodeAndTargetId(
         userCode: String,
         targetId: String,
-    ): FreeMemo?
+    ): Memo?
 
     fun findSummariesByUserCode(userCode: String): List<MemoSummary>
 }

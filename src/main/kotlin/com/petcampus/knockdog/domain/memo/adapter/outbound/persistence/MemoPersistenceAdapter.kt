@@ -1,9 +1,9 @@
 package com.petcampus.knockdog.domain.memo.adapter.outbound.persistence
 
-import com.petcampus.knockdog.domain.memo.application.port.output.LoadFreeMemoPort
+import com.petcampus.knockdog.domain.memo.application.port.output.LoadMemoPort
 import com.petcampus.knockdog.domain.memo.application.port.output.MemoSummary
-import com.petcampus.knockdog.domain.memo.application.port.output.SaveFreeMemoPort
-import com.petcampus.knockdog.domain.memo.domain.FreeMemo
+import com.petcampus.knockdog.domain.memo.application.port.output.SaveMemoPort
+import com.petcampus.knockdog.domain.memo.domain.Memo
 import com.petcampus.knockdog.domain.memo.domain.MemoId
 import com.petcampus.knockdog.domain.memo.domain.MemoPhoto
 import org.springframework.stereotype.Component
@@ -14,13 +14,13 @@ import java.time.LocalDateTime
 class MemoPersistenceAdapter(
     private val memoJpaRepository: MemoJpaRepository,
     private val memoPhotoJpaRepository: MemoPhotoJpaRepository,
-) : LoadFreeMemoPort,
-    SaveFreeMemoPort {
+) : LoadMemoPort,
+    SaveMemoPort {
     @Transactional(readOnly = true)
     override fun findByUserCodeAndTargetId(
         userCode: String,
         targetId: String,
-    ): FreeMemo? = memoJpaRepository.findByUserCodeAndTargetId(userCode, targetId)?.let { assemble(it) }
+    ): Memo? = memoJpaRepository.findByUserCodeAndTargetId(userCode, targetId)?.let { assemble(it) }
 
     @Transactional(readOnly = true)
     override fun findSummariesByUserCode(userCode: String): List<MemoSummary> =
@@ -29,7 +29,7 @@ class MemoPersistenceAdapter(
             .map { MemoSummary(targetId = it.targetId, content = it.content, memoDate = it.updatedAt.toLocalDate()) }
 
     @Transactional
-    override fun save(memo: FreeMemo): FreeMemo {
+    override fun save(memo: Memo): Memo {
         val entity =
             memo.id?.let { memoId ->
                 memoJpaRepository.findById(memoId.value).orElseThrow().apply {
@@ -51,13 +51,13 @@ class MemoPersistenceAdapter(
         return assemble(savedRoot)
     }
 
-    private fun assemble(entity: MemoJpaEntity): FreeMemo {
+    private fun assemble(entity: MemoJpaEntity): Memo {
         val id = requireNotNull(entity.id)
         val photos =
             memoPhotoJpaRepository
                 .findAllByMemoIdOrderBySortOrder(id)
                 .map { MemoPhoto(objectKey = it.objectKey, sortOrder = it.sortOrder) }
-        return FreeMemo.reconstitute(
+        return Memo.reconstitute(
             id = MemoId(id),
             userCode = entity.userCode,
             targetId = entity.targetId,

@@ -1,13 +1,13 @@
 package com.petcampus.knockdog.domain.memo.application.port.input
 
-interface GetFreeMemoUseCase {
+interface GetMemoUseCase {
     fun get(
         userCode: String,
         targetId: String,
-    ): FreeMemoView
+    ): MemoView
 }
 
-data class FreeMemoView(
+data class MemoView(
     val content: String?,
     val photos: List<PhotoView>,
 ) {
