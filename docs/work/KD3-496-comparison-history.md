@@ -1,4 +1,4 @@
-> 생성: 2026-09-11 10:00 · 최종 수정: 2026-09-11 12:00
+> 생성: 2026-09-11 10:00 · 최종 수정: 2026-09-11 13:30
 
 # KD3-496 유치원 비교 히스토리 저장·조회·삭제
 
@@ -37,7 +37,8 @@
 - 프론트(`daeng_v2_front`):
   - `getComparisonHistory()` — 인자 없음(`limit` 미전송) → `ComparisonHistoryItem[]` = `{ id: number, kindergartens: KindergartenShortInfo[], comparedAt: number[] }`.
   - `KindergartenShortInfo` = `{ id, name, thumbnailS3Key, categories }`.
-  - `ComparisonHistoryCard` — `kindergartens: [left, right]`(정확히 2)로 구조분해, `id`/`name`/`thumbnailS3Key`/`categories`만 렌더. **`comparedAt`은 렌더에 쓰지 않는다.** `if (!left || !right) return null` — 유치원이 하나라도 없으면 카드 자체를 숨긴다.
+  - `ComparisonHistoryCard` — `kindergartens: [left, right]`(정확히 2)로 구조분해, `id`/`name`/`thumbnailS3Key`/`categories`만 렌더(`comparedAt` 미사용). `if (!left || !right) return null` — 유치원이 하나라도 없으면 카드 자체를 숨긴다.
+  - **`HistoryTab`(`widgets/save-tabs/ui/HistoryTab.tsx`) — `comparedAt`을 `number[]`로 구조분해해(`formatDate([year, month, day])`) 날짜별 그룹 헤더·정렬 키로 쓴다.** ISO 문자열이 오면 `[year, month, day] = "2026-09-11T10:00:00"` → `"2"."0"."2"`로 깨진다. 이력 탭의 날짜 그룹핑이 KD3-495 배열→ISO 전환 전까지 동작 불능.
   - `deleteComparisonHistory(id: number)` — 확인 다이얼로그 없음.
 
 ### 패키지 배치 — `domain/comparison` 신규 슬라이스
@@ -60,7 +61,7 @@ KD3-465 memo/checklist가 확립한 패턴을 따른다: `@AuthenticationPrincip
 
 별도 `compared_at` 컬럼을 두지 않고 `BaseEntity.updatedAt`을 comparedAt으로 쓴다(memo 도메인이 `updatedAt.toLocalDate()`를 memoDate로 쓰는 것과 동일). upsert 시 JPA Auditing이 자동 갱신한다.
 
-응답 필드 `comparedAt`은 KD3-495 규약대로 `"2026-09-11T10:00:00"` ISO 문자열이다. 레거시는 `number[]` 배열이었으나 `ComparisonHistoryCard`가 이 필드를 렌더에 쓰지 않으므로 영향이 작다(§미결 질문).
+응답 필드 `comparedAt`은 KD3-495 규약대로 `"2026-09-11T10:00:00"` ISO 문자열이다. 레거시는 `number[]` 배열이었다. `ComparisonHistoryCard`는 이 필드를 안 쓰지만 **`HistoryTab`이 날짜 그룹핑에 `number[]`로 쓰므로, 프론트가 배열→ISO 파싱으로 전환해야 이력 탭이 정상 동작한다**(§미결 질문, 프론트 협의).
 
 ## 작업 범위
 
@@ -114,7 +115,7 @@ KD3-465 memo/checklist가 확립한 패턴을 따른다: `@AuthenticationPrincip
 
 ### 미결 질문
 
-1. **`comparedAt` 응답 포맷** — **해소**: KD3-495 규약대로 ISO 문자열. `ComparisonHistoryCard`가 렌더에 안 써서 영향 작음. 프론트 협의 항목으로 남김.
+1. **`comparedAt` 응답 포맷** — **해소**: KD3-495 규약대로 ISO 문자열. `ComparisonHistoryCard`는 안 쓰지만 `HistoryTab.tsx`가 `number[]`로 날짜 그룹핑에 쓴다 → 프론트가 배열→ISO 파싱 전환 필요(협의 항목). 서버는 규약을 따른다.
 2. **저장 실패 처리** — **해소**: 전파(레거시와 동일). 저장 실패를 비교 조회 응답 뒤에 숨기지 않는다.
 3. **`limit` 상한** — **해소**: 상한 50. `limit <= 0`이면 기본 10. 악의적 큰 값 방지.
 4. **없어진 유치원이 포함된 히스토리** — **해소**: 레거시 동작 유지 — 요약 배열에서 null 필터링, 히스토리 자체는 응답에 남긴다(프론트가 카드를 숨김). 이력을 임의로 소실시키지 않는다.
@@ -122,15 +123,28 @@ KD3-465 memo/checklist가 확립한 패턴을 따른다: `@AuthenticationPrincip
 ### 사용자 승인 기록
 
 - 2026-09-11 — 설계안(comparison 슬라이스 / 레거시대로 보존·limit / 컨트롤러 조립) 승인("진행해줘").
+- 2026-09-11 — 독립 리뷰 지적 반영 후 PR 진행.
+
+### 독립 리뷰
+
+컨텍스트 없는 리뷰어가 커밋 `08818b4..ec46bb6`와 이 문서를 대조(2026-09-11). 정합성·아키텍처(ArchUnit)·컨벤션·커밋 전부 이상 없음, 블로커 없음.
+
+| 지적 | 처리 |
+|---|---|
+| `comparedAt` 프론트 영향 과소평가 — `ComparisonHistoryCard`는 안 쓰지만 `HistoryTab.tsx`가 `number[]`로 날짜 그룹핑에 씀(ISO로 오면 `"2.00.02"`로 깨짐) | §배경·§`comparedAt`·대조표·`comparison.md` §3 전부 `HistoryTab.tsx` 명시로 수정 |
+| 네이티브 `upsert`(`ON DUPLICATE KEY`)의 핵심 동작(재비교 시 새 행 안 생김, soft delete 되살아남)이 테스트 안 됨 | `ComparisonHistoryEndpointTest`에 2개 추가 |
+| `ComparisonKindergartenSummaryAdapter` 단위 테스트 없음 | `ComparisonKindergartenSummaryAdapterTest` 추가 |
+| `KindergartenComparisonEndpointTest`의 `comparisonHistoryJpaRepository.deleteAll()`이 테스트마다 인라인 | `@BeforeEach`로 통일 |
 
 ## 완료 확인 기준
 
-### 테스트 (2026-09-11, `./gradlew clean test ktlintCheck` — 총 223개, 실패 0, ArchUnit 통과)
+### 테스트 (2026-09-11, `./gradlew clean test ktlintCheck` — 총 227개, 실패 0, ArchUnit 통과)
 
 - `ComparisonHistoryTest` (3) — 두 ID 사전순 정렬 불변식, `naverPlaceIds` 순서, 같은 ID 두 개 거부.
 - `ComparisonHistoryServiceTest` (8) — 저장 시 ID 정렬 upsert, 2곳 아니면 거부, `limit` 1~50 clamp, 히스토리별 유치원 요약, 없어진 유치원 필터(행은 유지), 삭제 NOT_FOUND/NOT_OWNER/soft delete.
-- `ComparisonHistoryEndpointTest` (5, `@SpringBootTest`+MockMvc) — 비로그인 401, 최근순 조회, 삭제 후 목록에서 사라짐, 남의 것 403 `COMPARISON_HISTORY_NOT_OWNER`, 없는 것 404 `COMPARISON_HISTORY_NOT_FOUND`.
-- `KindergartenComparisonEndpointTest` (+2) — 로그인 비교 시 `comparison_histories`에 정렬된 쌍 기록, 비로그인 비교는 미기록.
+- `ComparisonHistoryEndpointTest` (7, `@SpringBootTest`+MockMvc) — 비로그인 401, 최근순 조회, 삭제 후 목록에서 사라짐, 남의 것 403 `COMPARISON_HISTORY_NOT_OWNER`, 없는 것 404 `COMPARISON_HISTORY_NOT_FOUND`, **네이티브 upsert 검증**(같은 쌍을 순서 바꿔 재비교 → 새 행 안 생기고 `updated_at`만 전진, soft delete 후 재비교 → `deleted_at = NULL`로 되살아나 목록에 다시 보임).
+- `ComparisonKindergartenSummaryAdapterTest` (2) — 빈 목록 가드, 존재하는 유치원만 요약 변환.
+- `KindergartenComparisonEndpointTest` (+2, `@BeforeEach`로 `comparison_histories` 정리) — 로그인 비교 시 정렬된 쌍 기록, 비로그인 비교는 미기록.
 
 ### REDESIGN 응답 대조 (`003-migration.md` §4)
 
@@ -140,7 +154,7 @@ KD3-465 memo/checklist가 확립한 패턴을 따른다: `@AuthenticationPrincip
 |---|---|---|---|
 | `id` | 히스토리 PK(Long) | 〃 | 동일 |
 | `kindergartens[]` | `{id, name, thumbnailS3Key, categories}`, 없어진 유치원 필터 | 〃 | 동일. 요약은 Redis → RDB(`LoadKindergartenPort`) |
-| `comparedAt` | `number[]` (`[2026,9,11,10,0,0]`) | `"2026-09-11T10:00:00"` ISO | **포맷 변경 — 의도(KD3-495).** `ComparisonHistoryCard` 렌더에 안 씀 |
+| `comparedAt` | `number[]` (`[2026,9,11,10,0,0]`) | `"2026-09-11T10:00:00"` ISO | **포맷 변경 — 의도(KD3-495).** `ComparisonHistoryCard`는 미사용이나 `HistoryTab.tsx`가 날짜 그룹핑에 `number[]`로 씀 → 프론트 파싱 전환 필요 |
 | 정렬 | `comparedAt DESC` | `updated_at DESC, id DESC` | `updated_at`이 comparedAt이므로 동등 |
 | `limit` | `@RequestParam(defaultValue="10")`, 상한 없음 | 기본 10, 1~50 clamp | 상한 추가 — 악의적 큰 값 방지 |
 | 저장 dedup | 유저 전체 히스토리 로드 후 `HashSet` 동등성 | 정렬 저장 + `UNIQUE` upsert | 결과 동일, 쿼리 효율 개선 |

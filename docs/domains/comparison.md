@@ -42,7 +42,7 @@
 
 | 항목 | 레거시 | v1 |
 |---|---|---|
-| `comparedAt` | `number[]`(`[2026,9,11,10,0,0]`) | `"2026-09-11T10:00:00"` ISO 문자열([`api-contract.md`](../conventions/api-contract.md) §2, KD3-495). `ComparisonHistoryCard`는 렌더에 쓰지 않음 |
+| `comparedAt` | `number[]`(`[2026,9,11,10,0,0]`) | `"2026-09-11T10:00:00"` ISO 문자열([`api-contract.md`](../conventions/api-contract.md) §2, KD3-495). `ComparisonHistoryCard`는 미사용, `HistoryTab.tsx`는 날짜 그룹핑에 `number[]`로 씀 → 프론트 파싱 전환 필요 |
 | 에러 코드 | `COMPARISON-403-1` / `COMPARISON-404-1` | `COMPARISON_HISTORY_NOT_OWNER` / `COMPARISON_HISTORY_NOT_FOUND`. 프론트는 comparison 에러 코드로 분기 안 함(`shared/api/model/constant/apiErrorCode.ts`) |
 | 삭제 방식 | hard delete | soft delete(`deleted_at`) |
 | 인증 실패 | `@PrivateAccess`가 가려져 사실상 공개 | 401 |

@@ -12,6 +12,7 @@ import com.petcampus.knockdog.domain.kindergarten.domain.KindergartenBusinessHou
 import com.petcampus.knockdog.domain.kindergarten.domain.KindergartenId
 import com.petcampus.knockdog.domain.kindergarten.domain.KindergartenSource
 import com.petcampus.knockdog.domain.kindergarten.domain.KindergartenStatus
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc
@@ -40,6 +41,11 @@ class KindergartenComparisonEndpointTest {
 
     @Autowired
     private lateinit var comparisonHistoryJpaRepository: ComparisonHistoryJpaRepository
+
+    @BeforeEach
+    fun clearHistories() {
+        comparisonHistoryJpaRepository.deleteAll()
+    }
 
     @Test
     fun `인증 없이 두 유치원을 비교할 수 있다`() {
@@ -110,7 +116,6 @@ class KindergartenComparisonEndpointTest {
 
     @Test
     fun `로그인 상태로 비교하면 비교 히스토리가 기록된다`() {
-        comparisonHistoryJpaRepository.deleteAll()
         val bearer = "Bearer " + tokenPort.issueAccessToken(UserCode("H1I2J3K4"))
 
         mockMvc
@@ -128,8 +133,6 @@ class KindergartenComparisonEndpointTest {
 
     @Test
     fun `비로그인으로 비교하면 히스토리를 기록하지 않는다`() {
-        comparisonHistoryJpaRepository.deleteAll()
-
         mockMvc
             .perform(get("/api/v1/kindergartens/comparisons").param("ids", "A").param("ids", "B"))
             .andExpect(status().isOk)
