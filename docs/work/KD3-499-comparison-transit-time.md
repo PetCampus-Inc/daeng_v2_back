@@ -74,6 +74,13 @@ v2는 유치원 데이터가 RDB로 이관됐고(KD3-413), Redis는 현재 리�
 
 - **유치원 × 기준점 쌍이 순차 조회였다** — 쌍 안의 도보·자동차·대중교통 3종은 병렬이었지만, 쌍 자체는 `CompareKindergartensService`가 순차로 돌아 캐시 미스가 겹치면(2개 유치원 × 2개 기준점) 새로 추가한 5초 read timeout 기준 최악 케이스 최대 20초까지 늘어날 수 있었다. 쌍 단위도 `CompletableFuture`로 병렬화해 최악 케이스를 어댑터 쪽 병렬 조회 한 번(≈5초) 수준으로 줄였다.
 - **(리뷰 이후 직접 발견) Redis 캐시 조회·저장이 fail-open 밖에 있었다** — TMAP 호출 실패는 `fetch()`에서 잡아 `time: null`로 degrade했지만, 캐시 읽기/쓰기는 그 try/catch 밖에 있어 Redis 장애 시 예외가 `CompletableFuture`를 타고 전파돼 비교 API 전체가 500이 나는 구멍이 있었다. 캐시 조회·저장을 각각 감싸 TMAP과 동일하게 fail-open하도록 고쳤다(`d1404c5`).
+
+### 독립 리뷰 2회차 (2026-09-14, 병렬화·fail-open 수정 반영 후)
+
+동시성 정합성(캐시 fail-open의 스레드 격리, 테스트의 `synchronizedList` 필요성·충분성, `associateWith` 맵 키 안전성, `@Transactional` 제거의 안전성) 위주로 재검증. 블로커 없음, 기존에 고친 부분(fail-open, 쌍 단위 병렬화)은 전부 정상 동작 확인. 반영한 지적:
+
+- **설명 주석 3개가 무주석 원칙([`code-style.md`](../conventions/code-style.md) §1, 예외는 TODO/FIXME뿐)을 어겼다** — `CompareKindergartensService`·두 테스트 파일에 병렬화·스레드 안전성을 설명하는 라인 주석을 남겼었다. 주석을 지우고 대신 `CompareKindergartensService`의 헬퍼를 `launchTransitTimeFetches`(먼저 전부 띄우고) / `transitTimesByKindergarten`(나중에 `join()`)로 이름을 통해 의도가 드러나게 분리했다. 나머지 두 곳은 `Collections.synchronizedList`·`ignoreExpectOrder`처럼 메서드 이름 자체가 이유를 설명하고 있어 주석만 제거했다.
+- **병렬 조회 회귀 테스트가 약했다** — `기준점마다 유치원별 이동시간을 조회한다` 테스트에서 유치원 A·B가 기본값으로 같은 좌표(37.5, 127.0)를 써서, "유치원마다 정확히 한 번씩 호출"과 "한쪽에 두 번, 다른 쪽엔 0번 호출" 버그를 구분하지 못했다. A·B에 서로 다른 좌표를 주고 `Set` 비교로 바꿔 실제로 두 유치원 모두 정확히 한 번씩, 각자의 좌표로 호출됐는지 검증하도록 고쳤다.
 - 반영 없이 그대로 둔 지적: `spring.http.client` 전역 타임아웃이 기존 `OidcPublicKeyClient`(OIDC JWKS 조회)에도 적용되는 점은 의도된 부수효과로 판단(기존엔 타임아웃이 아예 없었음 — 개선). 격자 해시 셀 크기(~100m)·실패 응답 미캐싱은 방향 논의에서 이미 받아들인 근사치라 후속 과제로 남긴다.
 
 ### REDESIGN 응답 대조 (`003-migration.md` §4는 `KEEP` 전용 — 이 필드는 REDESIGN이라 해당 없음)

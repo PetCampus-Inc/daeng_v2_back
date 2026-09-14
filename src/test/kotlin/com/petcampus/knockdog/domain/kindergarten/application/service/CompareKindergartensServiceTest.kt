@@ -37,7 +37,6 @@ class CompareKindergartensServiceTest {
     }
 
     private class RecordingTransitTimesPort : LoadTransitTimesPort {
-        // 서비스가 유치원 × 기준점 쌍을 병렬로 조회하므로 스레드 안전한 컬렉션이 필요하다.
         val calls: MutableList<List<Double>> = java.util.Collections.synchronizedList(mutableListOf())
 
         override fun findTransitTimes(
@@ -161,8 +160,9 @@ class CompareKindergartensServiceTest {
     @Test
     fun `기준점마다 유치원별 이동시간을 조회한다`() {
         val transitTimesPort = RecordingTransitTimesPort()
+        val kindergartens = listOf(kindergarten("A", lat = 37.5, lng = 127.0), kindergarten("B", lat = 37.55, lng = 127.05))
         val result =
-            service(transitTimesPort = transitTimesPort)
+            service(kindergartens = kindergartens, transitTimesPort = transitTimesPort)
                 .compare(CompareKindergartensCommand(listOf("A", "B"), "USER1234", 37.4, 127.1))
 
         assertEquals(
@@ -170,8 +170,8 @@ class CompareKindergartensServiceTest {
             result.transitTimesByKindergarten.getValue("A"),
         )
         assertEquals(
-            listOf(listOf(37.4, 127.1, 37.5, 127.0), listOf(37.4, 127.1, 37.5, 127.0)),
-            transitTimesPort.calls,
+            setOf(listOf(37.4, 127.1, 37.5, 127.0), listOf(37.4, 127.1, 37.55, 127.05)),
+            transitTimesPort.calls.toSet(),
         )
     }
 

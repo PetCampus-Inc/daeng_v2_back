@@ -50,26 +50,29 @@ class CompareKindergartensService(
         kindergartens: List<Kindergarten>,
         referencePoints: List<ComparisonReferencePoint>,
     ): Map<String, List<List<TransitTime>>> {
-        // 유치원 × 기준점 쌍마다 외부 API를 호출하므로 쌍 사이에도 병렬로 조회한다
-        // (쌍 안의 도보·자동차·대중교통 3종은 어댑터가 이미 병렬로 조회한다).
-        val futuresByKindergarten =
-            kindergartens.associateWith { kindergarten ->
-                val lat = kindergarten.lat
-                val lng = kindergarten.lng
-                if (lat == null || lng == null) {
-                    null
-                } else {
-                    referencePoints.map { point ->
-                        CompletableFuture.supplyAsync { loadTransitTimesPort.findTransitTimes(point.lat, point.lng, lat, lng) }
-                    }
-                }
-            }
+        val pendingTransitTimesByKindergarten = launchTransitTimeFetches(kindergartens, referencePoints)
 
         return kindergartens.associate { kindergarten ->
-            val futures = futuresByKindergarten.getValue(kindergarten)
-            kindergarten.naverPlaceId to (futures?.map { it.join() } ?: referencePoints.map { emptyList() })
+            val pending = pendingTransitTimesByKindergarten.getValue(kindergarten)
+            kindergarten.naverPlaceId to (pending?.map { it.join() } ?: referencePoints.map { emptyList() })
         }
     }
+
+    private fun launchTransitTimeFetches(
+        kindergartens: List<Kindergarten>,
+        referencePoints: List<ComparisonReferencePoint>,
+    ): Map<Kindergarten, List<CompletableFuture<List<TransitTime>>>?> =
+        kindergartens.associateWith { kindergarten ->
+            val lat = kindergarten.lat
+            val lng = kindergarten.lng
+            if (lat == null || lng == null) {
+                null
+            } else {
+                referencePoints.map { point ->
+                    CompletableFuture.supplyAsync { loadTransitTimesPort.findTransitTimes(point.lat, point.lng, lat, lng) }
+                }
+            }
+        }
 
     private fun resolveReferencePoints(command: CompareKindergartensCommand): List<ComparisonReferencePoint> {
         if (command.lat != null && command.lng != null) {

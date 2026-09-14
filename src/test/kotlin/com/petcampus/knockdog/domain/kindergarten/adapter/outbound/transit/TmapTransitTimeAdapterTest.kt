@@ -48,7 +48,6 @@ class TmapTransitTimeAdapterTest {
 
     private fun adapterWithServer(redisTemplate: StringRedisTemplate): Pair<TmapTransitTimeAdapter, MockRestServiceServer> {
         val builder = RestClient.builder()
-        // 도보·자동차·대중교통 3건이 병렬로 호출되므로 도착 순서를 강제하지 않는다.
         val server = MockRestServiceServer.bindTo(builder).ignoreExpectOrder(true).build()
         return TmapTransitTimeAdapter(builder, properties, redisTemplate) to server
     }
