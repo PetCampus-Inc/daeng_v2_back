@@ -1,4 +1,4 @@
-> 생성: 2026-08-02 13:45 · 최종 수정: 2026-09-10 13:30
+> 생성: 2026-08-02 13:45 · 최종 수정: 2026-09-11 11:30
 
 # API 인벤토리
 
@@ -54,13 +54,13 @@
 
 | 완료 | 진행중 | 미착수 | 해당없음 |
 |---:|---:|---:|---:|
-| 7 | 13 | 102 | 137 |
+| 7 | 15 | 100 | 137 |
 
 완료 7개 — auth 도메인: `v1` 2개(`oidc-verifications`, `users`)와 `v0` 유지 5개(`login`, `refresh`, `logout`, 약관 동의 제출·조회, [`KD3-258`](../work/KD3-258-user-social-auth.md)).
 
-진행중 13개 — 전부 `v1`로 구현·자동검증은 끝났고 로컬 응답 대조(사람 몫)가 안 끝나 `진행중`이다. 신규 서버는 `v0`를 만들지 않는다(ADR 0012) — `v0`는 컷오버까지 레거시 서버가 계속 제공한다.
+진행중 15개 — 전부 `v1`로 구현·자동검증은 끝났고 로컬 응답 대조(사람 몫)가 안 끝나 `진행중`이다. 신규 서버는 `v0`를 만들지 않는다(ADR 0012) — `v0`는 컷오버까지 레거시 서버가 계속 제공한다.
 - kindergarten 3개 — `main/{id}`, `basic/{id}`, `{id}/pricing` ([`KD3-413`](../work/KD3-413-kindergarten-static-lookup.md))
-- comparison 1개 — `comparisons` ([`KD3-469`](../work/KD3-469-kindergarten-comparison.md))
+- comparison 3개 — `comparisons` ([`KD3-469`](../work/KD3-469-kindergarten-comparison.md)), `comparisons/history` GET·DELETE ([`KD3-496`](../work/KD3-496-comparison-history.md))
 - memo 6개 — `memo`(GET/POST), `memo/checklist`(GET/POST), `memo/checklist/answer`(GET), `memo/shops`(GET) ([`KD3-465`](../work/KD3-465-memo.md))
 - media 3개 — `s3/image/move`, `s3/image/pre-signed-url`, `s3/image/pre-signed-url/upload` ([`KD3-478`](../work/KD3-478-s3-infra-image-upload.md))
 
@@ -199,8 +199,8 @@
 | GET | `/api/v0/kindergarten/aggregations` | 없음 | `DROP` | `해당없음` | 없음 | kindergarten | P3 | 0004 삭제 확정: map-view/aggregation이 대체<br>src/main/java/com/petcampus/knockdog/kindergardeninfo/KindergartenController.java#KindergartenController.getAggregations | - |
 | GET | `/api/v0/kindergarten/basic/{id}` | 있음: src/entities/kindergarten/api/kindergarten-basic.ts | `KEEP` | `진행중` | v1 | kindergarten | P1 | 프론트 호출 확인<br>src/main/java/com/petcampus/knockdog/kindergardeninfo/KindergartenController.java#KindergartenController.getKindergartenDetail | [`KD3-413`](../work/KD3-413-kindergarten-static-lookup.md). 신규 서버는 `v0`를 만들지 않는다(ADR 0012) — `GET /api/v1/kindergartens/{id}/detail`만 제공(실체 없는 `breakTime` 필드 제거). `v0`는 컷오버까지 레거시가 계속 제공한다. 로컬 응답 대조·시딩 데이터 검증 미완료 — [`docs/domains/kindergarten.md`](../domains/kindergarten.md) §2·§3 참고 |
 | GET | `/api/v0/kindergarten/comparisons` | 있음: src/entities/compare/api/comparisons.ts | `KEEP` | `진행중` | v1 | comparison | P1 | 프론트 호출 확인<br>src/main/java/com/petcampus/knockdog/comparison/controller/ComparisonController.java#ComparisonController.getComparison | [`KD3-469`](../work/KD3-469-kindergarten-comparison.md). 신규 서버는 `v0`를 만들지 않는다(ADR 0012) — `GET /api/v1/kindergartens/comparisons`만 제공. 요금은 `kindergarten_menus`에서 재계산(레거시 `product_pricing.json`이 stale), 이동시간(`transitTimes`)은 KD3-499로 분리, `operatingSchedule`은 `{open,close}` 구조로 개선. 로컬 응답 대조 미완료. `v0`는 컷오버까지 레거시가 계속 제공한다 |
-| GET | `/api/v0/kindergarten/comparisons/history` | 있음: src/entities/compare/api/comparisons.ts | `REDESIGN` | `미착수` | v0 | comparison | P1 | 0004 보안 이슈: PrivateAccess가 permit 규칙에 가려짐<br>src/main/java/com/petcampus/knockdog/comparison/controller/ComparisonController.java#ComparisonController.getComparisonHistory | 인가 기본 deny 전환 시 계약/권한 함께 검증 |
-| DELETE | `/api/v0/kindergarten/comparisons/history/{historyId}` | 있음: src/entities/compare/api/comparisons.ts | `REDESIGN` | `미착수` | v0 | comparison | P1 | 0004 보안 이슈: PrivateAccess가 permit 규칙에 가려짐<br>src/main/java/com/petcampus/knockdog/comparison/controller/ComparisonController.java#ComparisonController.deleteComparisonHistory | 인가 기본 deny 전환 시 계약/권한 함께 검증 |
+| GET | `/api/v0/kindergarten/comparisons/history` | 있음: src/entities/compare/api/comparisons.ts | `REDESIGN` | `진행중` | v1 | comparison | P1 | [`KD3-496`](../work/KD3-496-comparison-history.md). `GET /api/v1/kindergartens/comparisons/history`만 제공. 0004 `@PrivateAccess` 가림 버그 교정(인증 필수), `comparedAt` ISO 문자열, 정렬-쌍 dedup. 로컬 응답 대조 미완료 |
+| DELETE | `/api/v0/kindergarten/comparisons/history/{historyId}` | 있음: src/entities/compare/api/comparisons.ts | `REDESIGN` | `진행중` | v1 | comparison | P1 | [`KD3-496`](../work/KD3-496-comparison-history.md). `DELETE /api/v1/kindergartens/comparisons/history/{historyId}`. 인증 필수, soft delete, 에러 코드 `COMPARISON_HISTORY_NOT_OWNER`(403)/`COMPARISON_HISTORY_NOT_FOUND`(404) |
 | GET | `/api/v0/kindergarten/filters` | 없음 | `DROP` | `해당없음` | 없음 | kindergarten | P3 | 0004 삭제 확정: filters/result만 사용<br>src/main/java/com/petcampus/knockdog/kindergardeninfo/KindergartenController.java#KindergartenController.getFilterSearchKindergartens | - |
 | GET | `/api/v0/kindergarten/filters/result` | 있음: src/entities/kindergarten/api/filters.ts | `REDESIGN` | `미착수` | v0+v1 | kindergarten | P1 | 0004 v1 재설계 대표 사례: GET /v1/kindergartens/count<br>src/main/java/com/petcampus/knockdog/kindergardeninfo/KindergartenController.java#KindergartenController.getFilterResultCount | 상세 v1 계약은 도메인/계획 문서에서 확정 |
 | POST | `/api/v0/kindergarten/load-csv` | 없음 | `DROP` | `해당없음` | 없음 | kindergarten | P3 | 0004 삭제 확정: 인증 없음 + 미사용 위험 API<br>src/main/java/com/petcampus/knockdog/kindergardeninfo/KindergartenController.java#KindergartenController.loadCsv | - |

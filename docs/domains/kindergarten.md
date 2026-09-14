@@ -41,6 +41,7 @@
 - **거리 기준점(`referencePoint`)** — `lat`+`lng` 쿼리가 오면 `OTHER` 하나, 없고 로그인했으면 저장 주소별(`HOME` 먼저), 둘 다 없으면 `distance: []`.
 - **`serviceType` 응답 필드** — 레거시는 `productType`이었다. 도메인·DTO 필드명 일치 규칙([`code-style.md`](../conventions/code-style.md) §3)에 따라 `serviceType`으로 통일했다. 프론트 수정 필요.
 - **`operatingSchedule`** — 레거시 `weekdayHours`/`weekendHours` 문자열(`"09:00~20:00"`)을 `weekday`/`weekend` `{open, close}` 구조로 바꿨다(`detail`의 `BusinessHours`와 동일, `LocalTime` → `"09:00"`). 프론트 수정 필요. `businessHours` 프로필은 `name == "DEFAULT"` 우선, 없으면 첫 번째.
+- **비교 히스토리 저장** — 로그인 상태로 비교하면 이력이 저장된다(레거시의 GET 부수효과). 이 컨트롤러가 `KindergartensComparedEvent`를 발행하고 `comparison` 도메인이 받아 처리한다 — kindergarten은 `comparison`에 컴파일 의존하지 않는다. 조회·삭제와 스키마는 [`comparison.md`](comparison.md)([`KD3-496`](../work/KD3-496-comparison-history.md)).
 
 ## 2. 레거시에서 발견해 `v1`에서 고친 버그 (로컬 응답 대조 시 참고)
 
