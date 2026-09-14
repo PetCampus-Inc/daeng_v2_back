@@ -8,6 +8,7 @@ import com.petcampus.knockdog.domain.kindergarten.domain.KindergartenPricingComp
 import com.petcampus.knockdog.domain.kindergarten.domain.KindergartenPricingComparisonCalculator
 import java.time.LocalTime
 import java.util.Locale
+import com.petcampus.knockdog.domain.kindergarten.domain.TransitTime as DomainTransitTime
 
 data class KindergartenComparisonResponse(
     val id: String,
@@ -46,7 +47,7 @@ data class KindergartenComparisonResponse(
 
     data class TransitTime(
         val type: String,
-        val time: String?,
+        val time: Int?,
     )
 
     data class OperatingSchedule(
@@ -66,6 +67,7 @@ data class KindergartenComparisonResponse(
         fun from(
             kindergarten: Kindergarten,
             referencePoints: List<ComparisonReferencePoint>,
+            transitTimes: List<List<DomainTransitTime>> = referencePoints.map { emptyList() },
         ): KindergartenComparisonResponse =
             KindergartenComparisonResponse(
                 id = kindergarten.naverPlaceId,
@@ -74,7 +76,7 @@ data class KindergartenComparisonResponse(
                 categories = kindergarten.categories.map { it.value },
                 pricing = pricingOf(kindergarten),
                 service = KindergartenServiceTags.allOf(kindergarten),
-                distance = distancesOf(kindergarten, referencePoints),
+                distance = distancesOf(kindergarten, referencePoints, transitTimes),
                 operatingSchedule = operatingScheduleOf(kindergarten),
             )
 
@@ -99,10 +101,11 @@ data class KindergartenComparisonResponse(
         private fun distancesOf(
             kindergarten: Kindergarten,
             referencePoints: List<ComparisonReferencePoint>,
+            transitTimes: List<List<DomainTransitTime>>,
         ): List<Distance> {
             val lat = kindergarten.lat ?: return emptyList()
             val lng = kindergarten.lng ?: return emptyList()
-            return referencePoints.map { point ->
+            return referencePoints.mapIndexed { index, point ->
                 Distance(
                     referencePoint = point.type.name,
                     distance =
@@ -111,10 +114,12 @@ data class KindergartenComparisonResponse(
                             "%.1fkm",
                             KindergartenDistanceCalculator.calculateKm(point.lat, point.lng, lat, lng),
                         ),
-                    transitTimes = emptyList(),
+                    transitTimes = transitTimes.getOrElse(index) { emptyList() }.map { it.toResponse() },
                 )
             }
         }
+
+        private fun DomainTransitTime.toResponse(): TransitTime = TransitTime(type = type.name, time = seconds)
 
         private fun operatingScheduleOf(kindergarten: Kindergarten): OperatingSchedule? {
             val profile = selectProfile(kindergarten.businessHours) ?: return null

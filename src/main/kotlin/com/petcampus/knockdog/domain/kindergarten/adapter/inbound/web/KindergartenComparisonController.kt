@@ -36,7 +36,13 @@ class KindergartenComparisonController(
         }
 
         return Response.success(
-            result.kindergartens.map { KindergartenComparisonResponse.from(it, result.referencePoints) },
+            result.kindergartens.map {
+                KindergartenComparisonResponse.from(
+                    it,
+                    result.referencePoints,
+                    result.transitTimesByKindergarten.getValue(it.naverPlaceId),
+                )
+            },
         )
     }
 

@@ -9,6 +9,8 @@ import com.petcampus.knockdog.domain.kindergarten.domain.KindergartenId
 import com.petcampus.knockdog.domain.kindergarten.domain.KindergartenMenu
 import com.petcampus.knockdog.domain.kindergarten.domain.KindergartenSource
 import com.petcampus.knockdog.domain.kindergarten.domain.KindergartenStatus
+import com.petcampus.knockdog.domain.kindergarten.domain.TransitTime
+import com.petcampus.knockdog.domain.kindergarten.domain.TransportationType
 import org.junit.jupiter.api.Test
 import java.time.DayOfWeek
 import java.time.LocalTime
@@ -150,5 +152,33 @@ class KindergartenComparisonResponseTest {
         val distance = KindergartenComparisonResponse.from(kindergarten(lat = null, lng = null), points).distance
 
         assertEquals(emptyList(), distance)
+    }
+
+    @Test
+    fun `transitTimes는 기준점 순서대로 초 단위 time으로 내려간다`() {
+        val points =
+            listOf(
+                ComparisonReferencePoint(ComparisonReferencePointType.HOME, 37.5, 127.0),
+                ComparisonReferencePoint(ComparisonReferencePointType.OTHER, 37.4979, 127.0276),
+            )
+        val transitTimes =
+            listOf(
+                listOf(TransitTime(TransportationType.WALKING, 605), TransitTime(TransportationType.TRANSIT, null)),
+                listOf(TransitTime(TransportationType.DRIVING, 320)),
+            )
+
+        val distance =
+            KindergartenComparisonResponse
+                .from(kindergarten(lat = 37.5663, lng = 126.9779), points, transitTimes)
+                .distance
+
+        assertEquals(
+            listOf(
+                KindergartenComparisonResponse.TransitTime("WALKING", 605),
+                KindergartenComparisonResponse.TransitTime("TRANSIT", null),
+            ),
+            distance[0].transitTimes,
+        )
+        assertEquals(listOf(KindergartenComparisonResponse.TransitTime("DRIVING", 320)), distance[1].transitTimes)
     }
 }
