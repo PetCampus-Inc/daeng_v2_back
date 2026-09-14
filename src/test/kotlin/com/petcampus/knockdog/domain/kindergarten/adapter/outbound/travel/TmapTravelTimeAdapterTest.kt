@@ -1,4 +1,4 @@
-package com.petcampus.knockdog.domain.kindergarten.adapter.outbound.transit
+package com.petcampus.knockdog.domain.kindergarten.adapter.outbound.travel
 
 import com.petcampus.knockdog.domain.kindergarten.domain.TransportationType
 import org.junit.jupiter.api.Test
@@ -19,7 +19,7 @@ import java.time.Duration
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
 
-class TmapTransitTimeAdapterTest {
+class TmapTravelTimeAdapterTest {
     private val properties = TmapProperties(key = "test-key", baseUrl = "http://tmap.test", cacheTtlDays = 7)
 
     @Suppress("UNCHECKED_CAST")
@@ -46,10 +46,10 @@ class TmapTransitTimeAdapterTest {
         return template
     }
 
-    private fun adapterWithServer(redisTemplate: StringRedisTemplate): Pair<TmapTransitTimeAdapter, MockRestServiceServer> {
+    private fun adapterWithServer(redisTemplate: StringRedisTemplate): Pair<TmapTravelTimeAdapter, MockRestServiceServer> {
         val builder = RestClient.builder()
         val server = MockRestServiceServer.bindTo(builder).ignoreExpectOrder(true).build()
-        return TmapTransitTimeAdapter(builder, properties, redisTemplate) to server
+        return TmapTravelTimeAdapter(builder, properties, redisTemplate) to server
     }
 
     @Test
@@ -73,7 +73,7 @@ class TmapTransitTimeAdapterTest {
                 ),
             )
 
-        val result = adapter.findTransitTimes(37.5, 127.0, 37.6, 127.1)
+        val result = adapter.findTravelTimes(37.5, 127.0, 37.6, 127.1)
 
         assertEquals(300, result.single { it.type == TransportationType.WALKING }.seconds)
         assertEquals(600, result.single { it.type == TransportationType.DRIVING }.seconds)
@@ -89,7 +89,7 @@ class TmapTransitTimeAdapterTest {
         val redisTemplate = redisTemplate(cached = "150")
         val (adapter, server) = adapterWithServer(redisTemplate)
 
-        val result = adapter.findTransitTimes(37.5, 127.0, 37.6, 127.1)
+        val result = adapter.findTravelTimes(37.5, 127.0, 37.6, 127.1)
 
         assertEquals(listOf(150, 150, 150), result.map { it.seconds })
         server.verify()
@@ -115,7 +115,7 @@ class TmapTransitTimeAdapterTest {
                 ),
             )
 
-        val result = adapter.findTransitTimes(37.5, 127.0, 37.6, 127.1)
+        val result = adapter.findTravelTimes(37.5, 127.0, 37.6, 127.1)
 
         assertNull(result.single { it.type == TransportationType.WALKING }.seconds)
         assertEquals(600, result.single { it.type == TransportationType.DRIVING }.seconds)
@@ -137,7 +137,7 @@ class TmapTransitTimeAdapterTest {
             .expect(requestTo("http://tmap.test/transit/routes"))
             .andRespond(withNoContent())
 
-        val result = adapter.findTransitTimes(37.5, 127.0, 37.6, 127.1)
+        val result = adapter.findTravelTimes(37.5, 127.0, 37.6, 127.1)
 
         assertEquals(listOf(null, null, null), result.map { it.seconds })
     }
@@ -162,7 +162,7 @@ class TmapTransitTimeAdapterTest {
                 ),
             )
 
-        val result = adapter.findTransitTimes(37.5, 127.0, 37.6, 127.1)
+        val result = adapter.findTravelTimes(37.5, 127.0, 37.6, 127.1)
 
         assertEquals(300, result.single { it.type == TransportationType.WALKING }.seconds)
         assertEquals(600, result.single { it.type == TransportationType.DRIVING }.seconds)

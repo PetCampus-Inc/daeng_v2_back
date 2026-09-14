@@ -1,9 +1,9 @@
-package com.petcampus.knockdog.domain.kindergarten.adapter.outbound.transit
+package com.petcampus.knockdog.domain.kindergarten.adapter.outbound.travel
 
 import com.fasterxml.jackson.databind.JsonNode
-import com.petcampus.knockdog.domain.kindergarten.application.port.output.LoadTransitTimesPort
-import com.petcampus.knockdog.domain.kindergarten.domain.TransitTime
+import com.petcampus.knockdog.domain.kindergarten.application.port.output.LoadTravelTimesPort
 import com.petcampus.knockdog.domain.kindergarten.domain.TransportationType
+import com.petcampus.knockdog.domain.kindergarten.domain.TravelTime
 import org.slf4j.LoggerFactory
 import org.springframework.data.redis.core.StringRedisTemplate
 import org.springframework.stereotype.Component
@@ -13,11 +13,11 @@ import java.util.concurrent.CompletableFuture
 import kotlin.math.roundToLong
 
 @Component
-class TmapTransitTimeAdapter(
+class TmapTravelTimeAdapter(
     restClientBuilder: RestClient.Builder,
     properties: TmapProperties,
     private val redisTemplate: StringRedisTemplate,
-) : LoadTransitTimesPort {
+) : LoadTravelTimesPort {
     private val cacheTtl = Duration.ofDays(properties.cacheTtlDays)
 
     private val restClient =
@@ -26,19 +26,19 @@ class TmapTransitTimeAdapter(
             .defaultHeader("appKey", properties.key)
             .build()
 
-    override fun findTransitTimes(
+    override fun findTravelTimes(
         originLat: Double,
         originLng: Double,
         destinationLat: Double,
         destinationLng: Double,
-    ): List<TransitTime> =
+    ): List<TravelTime> =
         TransportationType.entries
             .map { type ->
                 type to
                     CompletableFuture.supplyAsync {
                         secondsOf(type, originLat, originLng, destinationLat, destinationLng)
                     }
-            }.map { (type, future) -> TransitTime(type, future.join()) }
+            }.map { (type, future) -> TravelTime(type, future.join()) }
 
     private fun secondsOf(
         type: TransportationType,
@@ -171,7 +171,7 @@ class TmapTransitTimeAdapter(
         originLng: Double,
         destinationLat: Double,
         destinationLng: Double,
-    ): String = "transit:$type:${gridHash(originLat, originLng)}:${gridHash(destinationLat, destinationLng)}"
+    ): String = "travel:$type:${gridHash(originLat, originLng)}:${gridHash(destinationLat, destinationLng)}"
 
     private fun gridHash(
         lat: Double,
@@ -179,7 +179,7 @@ class TmapTransitTimeAdapter(
     ): String = "${(lat * GRID_PRECISION).roundToLong()}_${(lng * GRID_PRECISION).roundToLong()}"
 
     companion object {
-        private val log = LoggerFactory.getLogger(TmapTransitTimeAdapter::class.java)
+        private val log = LoggerFactory.getLogger(TmapTravelTimeAdapter::class.java)
         private const val PEDESTRIAN_PATH = "/tmap/routes/pedestrian?version=1"
         private const val CAR_PATH = "/tmap/routes?version=1"
         private const val TRANSIT_PATH = "/transit/routes"

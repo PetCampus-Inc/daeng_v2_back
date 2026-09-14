@@ -6,11 +6,11 @@ import com.petcampus.knockdog.domain.kindergarten.application.port.input.Compare
 import com.petcampus.knockdog.domain.kindergarten.application.port.input.CompareKindergartensUseCase
 import com.petcampus.knockdog.domain.kindergarten.application.port.output.LoadComparisonAddressesPort
 import com.petcampus.knockdog.domain.kindergarten.application.port.output.LoadKindergartenPort
-import com.petcampus.knockdog.domain.kindergarten.application.port.output.LoadTransitTimesPort
+import com.petcampus.knockdog.domain.kindergarten.application.port.output.LoadTravelTimesPort
 import com.petcampus.knockdog.domain.kindergarten.domain.ComparisonReferencePoint
 import com.petcampus.knockdog.domain.kindergarten.domain.ComparisonReferencePointType
 import com.petcampus.knockdog.domain.kindergarten.domain.Kindergarten
-import com.petcampus.knockdog.domain.kindergarten.domain.TransitTime
+import com.petcampus.knockdog.domain.kindergarten.domain.TravelTime
 import com.petcampus.knockdog.global.exception.BusinessException
 import com.petcampus.knockdog.global.exception.CommonErrorCode
 import org.springframework.stereotype.Service
@@ -20,7 +20,7 @@ import java.util.concurrent.CompletableFuture
 class CompareKindergartensService(
     private val loadKindergartenPort: LoadKindergartenPort,
     private val loadComparisonAddressesPort: LoadComparisonAddressesPort,
-    private val loadTransitTimesPort: LoadTransitTimesPort,
+    private val loadTravelTimesPort: LoadTravelTimesPort,
 ) : CompareKindergartensUseCase {
     override fun compare(command: CompareKindergartensCommand): CompareKindergartensResult {
         val naverPlaceIds = command.naverPlaceIds
@@ -42,26 +42,26 @@ class CompareKindergartensService(
         return CompareKindergartensResult(
             kindergartens = kindergartens,
             referencePoints = referencePoints,
-            transitTimesByKindergarten = transitTimesByKindergarten(kindergartens, referencePoints),
+            travelTimesByKindergarten = travelTimesByKindergarten(kindergartens, referencePoints),
         )
     }
 
-    private fun transitTimesByKindergarten(
+    private fun travelTimesByKindergarten(
         kindergartens: List<Kindergarten>,
         referencePoints: List<ComparisonReferencePoint>,
-    ): Map<String, List<List<TransitTime>>> {
-        val pendingTransitTimesByKindergarten = launchTransitTimeFetches(kindergartens, referencePoints)
+    ): Map<String, List<List<TravelTime>>> {
+        val pendingTravelTimesByKindergarten = launchTravelTimeFetches(kindergartens, referencePoints)
 
         return kindergartens.associate { kindergarten ->
-            val pending = pendingTransitTimesByKindergarten.getValue(kindergarten)
+            val pending = pendingTravelTimesByKindergarten.getValue(kindergarten)
             kindergarten.naverPlaceId to (pending?.map { it.join() } ?: referencePoints.map { emptyList() })
         }
     }
 
-    private fun launchTransitTimeFetches(
+    private fun launchTravelTimeFetches(
         kindergartens: List<Kindergarten>,
         referencePoints: List<ComparisonReferencePoint>,
-    ): Map<Kindergarten, List<CompletableFuture<List<TransitTime>>>?> =
+    ): Map<Kindergarten, List<CompletableFuture<List<TravelTime>>>?> =
         kindergartens.associateWith { kindergarten ->
             val lat = kindergarten.lat
             val lng = kindergarten.lng
@@ -69,7 +69,7 @@ class CompareKindergartensService(
                 null
             } else {
                 referencePoints.map { point ->
-                    CompletableFuture.supplyAsync { loadTransitTimesPort.findTransitTimes(point.lat, point.lng, lat, lng) }
+                    CompletableFuture.supplyAsync { loadTravelTimesPort.findTravelTimes(point.lat, point.lng, lat, lng) }
                 }
             }
         }

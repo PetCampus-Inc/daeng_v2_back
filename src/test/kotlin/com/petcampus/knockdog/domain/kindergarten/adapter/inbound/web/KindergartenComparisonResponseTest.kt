@@ -9,8 +9,8 @@ import com.petcampus.knockdog.domain.kindergarten.domain.KindergartenId
 import com.petcampus.knockdog.domain.kindergarten.domain.KindergartenMenu
 import com.petcampus.knockdog.domain.kindergarten.domain.KindergartenSource
 import com.petcampus.knockdog.domain.kindergarten.domain.KindergartenStatus
-import com.petcampus.knockdog.domain.kindergarten.domain.TransitTime
 import com.petcampus.knockdog.domain.kindergarten.domain.TransportationType
+import com.petcampus.knockdog.domain.kindergarten.domain.TravelTime
 import org.junit.jupiter.api.Test
 import java.time.DayOfWeek
 import java.time.LocalTime
@@ -131,7 +131,7 @@ class KindergartenComparisonResponseTest {
     }
 
     @Test
-    fun `distance는 기준점마다 직선거리를 담고 transitTimes는 비어 있다`() {
+    fun `distance는 기준점마다 직선거리를 담고 travelTimes는 비어 있다`() {
         val points =
             listOf(
                 ComparisonReferencePoint(ComparisonReferencePointType.HOME, 37.5, 127.0),
@@ -142,7 +142,7 @@ class KindergartenComparisonResponseTest {
 
         assertEquals(listOf("HOME", "OTHER"), distance.map { it.referencePoint })
         assertEquals(listOf("7.6km", "8.8km"), distance.map { it.distance })
-        assertEquals(emptyList(), distance.first().transitTimes)
+        assertEquals(emptyList(), distance.first().travelTimes)
     }
 
     @Test
@@ -155,30 +155,30 @@ class KindergartenComparisonResponseTest {
     }
 
     @Test
-    fun `transitTimes는 기준점 순서대로 초 단위 time으로 내려간다`() {
+    fun `travelTimes는 기준점 순서대로 초 단위 time으로 내려간다`() {
         val points =
             listOf(
                 ComparisonReferencePoint(ComparisonReferencePointType.HOME, 37.5, 127.0),
                 ComparisonReferencePoint(ComparisonReferencePointType.OTHER, 37.4979, 127.0276),
             )
-        val transitTimes =
+        val travelTimes =
             listOf(
-                listOf(TransitTime(TransportationType.WALKING, 605), TransitTime(TransportationType.TRANSIT, null)),
-                listOf(TransitTime(TransportationType.DRIVING, 320)),
+                listOf(TravelTime(TransportationType.WALKING, 605), TravelTime(TransportationType.TRANSIT, null)),
+                listOf(TravelTime(TransportationType.DRIVING, 320)),
             )
 
         val distance =
             KindergartenComparisonResponse
-                .from(kindergarten(lat = 37.5663, lng = 126.9779), points, transitTimes)
+                .from(kindergarten(lat = 37.5663, lng = 126.9779), points, travelTimes)
                 .distance
 
         assertEquals(
             listOf(
-                KindergartenComparisonResponse.TransitTime("WALKING", 605),
-                KindergartenComparisonResponse.TransitTime("TRANSIT", null),
+                KindergartenComparisonResponse.TravelTime("WALKING", 605),
+                KindergartenComparisonResponse.TravelTime("TRANSIT", null),
             ),
-            distance[0].transitTimes,
+            distance[0].travelTimes,
         )
-        assertEquals(listOf(KindergartenComparisonResponse.TransitTime("DRIVING", 320)), distance[1].transitTimes)
+        assertEquals(listOf(KindergartenComparisonResponse.TravelTime("DRIVING", 320)), distance[1].travelTimes)
     }
 }

@@ -1,4 +1,4 @@
-> 생성: 2026-09-02 · 최종 수정: 2026-09-14 21:40
+> 생성: 2026-09-02 · 최종 수정: 2026-09-14 22:40
 
 # kindergarten 도메인 마이그레이션 지시서
 
@@ -37,7 +37,7 @@
 
 - **비로그인 허용** — `SecurityConfig.PUBLIC_ENDPOINTS`. 로그인 시 `@AuthenticationPrincipal`(UserCode)로 저장 주소를 거리 기준점에 쓴다.
 - **요금(`pricing`)은 `kindergarten_menus`에서 재계산한다.** 레거시는 크롤러가 만든 `product_pricing.json`을 Redis에 얹어 썼는데, 이 파일도 `avg_price_per_time.json`도 이미 시딩된 `price_and_product.json`보다 낡은 크롤이다(394개 그룹 중 82%만 `round(mean(hourly_price))`와 일치, 나머지는 레거시가 더 큼, 크롤러 공식은 저장소에 없음). `KindergartenPricingComparisonCalculator`가 `serviceType`별 `price` 최저/최고와 요금정책(`COUNT_TICKET`/`MONTHLY_TICKET`)별 `round(mean(hourlyPrice))`를 계산한다. 값이 레거시와 달라도 프론트는 비교·포맷팅에만 써서 영향 없다.
-- **`transitTimes`** — 도보·자동차·대중교통 소요시간, 초 단위 `number`([`KD3-499`](../work/KD3-499-comparison-transit-time.md)). 레거시는 `"2시간 49분"` 문자열이었다 — 프론트 수정 필요. 3종 모두 TMAP API(대중교통도 `POST /transit/routes`, 레거시 네이버 비공식 endpoint는 쓰지 않는다)로 조회하고 Redis에 격자 해시 키로 캐싱한다(TTL 7일). 실패한 교통수단만 `time: null`로 내려간다 — 비교 자체는 계속 동작한다. TMAP API 키는 아직 미발급이라 실제 TMAP 응답 검증은 후속(사람 몫).
+- **`travelTimes`** — 도보·자동차·대중교통 소요시간, 초 단위 `number`([`KD3-499`](../work/KD3-499-comparison-travel-time.md)). 레거시는 필드명이 `transitTimes`였고 값도 `"2시간 49분"` 문자열이었다 — 프론트 수정 필요(키 이름·값 포맷 둘 다). "transit time"은 업계에서 보통 대중교통만 가리키는 좁은 용어라 `TransportationType.TRANSIT`(대중교통) enum 값과 헷갈려 `travelTimes`로 통일했다. 3종 모두 TMAP API(대중교통도 `POST /transit/routes`, 레거시 네이버 비공식 endpoint는 쓰지 않는다)로 조회하고 Redis에 격자 해시 키로 캐싱한다(TTL 7일). 실패한 교통수단만 `time: null`로 내려간다 — 비교 자체는 계속 동작한다. TMAP API 키는 아직 미발급이라 실제 TMAP 응답 검증은 후속(사람 몫).
 - **거리 기준점(`referencePoint`)** — `lat`+`lng` 쿼리가 오면 `OTHER` 하나, 없고 로그인했으면 저장 주소별(`HOME` 먼저), 둘 다 없으면 `distance: []`.
 - **`serviceType` 응답 필드** — 레거시는 `productType`이었다. 도메인·DTO 필드명 일치 규칙([`code-style.md`](../conventions/code-style.md) §3)에 따라 `serviceType`으로 통일했다. 프론트 수정 필요.
 - **`operatingSchedule`** — 레거시 `weekdayHours`/`weekendHours` 문자열(`"09:00~20:00"`)을 `weekday`/`weekend` `{open, close}` 구조로 바꿨다(`detail`의 `BusinessHours`와 동일, `LocalTime` → `"09:00"`). 프론트 수정 필요. `businessHours` 프로필은 `name == "DEFAULT"` 우선, 없으면 첫 번째.

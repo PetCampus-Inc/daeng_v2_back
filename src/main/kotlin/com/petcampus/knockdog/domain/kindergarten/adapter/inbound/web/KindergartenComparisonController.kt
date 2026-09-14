@@ -40,7 +40,7 @@ class KindergartenComparisonController(
                 KindergartenComparisonResponse.from(
                     it,
                     result.referencePoints,
-                    result.transitTimesByKindergarten.getValue(it.naverPlaceId),
+                    result.travelTimesByKindergarten.getValue(it.naverPlaceId),
                 )
             },
         )

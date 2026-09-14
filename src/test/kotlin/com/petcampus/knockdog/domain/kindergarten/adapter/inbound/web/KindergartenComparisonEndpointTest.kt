@@ -5,7 +5,7 @@ import com.petcampus.knockdog.domain.auth.domain.UserCode
 import com.petcampus.knockdog.domain.comparison.adapter.outbound.persistence.ComparisonHistoryJpaRepository
 import com.petcampus.knockdog.domain.kindergarten.application.port.output.LoadComparisonAddressesPort
 import com.petcampus.knockdog.domain.kindergarten.application.port.output.LoadKindergartenPort
-import com.petcampus.knockdog.domain.kindergarten.application.port.output.LoadTransitTimesPort
+import com.petcampus.knockdog.domain.kindergarten.application.port.output.LoadTravelTimesPort
 import com.petcampus.knockdog.domain.kindergarten.domain.ComparisonReferencePoint
 import com.petcampus.knockdog.domain.kindergarten.domain.ComparisonReferencePointType
 import com.petcampus.knockdog.domain.kindergarten.domain.Kindergarten
@@ -13,8 +13,8 @@ import com.petcampus.knockdog.domain.kindergarten.domain.KindergartenBusinessHou
 import com.petcampus.knockdog.domain.kindergarten.domain.KindergartenId
 import com.petcampus.knockdog.domain.kindergarten.domain.KindergartenSource
 import com.petcampus.knockdog.domain.kindergarten.domain.KindergartenStatus
-import com.petcampus.knockdog.domain.kindergarten.domain.TransitTime
 import com.petcampus.knockdog.domain.kindergarten.domain.TransportationType
+import com.petcampus.knockdog.domain.kindergarten.domain.TravelTime
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
@@ -99,8 +99,8 @@ class KindergartenComparisonEndpointTest {
             ).andExpect(status().isOk)
             .andExpect(jsonPath("$.data[0].distance.length()").value(1))
             .andExpect(jsonPath("$.data[0].distance[0].referencePoint").value("OTHER"))
-            .andExpect(jsonPath("$.data[0].distance[0].transitTimes[0].type").value("WALKING"))
-            .andExpect(jsonPath("$.data[0].distance[0].transitTimes[0].time").value(900))
+            .andExpect(jsonPath("$.data[0].distance[0].travelTimes[0].type").value("WALKING"))
+            .andExpect(jsonPath("$.data[0].distance[0].travelTimes[0].time").value(900))
     }
 
     @Test
@@ -200,14 +200,14 @@ class KindergartenComparisonEndpointTest {
 
         @Bean
         @Primary
-        fun fakeLoadTransitTimesPort(): LoadTransitTimesPort =
-            object : LoadTransitTimesPort {
-                override fun findTransitTimes(
+        fun fakeLoadTravelTimesPort(): LoadTravelTimesPort =
+            object : LoadTravelTimesPort {
+                override fun findTravelTimes(
                     originLat: Double,
                     originLng: Double,
                     destinationLat: Double,
                     destinationLng: Double,
-                ) = listOf(TransitTime(TransportationType.WALKING, 900))
+                ) = listOf(TravelTime(TransportationType.WALKING, 900))
             }
     }
 }

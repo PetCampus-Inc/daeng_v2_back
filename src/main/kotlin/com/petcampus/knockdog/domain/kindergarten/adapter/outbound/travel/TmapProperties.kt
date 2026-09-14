@@ -1,4 +1,4 @@
-package com.petcampus.knockdog.domain.kindergarten.adapter.outbound.transit
+package com.petcampus.knockdog.domain.kindergarten.adapter.outbound.travel
 
 import org.springframework.boot.context.properties.ConfigurationProperties
 

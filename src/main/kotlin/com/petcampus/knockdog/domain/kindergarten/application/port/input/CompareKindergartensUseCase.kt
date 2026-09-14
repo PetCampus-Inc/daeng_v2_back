@@ -2,7 +2,7 @@ package com.petcampus.knockdog.domain.kindergarten.application.port.input
 
 import com.petcampus.knockdog.domain.kindergarten.domain.ComparisonReferencePoint
 import com.petcampus.knockdog.domain.kindergarten.domain.Kindergarten
-import com.petcampus.knockdog.domain.kindergarten.domain.TransitTime
+import com.petcampus.knockdog.domain.kindergarten.domain.TravelTime
 
 interface CompareKindergartensUseCase {
     fun compare(command: CompareKindergartensCommand): CompareKindergartensResult
@@ -18,5 +18,5 @@ data class CompareKindergartensCommand(
 data class CompareKindergartensResult(
     val kindergartens: List<Kindergarten>,
     val referencePoints: List<ComparisonReferencePoint>,
-    val transitTimesByKindergarten: Map<String, List<List<TransitTime>>>,
+    val travelTimesByKindergarten: Map<String, List<List<TravelTime>>>,
 )
