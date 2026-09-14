@@ -48,15 +48,30 @@ class TmapTransitTimeAdapter(
         destinationLng: Double,
     ): Int? {
         val cacheKey = cacheKeyOf(type, originLat, originLng, destinationLat, destinationLng)
-        redisTemplate
-            .opsForValue()
-            .get(cacheKey)
-            ?.toIntOrNull()
-            ?.let { return it }
+        cachedSeconds(cacheKey)?.let { return it }
 
         val seconds = fetch(type, originLat, originLng, destinationLat, destinationLng) ?: return null
-        redisTemplate.opsForValue().set(cacheKey, seconds.toString(), cacheTtl)
+        cacheSeconds(cacheKey, seconds)
         return seconds
+    }
+
+    private fun cachedSeconds(cacheKey: String): Int? =
+        try {
+            redisTemplate.opsForValue().get(cacheKey)?.toIntOrNull()
+        } catch (e: Exception) {
+            log.warn("이동시간 캐시 조회 실패: {}", e.message)
+            null
+        }
+
+    private fun cacheSeconds(
+        cacheKey: String,
+        seconds: Int,
+    ) {
+        try {
+            redisTemplate.opsForValue().set(cacheKey, seconds.toString(), cacheTtl)
+        } catch (e: Exception) {
+            log.warn("이동시간 캐시 저장 실패: {}", e.message)
+        }
     }
 
     private fun fetch(
