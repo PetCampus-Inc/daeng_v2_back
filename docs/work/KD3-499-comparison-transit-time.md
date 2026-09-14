@@ -68,6 +68,13 @@ v2는 유치원 데이터가 RDB로 이관됐고(KD3-413), Redis는 현재 리�
 - `CompareKindergartensServiceTest` — 기준점 × 유치원 쌍마다 포트를 호출하는지, 좌표 없는 유치원은 호출하지 않는지 검증.
 - `KindergartenComparisonResponseTest`/`KindergartenComparisonEndpointTest` — `transitTimes`가 기준점 순서대로 `{type, time}`(초 단위 number)으로 내려가는지 검증(엔드포인트 테스트는 fake 포트로 결정적으로 검증).
 
+### 독립 리뷰
+
+독립 리뷰 에이전트(2026-09-14) 결과, 블로커 없음. 반영한 지적:
+
+- **유치원 × 기준점 쌍이 순차 조회였다** — 쌍 안의 도보·자동차·대중교통 3종은 병렬이었지만, 쌍 자체는 `CompareKindergartensService`가 순차로 돌아 캐시 미스가 겹치면(2개 유치원 × 2개 기준점) 새로 추가한 5초 read timeout 기준 최악 케이스 최대 20초까지 늘어날 수 있었다. 쌍 단위도 `CompletableFuture`로 병렬화해 최악 케이스를 어댑터 쪽 병렬 조회 한 번(≈5초) 수준으로 줄였다.
+- 반영 없이 그대로 둔 지적: `spring.http.client` 전역 타임아웃이 기존 `OidcPublicKeyClient`(OIDC JWKS 조회)에도 적용되는 점은 의도된 부수효과로 판단(기존엔 타임아웃이 아예 없었음 — 개선). 격자 해시 셀 크기(~100m)·실패 응답 미캐싱은 방향 논의에서 이미 받아들인 근사치라 후속 과제로 남긴다.
+
 ### REDESIGN 응답 대조 (`003-migration.md` §4는 `KEEP` 전용 — 이 필드는 REDESIGN이라 해당 없음)
 
 - `transitTimes[].time`을 레거시 문자열(`"2시간 49분"`)에서 초 단위 `number`로 바꾸기로 확정했다(§방향 논의 결정 3). 계약을 바꾸는 결정이라 로컬 응답 대조 대상이 아니다.

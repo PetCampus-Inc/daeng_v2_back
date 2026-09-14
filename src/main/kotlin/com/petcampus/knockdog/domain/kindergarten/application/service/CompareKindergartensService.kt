@@ -14,6 +14,7 @@ import com.petcampus.knockdog.domain.kindergarten.domain.TransitTime
 import com.petcampus.knockdog.global.exception.BusinessException
 import com.petcampus.knockdog.global.exception.CommonErrorCode
 import org.springframework.stereotype.Service
+import java.util.concurrent.CompletableFuture
 
 @Service
 class CompareKindergartensService(
@@ -41,22 +42,32 @@ class CompareKindergartensService(
         return CompareKindergartensResult(
             kindergartens = kindergartens,
             referencePoints = referencePoints,
-            transitTimesByKindergarten =
-                kindergartens.associate { it.naverPlaceId to transitTimesOf(it, referencePoints) },
+            transitTimesByKindergarten = transitTimesByKindergarten(kindergartens, referencePoints),
         )
     }
 
-    private fun transitTimesOf(
-        kindergarten: Kindergarten,
+    private fun transitTimesByKindergarten(
+        kindergartens: List<Kindergarten>,
         referencePoints: List<ComparisonReferencePoint>,
-    ): List<List<TransitTime>> {
-        val lat = kindergarten.lat
-        val lng = kindergarten.lng
-        if (lat == null || lng == null) {
-            return referencePoints.map { emptyList() }
-        }
-        return referencePoints.map { point ->
-            loadTransitTimesPort.findTransitTimes(point.lat, point.lng, lat, lng)
+    ): Map<String, List<List<TransitTime>>> {
+        // 유치원 × 기준점 쌍마다 외부 API를 호출하므로 쌍 사이에도 병렬로 조회한다
+        // (쌍 안의 도보·자동차·대중교통 3종은 어댑터가 이미 병렬로 조회한다).
+        val futuresByKindergarten =
+            kindergartens.associateWith { kindergarten ->
+                val lat = kindergarten.lat
+                val lng = kindergarten.lng
+                if (lat == null || lng == null) {
+                    null
+                } else {
+                    referencePoints.map { point ->
+                        CompletableFuture.supplyAsync { loadTransitTimesPort.findTransitTimes(point.lat, point.lng, lat, lng) }
+                    }
+                }
+            }
+
+        return kindergartens.associate { kindergarten ->
+            val futures = futuresByKindergarten.getValue(kindergarten)
+            kindergarten.naverPlaceId to (futures?.map { it.join() } ?: referencePoints.map { emptyList() })
         }
     }
 
