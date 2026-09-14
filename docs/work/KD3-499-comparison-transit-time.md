@@ -62,9 +62,9 @@ v2는 유치원 데이터가 RDB로 이관됐고(KD3-413), Redis는 현재 리�
 
 ## 완료 확인 기준
 
-### 테스트 (2026-09-14, `./gradlew clean test ktlintCheck` — 총 234개, 실패 0, ArchUnit 통과)
+### 테스트 (2026-09-14, `./gradlew clean test ktlintCheck` — 총 235개, 실패 0, ArchUnit 통과)
 
-- `TmapTransitTimeAdapterTest` — `MockRestServiceServer`로 도보·자동차·대중교통 병렬 호출, TMAP 응답 파싱(`features[].properties.totalTime`, `metaData.plan.itineraries[].totalTime`), 캐시 히트 시 HTTP 미호출, 개별 교통수단 실패 시 해당 항목만 `null`, 204(경로 없음) 처리를 검증. 실제 Redis·TMAP 키는 쓰지 않는다(§방향 논의 결정 2, 4).
+- `TmapTransitTimeAdapterTest` — `MockRestServiceServer`로 도보·자동차·대중교통 병렬 호출, TMAP 응답 파싱(`features[].properties.totalTime`, `metaData.plan.itineraries[].totalTime`), 캐시 히트 시 HTTP 미호출, 개별 교통수단 실패 시 해당 항목만 `null`, 204(경로 없음) 처리, **Redis 캐시 조회·저장이 실패해도 TMAP 결과는 정상 반환**(fail-open)을 검증. 실제 Redis·TMAP 키는 쓰지 않는다(§방향 논의 결정 2, 4).
 - `CompareKindergartensServiceTest` — 기준점 × 유치원 쌍마다 포트를 호출하는지, 좌표 없는 유치원은 호출하지 않는지 검증.
 - `KindergartenComparisonResponseTest`/`KindergartenComparisonEndpointTest` — `transitTimes`가 기준점 순서대로 `{type, time}`(초 단위 number)으로 내려가는지 검증(엔드포인트 테스트는 fake 포트로 결정적으로 검증).
 
@@ -73,6 +73,7 @@ v2는 유치원 데이터가 RDB로 이관됐고(KD3-413), Redis는 현재 리�
 독립 리뷰 에이전트(2026-09-14) 결과, 블로커 없음. 반영한 지적:
 
 - **유치원 × 기준점 쌍이 순차 조회였다** — 쌍 안의 도보·자동차·대중교통 3종은 병렬이었지만, 쌍 자체는 `CompareKindergartensService`가 순차로 돌아 캐시 미스가 겹치면(2개 유치원 × 2개 기준점) 새로 추가한 5초 read timeout 기준 최악 케이스 최대 20초까지 늘어날 수 있었다. 쌍 단위도 `CompletableFuture`로 병렬화해 최악 케이스를 어댑터 쪽 병렬 조회 한 번(≈5초) 수준으로 줄였다.
+- **(리뷰 이후 직접 발견) Redis 캐시 조회·저장이 fail-open 밖에 있었다** — TMAP 호출 실패는 `fetch()`에서 잡아 `time: null`로 degrade했지만, 캐시 읽기/쓰기는 그 try/catch 밖에 있어 Redis 장애 시 예외가 `CompletableFuture`를 타고 전파돼 비교 API 전체가 500이 나는 구멍이 있었다. 캐시 조회·저장을 각각 감싸 TMAP과 동일하게 fail-open하도록 고쳤다(`d1404c5`).
 - 반영 없이 그대로 둔 지적: `spring.http.client` 전역 타임아웃이 기존 `OidcPublicKeyClient`(OIDC JWKS 조회)에도 적용되는 점은 의도된 부수효과로 판단(기존엔 타임아웃이 아예 없었음 — 개선). 격자 해시 셀 크기(~100m)·실패 응답 미캐싱은 방향 논의에서 이미 받아들인 근사치라 후속 과제로 남긴다.
 
 ### REDESIGN 응답 대조 (`003-migration.md` §4는 `KEEP` 전용 — 이 필드는 REDESIGN이라 해당 없음)
