@@ -26,7 +26,7 @@ KD3-469가 만든 `GET /api/v1/kindergartens/comparisons` 응답의 `distance[].
 
 ### 배경
 
-레거시 `ComparisonService.getTransitTimes`([`ComparisonService.java:208`](/Users/hankyungjun/projects/knockdog_server/src/main/java/com/petcampus/knockdog/comparison/service/ComparisonService.java))는 (기준점 × 유치원) 쌍마다 도보/자동차/대중교통 3종을 `CompletableFuture`로 병렬 조회하고, 종류별로 Redis 문자열 캐시(`transit:{locationHash}:{kindergartenId}:{type}`, TTL 7일)를 먼저 확인한다. 도보·자동차는 [`TmapApiClient`](/Users/hankyungjun/projects/knockdog_server/src/main/java/com/petcampus/knockdog/client/TmapApiClient.java)(`POST /tmap/routes/pedestrian`, `POST /tmap/routes`, 응답 `features[].properties.totalTime`), 대중교통은 [`NaverMapApiClient`](/Users/hankyungjun/projects/knockdog_server/src/main/java/com/petcampus/knockdog/kindergardeninfo/client/NaverMapApiClient.java)(비공식 `pt.map.naver.com` endpoint, Jsoup으로 직접 호출)를 쓴다. 실패 시 예외를 던지지 않고 `time: null`로 채워 비교 화면 자체는 항상 뜨게 한다.
+레거시(`knockdog_server`) `ComparisonService.getTransitTimes`는 (기준점 × 유치원) 쌍마다 도보/자동차/대중교통 3종을 `CompletableFuture`로 병렬 조회하고, 종류별로 Redis 문자열 캐시(`transit:{locationHash}:{kindergartenId}:{type}`, TTL 7일)를 먼저 확인한다. 도보·자동차는 `TmapApiClient`(`POST /tmap/routes/pedestrian`, `POST /tmap/routes`, 응답 `features[].properties.totalTime`), 대중교통은 `NaverMapApiClient`(비공식 `pt.map.naver.com` endpoint, Jsoup으로 직접 호출)를 쓴다. 실패 시 예외를 던지지 않고 `time: null`로 채워 비교 화면 자체는 항상 뜨게 한다.
 
 v2는 유치원 데이터가 RDB로 이관됐고(KD3-413), Redis는 현재 리프레시 토큰 전용(`RedisRefreshTokenEntity`, `@RedisHash`)이라 캐시 용도로 쓰는 건 이번이 처음이다. `spring-boot-starter-data-redis`는 이미 의존성에 있고 `spring.data.redis.host/port`도 설정돼 있어 `StringRedisTemplate`을 바로 주입받을 수 있다(레거시처럼 별도 `RedisConfig` 불필요).
 
