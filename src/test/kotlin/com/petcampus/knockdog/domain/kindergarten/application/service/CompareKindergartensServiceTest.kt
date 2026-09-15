@@ -16,6 +16,7 @@ import com.petcampus.knockdog.domain.kindergarten.domain.TravelTime
 import com.petcampus.knockdog.global.exception.BusinessException
 import com.petcampus.knockdog.global.exception.CommonErrorCode
 import org.junit.jupiter.api.Test
+import java.util.concurrent.Executor
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 
@@ -80,7 +81,12 @@ class CompareKindergartensServiceTest {
         kindergartens: List<Kindergarten> = listOf(kindergarten("A"), kindergarten("B")),
         points: List<ComparisonReferencePoint> = emptyList(),
         travelTimesPort: LoadTravelTimesPort = RecordingTravelTimesPort(),
-    ) = CompareKindergartensService(StubLoadKindergartenPort(kindergartens), StubAddressesPort(points), travelTimesPort)
+    ) = CompareKindergartensService(
+        StubLoadKindergartenPort(kindergartens),
+        StubAddressesPort(points),
+        travelTimesPort,
+        Executor { it.run() },
+    )
 
     @Test
     fun `비교 대상이 2곳이 아니면 COMPARISON_TARGET_COUNT다`() {

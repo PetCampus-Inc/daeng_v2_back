@@ -64,7 +64,7 @@ v2는 유치원 데이터가 RDB로 이관됐고(KD3-413), Redis는 현재 리�
 
 ## 완료 확인 기준
 
-### 테스트 (2026-09-14, `./gradlew clean test ktlintCheck` — 총 235개, 실패 0, ArchUnit 통과)
+### 테스트 (2026-09-14, `./gradlew clean test ktlintCheck` 로컬 실행 — 총 235개, 실패 0, ArchUnit 통과. CI 근거: [PR #31 `build` 체크](https://github.com/PetCampus-Inc/daeng_v2_back/pull/31/checks))
 
 - `TmapTravelTimeAdapterTest` — `MockRestServiceServer`로 도보·자동차·대중교통 병렬 호출, TMAP 응답 파싱(`features[].properties.totalTime`, `metaData.plan.itineraries[].totalTime`), 캐시 히트 시 HTTP 미호출, 개별 교통수단 실패 시 해당 항목만 `null`, 204(경로 없음) 처리, **Redis 캐시 조회·저장이 실패해도 TMAP 결과는 정상 반환**(fail-open)을 검증. 실제 Redis·TMAP 키는 쓰지 않는다(§방향 논의 결정 2, 4).
 - `CompareKindergartensServiceTest` — 기준점 × 유치원 쌍마다 포트를 호출하는지, 좌표 없는 유치원은 호출하지 않는지 검증.
@@ -95,6 +95,14 @@ v2는 유치원 데이터가 RDB로 이관됐고(KD3-413), Redis는 현재 리�
 - 안 바뀐 것: TMAP 실제 엔드포인트 경로(`/transit/routes`)는 외부 API 계약이라 그대로. `TmapTravelTimeAdapter` 내부의 대중교통 전용 함수·상수(`transitSeconds`, `TRANSIT_PATH`)도 "대중교통"이라는 좁은 의미가 맞는 자리라 그대로 뒀다.
 - 작업 문서 파일명도 `KD3-499-comparison-transit-time.md` → `KD3-499-comparison-travel-time.md`로 맞췄다.
 
+### CodeRabbit 자동 리뷰 (2026-09-15)
+
+리네이밍 커밋(`83344e0`) 이후 CodeRabbit이 이번엔 실제로 돌았다(이전 KD3-496 PR은 `epic/*` 타겟이라 스킵됐었는데, 이번엔 실행됨 — 조건이 정확히 뭔지는 미확인). Actionable 3건, 전부 반영:
+
+- **🟠 Major — 블로킹 I/O가 `ForkJoinPool.commonPool()`을 씀**: `TmapTravelTimeAdapter.findTravelTimes`의 `CompletableFuture.supplyAsync`(도보·자동차·대중교통 3종 병렬)와 `CompareKindergartensService`의 `launchTravelTimeFetches`(유치원×기준점 쌍 병렬) 둘 다 executor 없이 호출해 JVM 공용 `ForkJoinPool.commonPool()`을 썼다. Redis·TMAP은 블로킹 I/O라 동시 요청이 늘면 공용 풀의 다른 작업까지 지연시킬 수 있고, 더 나쁘게는 바깥 쪽(쌍)이 자기 스레드를 붙잡은 채 안쪽(3종)의 스레드를 기다리는 중첩 블로킹 구조라 풀이 작으면(예: 코어 적은 환경) 이론상 자기 자신을 굶기는 상황도 가능했다 — 독립 리뷰 2회 다 놓친 부분이다. `global/config/TravelTimeExecutorConfig.kt`에 전용 bounded executor 2개(`travelTimePairExecutor` 8스레드, `travelTimeCallExecutor` 16스레드)를 분리해 추가하고 두 곳에 각각 주입했다 — 안팎을 별도 풀로 분리해 중첩 블로킹으로 인한 자기-기아(self-starvation) 가능성 자체를 구조적으로 없앴다.
+- **🟡 Minor — 테스트 통과 주장에 근거가 없었다**: "235개 테스트 통과"라고만 적고 실행 로그·CI 링크가 없었다. PR #31의 `build` 체크 링크를 추가했다.
+- **🟡 Minor — 체크리스트가 완료 상태를 반영 못 함**: `integrations.md`/`kindergarten.md` 갱신은 이 PR에서 이미 끝났는데 "작업 후 확인 목록"이 `[ ]`로 남아 있었다. `[x]`로 고쳤다.
+
 ### REDESIGN 응답 대조 (`003-migration.md` §4는 `KEEP` 전용 — 이 필드는 REDESIGN이라 해당 없음)
 
 - `travelTimes[].time`을 레거시 문자열(`"2시간 49분"`)에서 초 단위 `number`로 바꾸기로 확정했다(§방향 논의 결정 3). 계약을 바꾸는 결정이라 로컬 응답 대조 대상이 아니다.
@@ -103,7 +111,7 @@ v2는 유치원 데이터가 RDB로 이관됐고(KD3-413), Redis는 현재 리�
 
 ## 작업 후 확인 목록
 
-- [ ] `docs/inventory/integrations.md` TMAP/네이버 대중교통 행 갱신
-- [ ] `docs/domains/kindergarten.md` 이동시간 연동 반영
+- [x] `docs/inventory/integrations.md` TMAP/네이버 대중교통 행 갱신
+- [x] `docs/domains/kindergarten.md` 이동시간 연동 반영
 - [ ] TMAP API 키 발급·쿼터 확인 — 사람 몫(후속)
 - [ ] 프론트 `distance[].transitTimes` → `travelTimes` 키 변경 + `time` number 파싱 반영 — 프론트 저장소 작업(후속)

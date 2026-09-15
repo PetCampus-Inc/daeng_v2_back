@@ -5,11 +5,13 @@ import com.petcampus.knockdog.domain.kindergarten.application.port.output.LoadTr
 import com.petcampus.knockdog.domain.kindergarten.domain.TransportationType
 import com.petcampus.knockdog.domain.kindergarten.domain.TravelTime
 import org.slf4j.LoggerFactory
+import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.data.redis.core.StringRedisTemplate
 import org.springframework.stereotype.Component
 import org.springframework.web.client.RestClient
 import java.time.Duration
 import java.util.concurrent.CompletableFuture
+import java.util.concurrent.Executor
 import kotlin.math.roundToLong
 
 @Component
@@ -17,6 +19,7 @@ class TmapTravelTimeAdapter(
     restClientBuilder: RestClient.Builder,
     properties: TmapProperties,
     private val redisTemplate: StringRedisTemplate,
+    @Qualifier("travelTimeCallExecutor") private val callExecutor: Executor,
 ) : LoadTravelTimesPort {
     private val cacheTtl = Duration.ofDays(properties.cacheTtlDays)
 
@@ -35,9 +38,10 @@ class TmapTravelTimeAdapter(
         TransportationType.entries
             .map { type ->
                 type to
-                    CompletableFuture.supplyAsync {
-                        secondsOf(type, originLat, originLng, destinationLat, destinationLng)
-                    }
+                    CompletableFuture.supplyAsync(
+                        { secondsOf(type, originLat, originLng, destinationLat, destinationLng) },
+                        callExecutor,
+                    )
             }.map { (type, future) -> TravelTime(type, future.join()) }
 
     private fun secondsOf(

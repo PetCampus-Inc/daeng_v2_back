@@ -13,14 +13,17 @@ import com.petcampus.knockdog.domain.kindergarten.domain.Kindergarten
 import com.petcampus.knockdog.domain.kindergarten.domain.TravelTime
 import com.petcampus.knockdog.global.exception.BusinessException
 import com.petcampus.knockdog.global.exception.CommonErrorCode
+import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.stereotype.Service
 import java.util.concurrent.CompletableFuture
+import java.util.concurrent.Executor
 
 @Service
 class CompareKindergartensService(
     private val loadKindergartenPort: LoadKindergartenPort,
     private val loadComparisonAddressesPort: LoadComparisonAddressesPort,
     private val loadTravelTimesPort: LoadTravelTimesPort,
+    @Qualifier("travelTimePairExecutor") private val pairExecutor: Executor,
 ) : CompareKindergartensUseCase {
     override fun compare(command: CompareKindergartensCommand): CompareKindergartensResult {
         val naverPlaceIds = command.naverPlaceIds
@@ -69,7 +72,10 @@ class CompareKindergartensService(
                 null
             } else {
                 referencePoints.map { point ->
-                    CompletableFuture.supplyAsync { loadTravelTimesPort.findTravelTimes(point.lat, point.lng, lat, lng) }
+                    CompletableFuture.supplyAsync(
+                        { loadTravelTimesPort.findTravelTimes(point.lat, point.lng, lat, lng) },
+                        pairExecutor,
+                    )
                 }
             }
         }

@@ -16,6 +16,7 @@ import org.springframework.test.web.client.response.MockRestResponseCreators.wit
 import org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess
 import org.springframework.web.client.RestClient
 import java.time.Duration
+import java.util.concurrent.Executor
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
 
@@ -49,7 +50,7 @@ class TmapTravelTimeAdapterTest {
     private fun adapterWithServer(redisTemplate: StringRedisTemplate): Pair<TmapTravelTimeAdapter, MockRestServiceServer> {
         val builder = RestClient.builder()
         val server = MockRestServiceServer.bindTo(builder).ignoreExpectOrder(true).build()
-        return TmapTravelTimeAdapter(builder, properties, redisTemplate) to server
+        return TmapTravelTimeAdapter(builder, properties, redisTemplate, Executor { it.run() }) to server
     }
 
     @Test
