@@ -1,0 +1,117 @@
+> 생성: 2026-09-14 · 최종 수정: 2026-09-14
+
+# KD3-499 유치원 비교 이동시간 연동 (TMAP/네이버 통합)
+
+| 항목 | 값 |
+|---|---|
+| Jira | `KD3-499` |
+| 브랜치 | `feat/KD3-499-transit-time` |
+| 상위 에픽 | `KD3-272` (유치원 도메인 마이그레이션) |
+| 선행 | `KD3-469`(비교 조회 API, 완료) |
+
+## 현재 제어점
+
+- 활성 workflow: `003-migration`
+- 현재 공통 단계: `5` (독립 리뷰·PR·문서 동기화)
+- 다음 결정 또는 전환 조건: 독립 리뷰 반영 → PR → epic 머지
+
+## 작업 목표
+
+KD3-469가 만든 `GET /api/v1/kindergartens/comparisons` 응답의 `distance[].travelTimes`(현재 항상 빈 배열, [`KindergartenComparisonResponse.kt`](../../src/main/kotlin/com/petcampus/knockdog/domain/kindergarten/adapter/inbound/web/KindergartenComparisonResponse.kt))를 실제 도보·자동차·대중교통 소요시간으로 채운다.
+
+- 도보·자동차: TMAP 경로 API.
+- 대중교통: TMAP 대중교통 API로 통합(레거시는 네이버 비공식 endpoint 사용 — §방향 논의 참고).
+- 소요시간은 Redis에 캐싱한다(레거시 TTL 7일, 위경도 격자 해시 키).
+- `travelTimes[].time`은 초 단위 `number`로 응답한다(레거시는 `"2시간 49분"` 문자열).
+- 내부 타입·응답 필드명은 `TravelTime`/`travelTimes`로 통일한다 — 레거시·KD3-469가 쓰던 `TransitTime`/`transitTimes`는 `TransportationType.TRANSIT`(대중교통) enum 값과 이름이 겹쳐 "대중교통만의 시간"으로 오독될 여지가 있었다(§방향 논의 참고).
+
+### 배경
+
+레거시(`knockdog_server`) `ComparisonService.getTransitTimes`는 (기준점 × 유치원) 쌍마다 도보/자동차/대중교통 3종을 `CompletableFuture`로 병렬 조회하고, 종류별로 Redis 문자열 캐시(`transit:{locationHash}:{kindergartenId}:{type}`, TTL 7일)를 먼저 확인한다. 도보·자동차는 `TmapApiClient`(`POST /tmap/routes/pedestrian`, `POST /tmap/routes`, 응답 `features[].properties.totalTime`), 대중교통은 `NaverMapApiClient`(비공식 `pt.map.naver.com` endpoint, Jsoup으로 직접 호출)를 쓴다. 실패 시 예외를 던지지 않고 `time: null`로 채워 비교 화면 자체는 항상 뜨게 한다.
+
+v2는 유치원 데이터가 RDB로 이관됐고(KD3-413), Redis는 현재 리프레시 토큰 전용(`RedisRefreshTokenEntity`, `@RedisHash`)이라 캐시 용도로 쓰는 건 이번이 처음이다. `spring-boot-starter-data-redis`는 이미 의존성에 있고 `spring.data.redis.host/port`도 설정돼 있어 `StringRedisTemplate`을 바로 주입받을 수 있다(레거시처럼 별도 `RedisConfig` 불필요).
+
+## 작업 범위
+
+- `kindergarten` 도메인에 이동시간 조회 아웃바운드 포트·TMAP 어댑터 추가.
+- `CompareKindergartensService`가 (기준점 × 유치원) 쌍마다 이동시간을 조회해 `KindergartenComparisonResponse.travelTimes`에 채운다.
+- Redis 캐싱(격자 해시 키, TTL 7일, 설정 가능).
+- `application.yaml`에 `tmap.api.key`/`tmap.api.base-url`/`tmap.api.cache-ttl-days` 환경변수 추가.
+- `docs/inventory/integrations.md`의 TMAP·네이버 대중교통 행 갱신.
+- `docs/domains/kindergarten.md`에 이동시간 연동 반영.
+
+## 작업 제외 범위
+
+- 비교 히스토리 저장(KD3-496, 완료).
+- TMAP API 키 발급·쿼터 확인 — 사람 몫. 이 작업에서는 인터페이스만 구현하고 실키 없이 진행한다(§방향 논의).
+- 프론트 `time` 포맷 변경 반영 — 프론트 저장소 작업.
+
+## 방향 논의 및 결정 사항
+
+### 확정 사항 (사용자 승인, 2026-09-14)
+
+1. **대중교통 소스**: TMAP 대중교통 API(`POST https://apis.openapi.sk.com/transit/routes`)로 통합. 레거시 네이버 비공식 endpoint는 쓰지 않는다 — 인벤토리(`integrations.md`) `DEFER` 2건(TMAP/네이버 대중교통) 중 네이버 항목은 이 작업으로 해소(제거)된다.
+2. **캐시 테스트 전략**: 레거시 패턴 답습 — CI에 Redis 서비스 컨테이너를 추가하지 않는다. `RefreshTokenCacheAdapter`와 동일하게 어댑터 자체의 Redis 연동은 직접 테스트하지 않고, 서비스·매핑 로직은 유닛 테스트(fake 포트)로, TMAP 어댑터의 HTTP 파싱·에러 처리는 `MockRestServiceServer`로 검증한다. 실제 캐시 히트/TTL 동작은 로컬 docker-compose Redis로 수동 확인.
+3. **`travelTimes[].time` 포맷**: 초 단위 `number`로 전환(KD3-495 날짜·시간 컨벤션, KD3-496 `comparedAt`과 동일한 방향). 프론트는 레거시 문자열 대신 초 단위 숫자를 받아 자체 포맷팅해야 한다 — 별도 프론트 이관 항목.
+4. **TMAP API 키**: 아직 미발급. 인터페이스·설정값(`tmap.api.key`)만 만들고 실키 없이 진행한다. 로컬/CI 검증은 mock으로 하고, 실제 TMAP 응답 검증은 키 발급 후 사람이 확인(Notion API 명세서 미등록 건과 같은 성격의 human-task로 문서화).
+5. **용어 통일(`TravelTime`)**: 사용자 요청(2026-09-14)으로 클래스명·응답 필드명을 레거시부터 이어진 `TransitTime`/`transitTimes`에서 `TravelTime`/`travelTimes`로 바꿨다. "transit time"은 업계에서 보통 대중교통(또는 물류) 소요시간만 가리키는 좁은 의미라 도보·자동차·대중교통을 전부 아우르는 이 개념엔 `travel time`/`duration`(구글맵 Directions API 관례)이 더 정확하다. `TransportationType.TRANSIT`(대중교통) enum 값은 구글맵·TMAP과 동일한 관례라 그대로 둔다. **응답 JSON 키(`distance[].travelTimes`)까지 바꾸는 걸 사용자가 명시 승인** — 프론트도 같이 수정해야 한다.
+
+### 대중교통 API 응답 스키마 (TMAP, 2026-09-14 공식 문서 확인)
+
+- `POST /transit/routes`, 헤더 `appKey`, 바디 `startX/startY/endX/endY/count/lang/format`.
+- 응답 `metaData.plan.itineraries[]`, 각 항목 `totalTime`(초). 가장 앞 itinerary(추천 경로)를 사용한다.
+- 도보/자동차는 레거시와 동일한 `POST /tmap/routes/pedestrian`, `POST /tmap/routes`, 응답 `features[].properties.totalTime`(초).
+
+## 완료 확인 기준
+
+### 테스트 (2026-09-14, `./gradlew clean test ktlintCheck` 로컬 실행 — 총 235개, 실패 0, ArchUnit 통과. CI 근거: [PR #31 `build` 체크](https://github.com/PetCampus-Inc/daeng_v2_back/pull/31/checks))
+
+- `TmapTravelTimeAdapterTest` — `MockRestServiceServer`로 도보·자동차·대중교통 병렬 호출, TMAP 응답 파싱(`features[].properties.totalTime`, `metaData.plan.itineraries[].totalTime`), 캐시 히트 시 HTTP 미호출, 개별 교통수단 실패 시 해당 항목만 `null`, 204(경로 없음) 처리, **Redis 캐시 조회·저장이 실패해도 TMAP 결과는 정상 반환**(fail-open)을 검증. 실제 Redis·TMAP 키는 쓰지 않는다(§방향 논의 결정 2, 4).
+- `CompareKindergartensServiceTest` — 기준점 × 유치원 쌍마다 포트를 호출하는지, 좌표 없는 유치원은 호출하지 않는지 검증.
+- `KindergartenComparisonResponseTest`/`KindergartenComparisonEndpointTest` — `travelTimes`가 기준점 순서대로 `{type, time}`(초 단위 number)으로 내려가는지 검증(엔드포인트 테스트는 fake 포트로 결정적으로 검증).
+
+### 독립 리뷰
+
+독립 리뷰 에이전트(2026-09-14) 결과, 블로커 없음. 반영한 지적:
+
+- **유치원 × 기준점 쌍이 순차 조회였다** — 쌍 안의 도보·자동차·대중교통 3종은 병렬이었지만, 쌍 자체는 `CompareKindergartensService`가 순차로 돌아 캐시 미스가 겹치면(2개 유치원 × 2개 기준점) 새로 추가한 5초 read timeout 기준 최악 케이스 최대 20초까지 늘어날 수 있었다. 쌍 단위도 `CompletableFuture`로 병렬화해 최악 케이스를 어댑터 쪽 병렬 조회 한 번(≈5초) 수준으로 줄였다.
+- **(리뷰 이후 직접 발견) Redis 캐시 조회·저장이 fail-open 밖에 있었다** — TMAP 호출 실패는 `fetch()`에서 잡아 `time: null`로 degrade했지만, 캐시 읽기/쓰기는 그 try/catch 밖에 있어 Redis 장애 시 예외가 `CompletableFuture`를 타고 전파돼 비교 API 전체가 500이 나는 구멍이 있었다. 캐시 조회·저장을 각각 감싸 TMAP과 동일하게 fail-open하도록 고쳤다(`d1404c5`).
+
+### 독립 리뷰 2회차 (2026-09-14, 병렬화·fail-open 수정 반영 후)
+
+동시성 정합성(캐시 fail-open의 스레드 격리, 테스트의 `synchronizedList` 필요성·충분성, `associateWith` 맵 키 안전성, `@Transactional` 제거의 안전성) 위주로 재검증. 블로커 없음, 기존에 고친 부분(fail-open, 쌍 단위 병렬화)은 전부 정상 동작 확인. 반영한 지적:
+
+- **설명 주석 3개가 무주석 원칙([`code-style.md`](../conventions/code-style.md) §1, 예외는 TODO/FIXME뿐)을 어겼다** — `CompareKindergartensService`·두 테스트 파일에 병렬화·스레드 안전성을 설명하는 라인 주석을 남겼었다. 주석을 지우고 대신 `CompareKindergartensService`의 헬퍼를 `launchTravelTimeFetches`(먼저 전부 띄우고) / `travelTimesByKindergarten`(나중에 `join()`)로 이름을 통해 의도가 드러나게 분리했다. 나머지 두 곳은 `Collections.synchronizedList`·`ignoreExpectOrder`처럼 메서드 이름 자체가 이유를 설명하고 있어 주석만 제거했다.
+- **병렬 조회 회귀 테스트가 약했다** — `기준점마다 유치원별 이동시간을 조회한다` 테스트에서 유치원 A·B가 기본값으로 같은 좌표(37.5, 127.0)를 써서, "유치원마다 정확히 한 번씩 호출"과 "한쪽에 두 번, 다른 쪽엔 0번 호출" 버그를 구분하지 못했다. A·B에 서로 다른 좌표를 주고 `Set` 비교로 바꿔 실제로 두 유치원 모두 정확히 한 번씩, 각자의 좌표로 호출됐는지 검증하도록 고쳤다.
+- 반영 없이 그대로 둔 지적: `spring.http.client` 전역 타임아웃이 기존 `OidcPublicKeyClient`(OIDC JWKS 조회)에도 적용되는 점은 의도된 부수효과로 판단(기존엔 타임아웃이 아예 없었음 — 개선). 격자 해시 셀 크기(~100m)·실패 응답 미캐싱은 방향 논의에서 이미 받아들인 근사치라 후속 과제로 남긴다.
+
+### 용어 통일 — `TransitTime` → `TravelTime` (2026-09-14, 사용자 요청)
+
+2차 독립 리뷰 이후 사용자가 "transit time"이 일반적으로 대중교통(또는 물류)만 가리키는 좁은 용어이고, `TransportationType.TRANSIT`(대중교통) enum 값과 이름이 겹쳐 헷갈린다는 점을 지적했다. 업계 관례(구글맵 Directions API의 `duration`/`travel time`, `TravelMode.TRANSIT`)를 확인해 다음과 같이 정리했다.
+
+- `TransportationType.TRANSIT`은 그대로 둔다 — 구글맵·TMAP과 동일하게 "대중교통"을 가리키는 정확한 이름이다.
+- 도보·자동차·대중교통을 아우르는 상위 개념(클래스·포트·어댑터·응답 필드)은 `TransitTime`/`transitTimes`에서 `TravelTime`/`travelTimes`로 전부 바꿨다 — 사용자가 **응답 JSON 키까지 바꿔도 된다**고 명시 승인했다.
+- 바뀐 것: `domain.TravelTime`(구 `TransitTime`), `LoadTravelTimesPort`(구 `LoadTransitTimesPort`, 메서드 `findTravelTimes`), `adapter/outbound/travel` 패키지의 `TmapTravelTimeAdapter`(구 `TmapTransitTimeAdapter`, `adapter/outbound/transit` 패키지였음), Redis 캐시 키 접두사 `travel:`(구 `transit:`, 캐시는 TTL 7일이라 재배포 후 콜드스타트 외 영향 없음), `CompareKindergartensResult.travelTimesByKindergarten`(구 `transitTimesByKindergarten`), 응답 `KindergartenComparisonResponse.Distance.travelTimes`/`TravelTime`(구 `transitTimes`/`TransitTime`) — **프론트가 읽는 JSON 키 자체가 `distance[].transitTimes` → `distance[].travelTimes`로 바뀌었다.**
+- 안 바뀐 것: TMAP 실제 엔드포인트 경로(`/transit/routes`)는 외부 API 계약이라 그대로. `TmapTravelTimeAdapter` 내부의 대중교통 전용 함수·상수(`transitSeconds`, `TRANSIT_PATH`)도 "대중교통"이라는 좁은 의미가 맞는 자리라 그대로 뒀다.
+- 작업 문서 파일명도 `KD3-499-comparison-transit-time.md` → `KD3-499-comparison-travel-time.md`로 맞췄다.
+
+### CodeRabbit 자동 리뷰 (2026-09-15)
+
+리네이밍 커밋(`83344e0`) 이후 CodeRabbit이 이번엔 실제로 돌았다(이전 KD3-496 PR은 `epic/*` 타겟이라 스킵됐었는데, 이번엔 실행됨 — 조건이 정확히 뭔지는 미확인). Actionable 3건, 전부 반영:
+
+- **🟠 Major — 블로킹 I/O가 `ForkJoinPool.commonPool()`을 씀**: `TmapTravelTimeAdapter.findTravelTimes`의 `CompletableFuture.supplyAsync`(도보·자동차·대중교통 3종 병렬)와 `CompareKindergartensService`의 `launchTravelTimeFetches`(유치원×기준점 쌍 병렬) 둘 다 executor 없이 호출해 JVM 공용 `ForkJoinPool.commonPool()`을 썼다. Redis·TMAP은 블로킹 I/O라 동시 요청이 늘면 공용 풀의 다른 작업까지 지연시킬 수 있고, 더 나쁘게는 바깥 쪽(쌍)이 자기 스레드를 붙잡은 채 안쪽(3종)의 스레드를 기다리는 중첩 블로킹 구조라 풀이 작으면(예: 코어 적은 환경) 이론상 자기 자신을 굶기는 상황도 가능했다 — 독립 리뷰 2회 다 놓친 부분이다. `global/config/TravelTimeExecutorConfig.kt`에 전용 bounded executor 2개(`travelTimePairExecutor` 8스레드, `travelTimeCallExecutor` 16스레드)를 분리해 추가하고 두 곳에 각각 주입했다 — 안팎을 별도 풀로 분리해 중첩 블로킹으로 인한 자기-기아(self-starvation) 가능성 자체를 구조적으로 없앴다.
+- **🟡 Minor — 테스트 통과 주장에 근거가 없었다**: "235개 테스트 통과"라고만 적고 실행 로그·CI 링크가 없었다. PR #31의 `build` 체크 링크를 추가했다.
+- **🟡 Minor — 체크리스트가 완료 상태를 반영 못 함**: `integrations.md`/`kindergarten.md` 갱신은 이 PR에서 이미 끝났는데 "작업 후 확인 목록"이 `[ ]`로 남아 있었다. `[x]`로 고쳤다.
+
+### REDESIGN 응답 대조 (`003-migration.md` §4는 `KEEP` 전용 — 이 필드는 REDESIGN이라 해당 없음)
+
+- `travelTimes[].time`을 레거시 문자열(`"2시간 49분"`)에서 초 단위 `number`로 바꾸기로 확정했다(§방향 논의 결정 3). 계약을 바꾸는 결정이라 로컬 응답 대조 대상이 아니다.
+- TMAP 실응답 검증은 API 키가 없어 수행하지 못했다(§방향 논의 결정 4) — `MockRestServiceServer`로 요청 형태·응답 파싱 로직만 검증했다. 키 발급 후 사람이 실제 TMAP 응답으로 재검증해야 한다.
+- Redis 캐시의 실제 히트/TTL 동작은 CI에 Redis가 없어(§방향 논의 결정 2) 자동 검증하지 못했다 — 로컬 docker-compose Redis로 수동 확인이 필요하다(제한 사항으로 명시).
+
+## 작업 후 확인 목록
+
+- [x] `docs/inventory/integrations.md` TMAP/네이버 대중교통 행 갱신
+- [x] `docs/domains/kindergarten.md` 이동시간 연동 반영
+- [ ] TMAP API 키 발급·쿼터 확인 — 사람 몫(후속)
+- [ ] 프론트 `distance[].transitTimes` → `travelTimes` 키 변경 + `time` number 파싱 반영 — 프론트 저장소 작업(후속)

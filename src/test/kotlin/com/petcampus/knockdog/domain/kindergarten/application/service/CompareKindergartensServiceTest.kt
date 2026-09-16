@@ -4,15 +4,19 @@ import com.petcampus.knockdog.domain.kindergarten.application.KindergartenErrorC
 import com.petcampus.knockdog.domain.kindergarten.application.port.input.CompareKindergartensCommand
 import com.petcampus.knockdog.domain.kindergarten.application.port.output.LoadComparisonAddressesPort
 import com.petcampus.knockdog.domain.kindergarten.application.port.output.LoadKindergartenPort
+import com.petcampus.knockdog.domain.kindergarten.application.port.output.LoadTravelTimesPort
 import com.petcampus.knockdog.domain.kindergarten.domain.ComparisonReferencePoint
 import com.petcampus.knockdog.domain.kindergarten.domain.ComparisonReferencePointType
 import com.petcampus.knockdog.domain.kindergarten.domain.Kindergarten
 import com.petcampus.knockdog.domain.kindergarten.domain.KindergartenId
 import com.petcampus.knockdog.domain.kindergarten.domain.KindergartenSource
 import com.petcampus.knockdog.domain.kindergarten.domain.KindergartenStatus
+import com.petcampus.knockdog.domain.kindergarten.domain.TransportationType
+import com.petcampus.knockdog.domain.kindergarten.domain.TravelTime
 import com.petcampus.knockdog.global.exception.BusinessException
 import com.petcampus.knockdog.global.exception.CommonErrorCode
 import org.junit.jupiter.api.Test
+import java.util.concurrent.Executor
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 
@@ -33,10 +37,24 @@ class CompareKindergartensServiceTest {
         override fun findByUserCode(userCode: String) = points
     }
 
+    private class RecordingTravelTimesPort : LoadTravelTimesPort {
+        val calls: MutableList<List<Double>> = java.util.Collections.synchronizedList(mutableListOf())
+
+        override fun findTravelTimes(
+            originLat: Double,
+            originLng: Double,
+            destinationLat: Double,
+            destinationLng: Double,
+        ): List<TravelTime> {
+            calls += listOf(originLat, originLng, destinationLat, destinationLng)
+            return listOf(TravelTime(TransportationType.WALKING, 300))
+        }
+    }
+
     private fun kindergarten(
         naverPlaceId: String,
-        lat: Double = 37.5,
-        lng: Double = 127.0,
+        lat: Double? = 37.5,
+        lng: Double? = 127.0,
     ) = Kindergarten.reconstitute(
         id = KindergartenId(naverPlaceId.hashCode().toLong()),
         naverPlaceId = naverPlaceId,
@@ -62,7 +80,13 @@ class CompareKindergartensServiceTest {
     private fun service(
         kindergartens: List<Kindergarten> = listOf(kindergarten("A"), kindergarten("B")),
         points: List<ComparisonReferencePoint> = emptyList(),
-    ) = CompareKindergartensService(StubLoadKindergartenPort(kindergartens), StubAddressesPort(points))
+        travelTimesPort: LoadTravelTimesPort = RecordingTravelTimesPort(),
+    ) = CompareKindergartensService(
+        StubLoadKindergartenPort(kindergartens),
+        StubAddressesPort(points),
+        travelTimesPort,
+        Executor { it.run() },
+    )
 
     @Test
     fun `비교 대상이 2곳이 아니면 COMPARISON_TARGET_COUNT다`() {
@@ -137,5 +161,36 @@ class CompareKindergartensServiceTest {
         val result = service().compare(CompareKindergartensCommand(listOf("A", "B"), null, null, null))
 
         assertEquals(emptyList(), result.referencePoints)
+    }
+
+    @Test
+    fun `기준점마다 유치원별 이동시간을 조회한다`() {
+        val travelTimesPort = RecordingTravelTimesPort()
+        val kindergartens = listOf(kindergarten("A", lat = 37.5, lng = 127.0), kindergarten("B", lat = 37.55, lng = 127.05))
+        val result =
+            service(kindergartens = kindergartens, travelTimesPort = travelTimesPort)
+                .compare(CompareKindergartensCommand(listOf("A", "B"), "USER1234", 37.4, 127.1))
+
+        assertEquals(
+            listOf(listOf(TravelTime(TransportationType.WALKING, 300))),
+            result.travelTimesByKindergarten.getValue("A"),
+        )
+        assertEquals(
+            setOf(listOf(37.4, 127.1, 37.5, 127.0), listOf(37.4, 127.1, 37.55, 127.05)),
+            travelTimesPort.calls.toSet(),
+        )
+    }
+
+    @Test
+    fun `좌표가 없는 유치원은 이동시간을 조회하지 않는다`() {
+        val travelTimesPort = RecordingTravelTimesPort()
+        val result =
+            service(
+                kindergartens = listOf(kindergarten("A", lat = null, lng = null), kindergarten("B")),
+                travelTimesPort = travelTimesPort,
+            ).compare(CompareKindergartensCommand(listOf("A", "B"), "USER1234", 37.4, 127.1))
+
+        assertEquals(listOf(emptyList()), result.travelTimesByKindergarten.getValue("A"))
+        assertEquals(listOf(listOf(37.4, 127.1, 37.5, 127.0)), travelTimesPort.calls)
     }
 }

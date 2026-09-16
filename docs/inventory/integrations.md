@@ -1,4 +1,4 @@
-> 생성: 2026-08-02 13:45 · 최종 수정: 2026-09-09 18:20
+> 생성: 2026-08-02 13:45 · 최종 수정: 2026-09-14 22:40
 
 # 외부 연동 인벤토리
 
@@ -48,8 +48,8 @@
 | Kakao Local API | 주소 좌표 변환, 역 지오코딩 | address | `KEEP` | `미착수` | `GET /api/v0/address/geo`, `/reverse-geo`에서 outbound client로 호출 | 장애 시 좌표 변환/역 지오코딩 실패 | key 발급/쿼터, 장애 시 사용자 안내 방식 확인 |
 | Firebase Cloud Messaging | 푸시 발송 | `FirebaseConfig`/`FirebaseUtil`, `NotificationOutboxWorker`, `FcmService` | `REDESIGN` | `미착수` | outbox worker가 발송을 폴링(10초 간격, 최대 5회 재시도)하는 구조. 신규 서버에서 outbox 유지 여부부터 결정 | 서비스 계정 키가 EC2 호스트 파일(`serviceAccountKey.json`) 마운트에 의존 | 서비스 계정 키 주입 방식, 재시도/DLQ 정책, 발송 실패 관측 방법 |
 | 국세청 사업자등록 상태조회 (odcloud) | 사업자등록번호 진위·휴폐업 확인 | business-registration, owner-verification | `KEEP` | `미착수` | `POST /api/v0/admin/business-registration/verify` 등에서 outbound client로 호출. QA3-188에서 폐업 유치원 재인증 차단의 판단 근거로 승격 | 장애 시 원장 인증 흐름 전체가 막힘 | 쿼터, 장애 시 fallback(임시 통과 여부), 응답 보존 기간 |
-| TMAP API | 유치원 비교의 이동 시간 계산 | `TmapApiClient`, `ComparisonService` | `DEFER` | `미착수` | 비교 기능 유지 여부에 종속 | 장애 시 비교 화면의 이동 시간 누락 | 키 쿼터, 캐시 TTL(`cache.ttl.transit-days: 7`)의 신규 서버 유지 여부 |
-| 네이버 대중교통 경로 API | 대중교통 경로 조회 | `NaverMapApiClient` | `DEFER` | `미착수` | TMAP과 역할이 겹치므로 하나로 정리 후 이관 | 비공식 endpoint(`pt.map.naver.com`) 의존 | TMAP과의 중복 제거, 실제 사용 화면 확인 |
+| TMAP API | 유치원 비교의 이동 시간 계산(도보·자동차·대중교통) | 레거시: `TmapApiClient`(도보·자동차), `NaverMapApiClient`(대중교통), `ComparisonService`. 신규 서버: [`KD3-499`](../work/KD3-499-comparison-travel-time.md)의 `TmapTravelTimeAdapter`(`kindergarten` 도메인) — 대중교통도 TMAP `POST /transit/routes`로 통합, 네이버 비공식 endpoint는 쓰지 않는다 | `REDESIGN` | `진행중` | Redis 문자열 캐시(격자 해시 키, TTL 7일, `tmap.api.cache-ttl-days`)를 거쳐 조회. 3종 병렬 호출, 실패 시 해당 종류만 `time: null`로 degrade | TMAP API 키 미발급 상태로 구현 완료 — 실제 TMAP 응답 검증(응답 스키마·요금제 쿼터)이 남음. 장애 시 비교 화면의 이동 시간 누락(비교 자체는 계속 동작) | 키 발급 후 실응답 검증(사람 몫), 로컬 docker-compose Redis로 캐시 히트/TTL 수동 확인 |
+| 네이버 대중교통 경로 API | 대중교통 경로 조회 | `NaverMapApiClient` | `DROP` | `해당없음` | [`KD3-499`](../work/KD3-499-comparison-travel-time.md)에서 TMAP 대중교통 API로 통합하기로 결정 — 신규 서버는 이 비공식 endpoint를 쓰지 않는다 | (해당없음) | (해당없음) |
 | SMTP (Gmail) | 이메일 인증 코드 발송 | `EmailVerifyService` (`POST /api/v0/auth/email/send`, `/verify`) | `REDESIGN` | `미착수` | 개인 Gmail 계정 + 앱 비밀번호 방식. 신규 서버는 전송 전용 서비스로 교체 검토 | 계정 정지 시 이메일 인증 전면 중단, 발송 쿼터 제한 | 전송 서비스 선택, 발송 실패 처리, 인증 코드 TTL |
 | Discord Webhook | 에러 로그 알림, healthcheck 결과 알림 | `logback-spring.xml`, `.github/workflows/healthcheck.yml` | `REDESIGN` | `미착수` | 관측 도구를 정한 뒤 알림 채널을 재배치. 운영 구성은 [`operations.md`](operations.md) 참고 | 로깅 경로에 외부 HTTP 호출이 있어 장애 시 지연 유발 가능 | 알림 대상 레벨, 실패 시 로깅 자체가 막히지 않는지 확인 |
 | 네이버 플레이스 GraphQL | 블로그 리뷰 조회 (`GET /api/v0/kindergarten/{placeId}/blog-reviews`) | `NaverGraphQLClient` (kindergardeninfo) | `DEFER` | `미착수` | 0005에 따라 마이그레이션 보류. 신규 서버 직접 이관 여부 미정 | 비공식 endpoint라 스키마 변경 시 예고 없이 깨짐, 차단 위험 | 별도 서비스 분리 여부, 응답 캐시 정책. 0005 판단이 유지되는지 재확인 |

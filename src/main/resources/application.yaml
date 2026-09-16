@@ -1,6 +1,10 @@
 spring:
   application:
     name: knockdog
+  http:
+    client:
+      connect-timeout: 3s
+      read-timeout: 5s
   jackson:
     time-zone: Asia/Seoul
     serialization:
@@ -36,3 +40,9 @@ aws:
     presign:
       upload-ttl: ${AWS_S3_PRESIGN_UPLOAD_TTL:10m}
       download-ttl: ${AWS_S3_PRESIGN_DOWNLOAD_TTL:5m}
+
+tmap:
+  api:
+    key: ${TMAP_API_KEY:}
+    base-url: ${TMAP_BASE_URL:https://apis.openapi.sk.com}
+    cache-ttl-days: ${TMAP_CACHE_TTL_DAYS:7}

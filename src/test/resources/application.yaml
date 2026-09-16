@@ -42,3 +42,9 @@ aws:
     presign:
       upload-ttl: 10m
       download-ttl: 5m
+
+tmap:
+  api:
+    key: test-tmap-key
+    base-url: http://localhost:0
+    cache-ttl-days: 7
