@@ -1,4 +1,4 @@
-> 생성: 2026-08-02 13:45 · 최종 수정: 2026-09-17 00:11
+> 생성: 2026-08-02 13:45 · 최종 수정: 2026-09-17 01:45
 
 # API 인벤토리
 
@@ -54,13 +54,14 @@
 
 | 완료 | 진행중 | 미착수 | 해당없음 |
 |---:|---:|---:|---:|
-| 7 | 15 | 100 | 137 |
+| 7 | 18 | 97 | 137 |
 
 완료 7개 — auth 도메인: `v1` 2개(`oidc-verifications`, `users`)와 `v0` 유지 5개(`login`, `refresh`, `logout`, 약관 동의 제출·조회, [`KD3-258`](../work/KD3-258-user-social-auth.md)).
 
-진행중 15개 — 전부 `v1`로 구현·자동검증은 끝났고 로컬 응답 대조(사람 몫)가 안 끝나 `진행중`이다. 신규 서버는 `v0`를 만들지 않는다(ADR 0012) — `v0`는 컷오버까지 레거시 서버가 계속 제공한다.
+진행중 18개 — 전부 `v1`로 구현·자동검증은 끝났고 로컬 응답 대조(사람 몫)가 안 끝나 `진행중`이다. 신규 서버는 `v0`를 만들지 않는다(ADR 0012) — `v0`는 컷오버까지 레거시 서버가 계속 제공한다.
 - kindergarten 3개 — `main/{id}`, `basic/{id}`, `{id}/pricing` ([`KD3-413`](../work/KD3-413-kindergarten-static-lookup.md))
 - comparison 3개 — `comparisons` ([`KD3-469`](../work/KD3-469-kindergarten-comparison.md)), `comparisons/history` GET·DELETE ([`KD3-496`](../work/KD3-496-comparison-history.md))
+- bookmark 3개 — `users/me/bookmarks` GET, `kindergartens/{kindergartenId}/bookmark` PUT·DELETE ([`KD3-470`](../work/KD3-470-kindergarten-bookmark.md))
 - memo 6개 — `memo`(GET/POST), `memo/checklist`(GET/POST), `memo/checklist/answer`(GET), `memo/shops`(GET) ([`KD3-465`](../work/KD3-465-memo.md))
 - media 3개 — `s3/image/move`, `s3/image/pre-signed-url`, `s3/image/pre-signed-url/upload` ([`KD3-478`](../work/KD3-478-s3-infra-image-upload.md))
 
