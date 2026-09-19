@@ -16,3 +16,5 @@ data class KindergartenMenu(
     val totalDurationMinutes: Int?,
     val displayOrder: Int,
 )
+
+fun List<KindergartenMenu>.lowestPrice(): Int = mapNotNull { it.price }.minOrNull() ?: 0

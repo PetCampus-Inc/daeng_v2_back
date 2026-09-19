@@ -97,7 +97,7 @@ private fun KindergartenBusinessHour.toJpaEntity(kindergartenId: Long): Kinderga
         offdays = offdays,
     )
 
-private fun KindergartenMenuJpaEntity.toDomain(): KindergartenMenu =
+fun KindergartenMenuJpaEntity.toDomain(): KindergartenMenu =
     KindergartenMenu(
         productType = productType,
         serviceType = serviceType,
