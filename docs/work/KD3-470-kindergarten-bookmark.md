@@ -1,4 +1,4 @@
-> 생성: 2026-09-16 23:03 · 최종 수정: 2026-09-17 01:45
+> 생성: 2026-09-16 23:03 · 최종 수정: 2026-09-19 14:30
 
 # KD3-470 북마크 기능 개발
 
@@ -78,6 +78,7 @@
 
 - 2026-09-16 — `./gradlew clean test ktlintCheck` 통과. 새 단위·통합 테스트와 ArchUnit·ktlint를 포함한다.
 - 2026-09-17 — 관계 경로와 중첩 목록 계약 변경 후 `./gradlew clean test ktlintCheck`를 다시 통과했다.
+- 2026-09-19 — 셀프 리뷰 반영 후 bookmark·kindergarten·comparison 테스트와 `ktlintCheck`를 통과했다. 엔드포인트 테스트(미인증 PUT/DELETE 401, 없는 유치원 PUT 404)와 `findCardSummariesByNaverPlaceIds` 배치 조회의 영속성 테스트(카테고리·최저 요금·폐업 표시)를 추가했다.
 - 레거시 서버 로컬 HTTP 응답 대조는 실행하지 못했다. 레거시 Redis·신규 서버의 로컬 실행 환경이 분리되어 있어 컨트롤러·서비스·DTO 소스와 현재 프론트 소비처를 대조했다.
 - Notion API 명세는 `API_NOTION_KEY`가 현재 환경에 없어 등록하지 못했다. 키가 주입된 환경에서 v1 엔드포인트 3개를 등록해야 한다.
 
@@ -87,6 +88,17 @@
 - 인증·사용자 소유 삭제·중복 저장·정렬·폐업/미존재 오류 처리가 계획과 일치하고, 배치 조회가 목록 조립의 N+1을 피하면서 헥사고날 경계를 유지함을 확인했다. blocking/required finding 없이 승인했다.
 - 2026-09-17 — 계약 변경분을 별도 리뷰에서 다시 대조했다. 새 경로가 기본 인증 경계를 유지하고, 사용자 소유 삭제·배치 조회·정렬·누락 유치원 제외가 회귀하지 않으며, 중첩 JSON 계약과 문서가 일치함을 확인했다. blocking finding 없이 승인했다.
 - 2026-09-17 — AI 리뷰가 지적한 API 인벤토리 진행 현황 집계를 대조했다. 북마크 엔드포인트 3개가 상세 행에는 `진행중`으로 있으나 요약에 누락된 것을 확인해 `진행중 18개`, `미착수 97개`와 북마크 상세 항목으로 정정했다.
+
+- 2026-09-19 — PR 전체 diff를 셀프 리뷰해 5건을 확인하고 아래와 같이 처리했다.
+  - 최저 요금 계산 중복 — 반영. `List<KindergartenMenu>.lowestPrice()`를 도메인에 두고 `Kindergarten.lowestPrice`와 배치 조회가 함께 쓴다.
+  - 엔드포인트 테스트 공백 — 반영. 미인증 PUT/DELETE, 없는 유치원 PUT, `BookmarkKindergartenAdapter.findById`를 추가했다. 배치 조회 자체를 검증하는 영속성 테스트도 없어서 함께 추가했다.
+  - 주소 조회 어댑터 중복 — 반영하지 않음. 소비 도메인이 자기 포트와 어댑터를 갖는 것이 `ComparisonAddressAdapter`부터 이어진 기존 방식이고, 두 어댑터의 반환 타입이 달라 공용화하면 도메인 간 결합만 늘어난다.
+  - 카드 DTO 3계층 복제 — 반영하지 않음. `memo`·`comparison`과 같은 입력 포트 뷰·출력 포트 모델·응답 DTO 분리를 따른다. 합치면 출력 포트 타입이 입력 포트로 새어 나간다.
+  - `assemble()`의 유치원당 자식 테이블 6회 조회 — 이번 범위 밖. 유치원 상세·비교 조회가 공유하는 경로라 별도 티켓으로 분리한다.
+
+## 후속
+
+- `KindergartenPersistenceAdapter.findByNaverPlaceIds`가 유치원마다 `assemble()`로 자식 테이블 6개를 개별 조회한다. 이번 PR의 `findCardSummariesByNaverPlaceIds`처럼 `IN` 배치 조회로 바꿔야 한다. 별도 티켓에서 처리한다.
 
 ## 작업 후 확인 목록
 
