@@ -55,6 +55,28 @@ class BookmarkEndpointTest {
     }
 
     @Test
+    fun `인증 없이 북마크를 저장하면 401이다`() {
+        mockMvc.perform(put("/api/v1/kindergartens/n-1/bookmark")).andExpect(status().isUnauthorized)
+
+        assertEquals(0, bookmarkJpaRepository.count())
+    }
+
+    @Test
+    fun `인증 없이 북마크를 해제하면 401이다`() {
+        mockMvc.perform(delete("/api/v1/kindergartens/n-1/bookmark")).andExpect(status().isUnauthorized)
+    }
+
+    @Test
+    fun `존재하지 않는 유치원을 저장하면 404다`() {
+        mockMvc
+            .perform(put("/api/v1/kindergartens/missing/bookmark").header("Authorization", bearer()))
+            .andExpect(status().isNotFound)
+            .andExpect(jsonPath("$.code").value("RESOURCE_NOT_FOUND"))
+
+        assertEquals(0, bookmarkJpaRepository.count())
+    }
+
+    @Test
     fun `북마크를 저장하고 카드 목록을 조회한다`() {
         mockMvc
             .perform(put("/api/v1/kindergartens/n-1/bookmark").header("Authorization", bearer()))
