@@ -5,6 +5,7 @@ import com.petcampus.knockdog.domain.kindergarten.application.port.output.LoadKi
 import com.petcampus.knockdog.domain.kindergarten.application.port.output.SaveKindergartenPort
 import com.petcampus.knockdog.domain.kindergarten.domain.Kindergarten
 import com.petcampus.knockdog.domain.kindergarten.domain.KindergartenStatus
+import com.petcampus.knockdog.domain.kindergarten.domain.lowestPrice
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
 
@@ -45,7 +46,7 @@ class KindergartenPersistenceAdapter(
                 thumbnailS3Key = kindergarten.thumbnailS3Key,
                 categories = categoriesByKindergartenId[kindergartenId].orEmpty().map { it.category },
                 address = kindergarten.address,
-                lowestPrice = menusByKindergartenId[kindergartenId].orEmpty().mapNotNull { it.price }.minOrNull() ?: 0,
+                lowestPrice = menusByKindergartenId[kindergartenId].orEmpty().map { it.toDomain() }.lowestPrice(),
                 blogReviewCount = kindergarten.blogReviewCount,
                 lat = kindergarten.lat,
                 lng = kindergarten.lng,
