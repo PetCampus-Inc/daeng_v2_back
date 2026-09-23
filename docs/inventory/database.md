@@ -1,4 +1,4 @@
-> 생성: 2026-08-02 13:45 · 최종 수정: 2026-09-11 11:30
+> 생성: 2026-08-02 13:45 · 최종 수정: 2026-09-16 23:18
 
 # 데이터 인벤토리
 
@@ -57,7 +57,7 @@
 | MySQL | `user_notification_setting` | user_notification_setting | user/notification | notification | `REDESIGN` | `미착수` | 사용자 알림 설정 후보. 레거시는 KD3-287에서 이 테이블을 건드리지 않고 `notification_preference`를 새로 만들어 두 개가 공존한다 | notification 슬라이스 | 두 테이블 중 어느 쪽이 진실인지 확정하고 신규 서버에서는 하나로 합친다 |
 | MySQL | `pet` | 반려견 | pet | pet | `REDESIGN` | `미착수` | 반려견 핵심 데이터 후보 | pet 슬라이스 | 보호자 관계, 대표 반려견, 삭제 정책 |
 | MySQL | `tb_breed` | 견종 | pet/reference | pet | `DROP` | `해당없음` | 레거시가 KD3-370에서 `breed_catalog`를 신설해 대체했고 프론트도 `GET /api/v0/breed-catalog`로 이전 | - | 잔존 참조가 없는지 확인 후 삭제. 기준 데이터는 `breed_catalog`로 단일화 |
-| MySQL | `bookmark` | 북마크 | bookmark | bookmark/comparison | `REDESIGN` | `미착수` | 사용자-유치원 북마크 후보 | bookmark 슬라이스 | target이 school 고정인지, 중복 unique |
+| MySQL | `bookmark` | 북마크 | bookmark | bookmark | `REDESIGN` | `진행중` | 신규 `bookmarks`(V14) — `user_code` + `kindergarten_id` 유니크, 사용자별 생성 시각 역순 조회 인덱스, 물리 삭제. [`KD3-470`](../work/KD3-470-kindergarten-bookmark.md) | bookmark 슬라이스 | 레거시 운영 데이터 이관은 범위 밖. 유치원 물리 삭제 시 고아 북마크를 목록에서 제외 |
 | MySQL | `comparison_history` | 비교 내역 | comparison | bookmark/comparison | `REDESIGN` | `진행중` | 신규 `comparison_histories`(V13)로 재설계 — `user_code` + 정렬된 두 유치원 ID, `updated_at`을 comparedAt으로, soft delete. 보존 무제한(레거시대로), 조회만 limit. [`KD3-496`](../work/KD3-496-comparison-history.md) | comparison 슬라이스 | 실데이터 이관은 범위 밖. soft-delete 물리 삭제 정책 미정 |
 | MySQL | `tb_school` | 유치원 | school | school/owner | `REDESIGN` | `미착수` | 유치원 핵심 데이터 후보 | school/owner 슬라이스 | 원장 편집 오버라이드는 이 표 그대로 미착수. 크롤링 기반 읽기전용 대응은 신규 `kindergartens`(KD3-413, [`docs/domains/kindergarten.md`](../domains/kindergarten.md))로 별도 구축됨 — 이 테이블 자체를 이관한 게 아니다 |
 | MySQL | `tb_school_profile` | 유치원 프로필 | school/owner | school/owner | `REDESIGN` | `미착수` | 유치원 상세 프로필 후보 | owner-school-profile 슬라이스 | 영업시간, 주소, 좌표, 공개 상태. 크롤링 기반 영업시간은 신규 `kindergarten_business_hours`(KD3-413)로 별도 구축됨 |

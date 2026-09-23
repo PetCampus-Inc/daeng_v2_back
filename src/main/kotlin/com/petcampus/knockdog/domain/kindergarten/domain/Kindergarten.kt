@@ -25,7 +25,7 @@ class Kindergarten private constructor(
         get() = visitorReviewCount.coerceAtLeast(0) + blogReviewCount.coerceAtLeast(0)
 
     val lowestPrice: Int
-        get() = menus.mapNotNull { it.price }.minOrNull() ?: 0
+        get() = menus.lowestPrice()
 
     fun optionsOf(group: KindergartenOptionGroup): List<KindergartenOption> = options.filter { it.group == group }.sortedBy { it.code }
 

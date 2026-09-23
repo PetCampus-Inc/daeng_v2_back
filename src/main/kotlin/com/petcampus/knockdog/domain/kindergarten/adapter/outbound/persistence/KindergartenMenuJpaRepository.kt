@@ -4,4 +4,6 @@ import org.springframework.data.jpa.repository.JpaRepository
 
 interface KindergartenMenuJpaRepository : JpaRepository<KindergartenMenuJpaEntity, Long> {
     fun findAllByKindergartenIdOrderByDisplayOrder(kindergartenId: Long): List<KindergartenMenuJpaEntity>
+
+    fun findAllByKindergartenIdIn(kindergartenIds: List<Long>): List<KindergartenMenuJpaEntity>
 }

@@ -1,8 +1,11 @@
 package com.petcampus.knockdog.domain.kindergarten.adapter.outbound.persistence
 
+import com.petcampus.knockdog.domain.kindergarten.application.port.output.KindergartenCardSummary
 import com.petcampus.knockdog.domain.kindergarten.application.port.output.LoadKindergartenPort
 import com.petcampus.knockdog.domain.kindergarten.application.port.output.SaveKindergartenPort
 import com.petcampus.knockdog.domain.kindergarten.domain.Kindergarten
+import com.petcampus.knockdog.domain.kindergarten.domain.KindergartenStatus
+import com.petcampus.knockdog.domain.kindergarten.domain.lowestPrice
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
 
@@ -26,6 +29,31 @@ class KindergartenPersistenceAdapter(
     @Transactional(readOnly = true)
     override fun findByNaverPlaceIds(naverPlaceIds: List<String>): List<Kindergarten> =
         kindergartenJpaRepository.findAllByNaverPlaceIdIn(naverPlaceIds).map { assemble(it) }
+
+    @Transactional(readOnly = true)
+    override fun findCardSummariesByNaverPlaceIds(naverPlaceIds: List<String>): List<KindergartenCardSummary> {
+        if (naverPlaceIds.isEmpty()) return emptyList()
+        val kindergartens = kindergartenJpaRepository.findAllByNaverPlaceIdIn(naverPlaceIds)
+        val kindergartenIds = kindergartens.map { requireNotNull(it.id) }
+        val categoriesByKindergartenId = categoryJpaRepository.findAllByKindergartenIdIn(kindergartenIds).groupBy { it.kindergartenId }
+        val menusByKindergartenId = menuJpaRepository.findAllByKindergartenIdIn(kindergartenIds).groupBy { it.kindergartenId }
+
+        return kindergartens.map { kindergarten ->
+            val kindergartenId = requireNotNull(kindergarten.id)
+            KindergartenCardSummary(
+                id = kindergarten.naverPlaceId,
+                name = kindergarten.name,
+                thumbnailS3Key = kindergarten.thumbnailS3Key,
+                categories = categoriesByKindergartenId[kindergartenId].orEmpty().map { it.category },
+                address = kindergarten.address,
+                lowestPrice = menusByKindergartenId[kindergartenId].orEmpty().map { it.toDomain() }.lowestPrice(),
+                blogReviewCount = kindergarten.blogReviewCount,
+                lat = kindergarten.lat,
+                lng = kindergarten.lng,
+                closed = kindergarten.status == KindergartenStatus.CLOSED.name,
+            )
+        }
+    }
 
     @Transactional
     override fun save(kindergarten: Kindergarten): Kindergarten {
